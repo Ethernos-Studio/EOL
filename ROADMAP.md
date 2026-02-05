@@ -241,17 +241,117 @@ List<Integer> result = list.stream()
 4. 保持向后兼容性
 5. 性能回归测试通过后方可合并
 
-## 时间线（预估）
+---
 
-| 阶段 | 版本 | 预计时间 |
-|------|------|---------|
-| 核心完善 | v0.2.x | 2026 Q1-Q2 |
-| 面向对象 | v0.3.x | 2026 Q3-Q4 |
-| 标准库 | v0.4.x | 2027 Q1-Q2 |
-| 高级特性 | v0.5.x | 2027 Q3-Q4 |
-| 模块系统 | v0.6.x | 2028 Q1-Q2 |
-| 性能优化 | v0.7.x | 2028 Q3-Q4 |
+## 第二级：EOL 特色语法 (v1.0.0)
+
+在保持 Java 兼容性的基础上，引入 EOL 独特的语法糖和语言特性。
+
+### 7.1 现代 Lambda 与函数式编程
+- [ ] **箭头函数语法** - `(para1, para2) -> { body }` 风格匿名函数
+- [ ] **函数类型** - `Function<Int, Int> add = (a, b) -> a + b;`
+- [ ] **闭包支持** - 完整闭包，捕获外部变量
+- [ ] **高阶函数** - 函数作为参数和返回值
+- [ ] **函数组合** - `f.andThen(g)`, `f.compose(g)`
+- [ ] **柯里化** - `add(1)(2)(3)` 自动柯里化支持
+- [ ] **管道操作符** - `data |> transform |> filter |> collect`
+
+### 7.2 面向对象增强
+- [ ] **结构体 (struct)** - 值类型数据结构 `struct Point { int x, y; }`
+- [ ] **自定类型 (typedef/type)** - `type ID = String;` 类型别名增强
+- [ ] **扩展方法** - `extend ClassName { newMethod() {} }` 为现有类添加方法
+- [ ] **属性访问器** - `get/set` 自动属性 `property String name;`
+- [ ] **数据类** - `@Data` 自动生成 equals/hashCode/toString
+- [ ] **密封类** - `sealed class Shape permits Circle, Square`
+- [ ] **模式匹配 (类)** - `if (obj instanceof Point(int x, int y))`
+
+### 7.3 运算符重载与中缀函数
+- [ ] **中缀函数 (expr)** - `expr fun add(a: Int, b: Int) = a + b` 然后 `1 add 2`
+- [ ] **运算符重载** - `operator fun plus(other: Vector) = Vector(...)`
+- [ ] **自定义运算符** - 定义新的运算符符号和优先级
+- [ ] **范围运算符** - `1..10`, `'a'..'z'` 闭区间
+- [ ] **安全调用** - `obj?.method()` 空安全调用
+- [ ] **Elvis 运算符** - `name ?: "default"` 空值合并
+- [ ] **非空断言** - `name!!` 强制非空
+
+### 7.4 解构与模式匹配
+- [ ] **解构声明** - `val (x, y) = point;`
+- [ ] **数组解构** - `val [a, b, ...rest] = arr;`
+- [ ] **when 表达式** - 增强 switch，支持模式匹配
+  ```eol
+  when (obj) {
+      is Point(int x, int y) -> println("$x, $y");
+      is String s && s.length > 5 -> println("long string");
+      else -> println("other");
+  }
+  ```
+- [ ] **守卫子句** - `case n if n > 0:` 带条件的 case
+- [ ] **类型模式** - `case String s:` 自动类型转换
+- [ ] **列表模式** - `case [1, 2, 3]:` 匹配列表内容
+
+### 7.5 异步与并发语法糖
+- [ ] **async/await** - `async fun foo()` 和 `await result`
+- [ ] **异步流** - `async Stream<T>` 和 `yield` 生成器
+- [ ] **结构化并发** - `async { ... }` 块，自动取消子任务
+- [ ] **协程** - `suspend fun` 轻量级线程
+- [ ] **选择表达式** - `select { case chan1.recv() -> ... }`
+
+### 7.6 元编程与宏
+- [ ] **编译期常量** - `const val MAX = 100;`
+- [ ] **宏系统** - `macro!()` 编译时代码生成
+- [ ] **代码注入** - `#[derive(Debug)]` 自动派生 trait
+- [ ] **条件编译** - `#if DEBUG` 编译期条件
+- [ ] **编译期反射** - 在编译时获取类型信息
+
+### 7.7 内存与安全
+- [ ] **所有权系统 (可选)** - 编译期内存安全（可选启用）
+- [ ] **借用检查** - `&T`, `&mut T` 借用语义
+- [ ] **智能指针** - `Box<T>`, `Rc<T>`, `Arc<T>`
+- [ ] **生命周期** - 显式生命周期标注
+- [ ] **unsafe 块** - `unsafe { ... }` 不安全代码隔离
+
+### 7.8 集合与流式处理
+- [ ] **集合字面量** - `#[1, 2, 3]`, `#{"a": 1, "b": 2}`
+- [ ] **序列推导式** - `[x * 2 for x in list if x > 0]`
+- [ ] **流式 API** - `list.stream().filter(...).map(...).collect()`
+- [ ] **并行流** - `list.parallelStream()` 自动并行化
+- [ ] **不可变集合** - `ImmutableList`, `ImmutableMap`
+
+### 7.9 字符串与格式化
+- [ ] **原始字符串** - `r"C:\Users\name"` 不转义
+- [ ] **多行字符串** - `"""..."""` 保留格式
+- [ ] **字符串模板** - `"Hello, $name!"` 和 `"Sum: ${a + b}"`
+- [ ] **内插表达式** - `"Result: ${method()}"`
+- [ ] **格式化字面量** - `f"{value:.2f}"` 格式控制
+
+### 7.10 其他语法糖
+- [ ] **尾随逗号** - 函数参数、数组末尾允许逗号
+- [ ] **命名参数** - `drawPoint(x: 10, y: 20)`
+- [ ] **默认参数** - `fun greet(name, greeting = "Hello")`
+- [ ] **参数展开** - `call(*args, **kwargs)`
+- [ ] **链式调用** - `obj.method1().method2().method3()`
+- [ ] **空合并链** - `a ?? b ?? c ?? default`
+- [ ] **提前返回** - `return if condition;` 守卫语句
+
+### 7.11 与其他语言互操作
+- [ ] **FFI 外部函数** - `extern "C"` 调用 C 库
+- [ ] **JNI 兼容** - 与 Java 代码互操作
+- [ ] **WebAssembly** - 编译为 WASM 在浏览器运行
+- [ ] **Python 绑定** - 调用 Python 库
 
 ---
 
-**注意：** 本路线图会根据实际开发情况和社区反馈进行调整。
+## 开发优先级
+
+| 优先级 | 特性类别 | 说明 |
+|--------|----------|------|
+| P0 | Java 兼容性 | 确保与 Java 语法高度兼容 |
+| P1 | 语法糖 | 运算符重载、解构、字符串模板 |
+| P2 | 函数式 | Lambda 增强、高阶函数、管道 |
+| P3 | 异步 | async/await、协程 |
+| P4 | 元编程 | 宏系统、编译期计算 |
+| P5 | 内存安全 | 所有权系统（实验性） |
+
+---
+
+**注意：** 本路线图会根据实际开发情况和社区反馈进行调整。第二级特性将在 Java 兼容性稳定后逐步引入。
