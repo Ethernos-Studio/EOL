@@ -5,30 +5,94 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 
 ---
 
-## 阶段一：语言核心完善 (v0.2.x)
+## 版本号规范 (0.B.M.P)
 
-### 1.1 控制流增强
+EOL 采用四级版本号：`0.B.M.P`（当前 G0 代际）
+
+| 位置 | 名称 | 含义 | 示例 |
+|------|------|------|------|
+| **0** | Generation | 架构代际 | 0 = LLVM后端, 1 = 自托管, 2 = 内存安全 |
+| **B** | Big | 功能域里程碑 | 0.1.x.x = 控制流, 0.2.x.x = OOP, 0.3.x.x = 标准库 |
+| **M** | Middle | 特性集群 | 0.1.1.x = 循环家族, 0.1.2.x = 类型系统 |
+| **P** | Patch | 每日构建修复 | 0.1.1.0 → 0.1.1.1 (bugfix) |
+
+### 代际规划
+
+| 代际 | 版本 | 目标 | 说明 |
+|------|------|------|------|
+| **G0** | 0.x.x.x | LLVM 后端 + Java 语法兼容 | 当前阶段，依赖 LLVM 生成代码 |
+| **G1** | 1.x.x.x | 自托管编译器 | 用 EOL 编写 EOL 编译器 |
+| **G2** | 2.x.x.x | 所有权系统 | 引入内存安全，类似 Rust |
+
+### 功能里程碑 (B)
+
+| 版本 | 里程碑名称 | 核心特性 |
+|------|-----------|---------|
+| 0.1.x.x | 控制流完善 | for/switch/数组/do-while |
+| 0.2.x.x | 面向对象 | 继承/泛型/接口/抽象类 |
+| 0.3.x.x | 标准库完整 | 集合框架/IO/并发/时间 |
+| 0.4.x.x | 工具链成熟 | LSP/包管理/调试器/IDE |
+| 0.5.x.x | 异常与反射 | try-catch/注解/反射API |
+| 0.6.x.x | 模块系统 | JPMS风格模块/module-info |
+| 0.7.x.x | 性能优化 | JIT/AOT/逃逸分析/GC |
+| 1.0.x.x | 自托管完成 | 编译器用EOL重写 |
+| 2.0.x.x | 内存安全 | 所有权/生命周期/借用检查 |
+
+**当前版本：0.2.0.x (G0-B2-M0-Px)**
+
+### 特性集群示例 (M)
+
+```
+0.1.1.x = 循环家族
+  - for (int i=0; i<n; i++)
+  - for (Type item : collection)
+  - do { } while (cond)
+  - switch-case
+  
+0.1.2.x = 类型系统扩展
+  - float, double
+  - char
+  - long
+  - 强制类型转换
+  
+0.1.3.x = 数组完备
+  - 多维数组 int[][]
+  - 数组初始化 {1,2,3}
+  - arr.length 属性
+  - 边界检查
+
+0.3.0.x = 标准库起步 (当前开发目标)
+  - ArrayList<T> 实现
+  - HashMap<K,V> 实现
+  - 基本文件IO
+```
+
+---
+
+## 阶段一：语言核心完善 (G.0.1.x.x)
+
+### G.0.1.1.x 循环家族
 - [ ] **for 循环** - Java 风格 `for (int i = 0; i < n; i++)`
 - [ ] **增强 for 循环** - `for (Type item : collection)` 遍历集合
 - [ ] **do-while 循环** - `do { ... } while (condition);`
 - [ ] **switch 语句** - Java 风格，支持 `case` 穿透和 `break`
 - [ ] **break/continue 标签** - 嵌套循环控制 `outer: for (...) ... break outer;`
 
-### 1.2 数据类型扩展
+### G.0.1.2.x 类型系统扩展
 - [ ] **浮点类型** - `float`, `double` 支持
 - [ ] **字符类型** - `char` 类型和字符字面量 `'A'`
 - [ ] **布尔类型** - 原生 `boolean` 类型（true/false）
 - [ ] **long 类型** - 64位有符号整数
 - [ ] **类型转换** - 显式强制转换 `(int)value`
 
-### 1.3 数组与集合
+### G.0.1.3.x 数组完备
 - [ ] **多维数组** - `int[][] matrix = new int[3][3];`
 - [ ] **数组初始化** - `int[] arr = {1, 2, 3};`
 - [ ] **数组长度** - `arr.length` 属性
 - [ ] **数组边界检查** - 运行时安全检查
-- [ ] **字符串增强** - `String` 类方法（substring, indexOf, replace等）
 
-### 1.4 方法改进
+### G.0.1.4.x 字符串与方法
+- [ ] **字符串增强** - `String` 类方法（substring, indexOf, replace等）
 - [ ] **方法重载** - 同名不同参数列表
 - [ ] **可变参数** - `void method(String fmt, Object... args)`
 - [ ] **方法引用** - 静态/实例方法引用 `ClassName::methodName`
@@ -36,9 +100,9 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 
 ---
 
-## 阶段二：面向对象特性 (v0.3.x)
+## 阶段二：面向对象特性 (G.0.2.x.x)
 
-### 2.1 类系统完善
+### G.0.2.1.x 继承与多态
 - [ ] **继承** - `class Child extends Parent`
 - [ ] **方法重写** - `@Override` 注解支持
 - [ ] **多态** - 父类引用指向子类对象
@@ -46,19 +110,19 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 - [ ] **接口** - `interface` 多实现 `implements`
 - [ ] **访问修饰符** - `public/protected/private/default` 完整支持
 
-### 2.2 构造与初始化
+### G.0.2.2.x 构造与初始化
 - [ ] **构造函数重载** - 多构造函数支持
 - [ ] **构造函数链** - `this(...)` 和 `super(...)` 调用
 - [ ] **初始化块** - 实例初始化块 `{ ... }`
 - [ ] **静态初始化** - `static { ... }` 类级别初始化
 
-### 2.3 核心类特性
+### G.0.2.3.x 核心类特性
 - [ ] **final 类/方法** - 不可继承/重写
 - [ ] **static 导入** - `import static ...`
 - [ ] **内部类** - 成员内部类、静态内部类
 - [ ] **匿名类** - `new Interface() { ... }`
 
-### 2.4 泛型编程
+### G.0.2.4.x 泛型编程
 - [ ] **泛型类** - `class Container<T>`
 - [ ] **泛型方法** - `<T> T max(T a, T b)`
 - [ ] **类型边界** - `<T extends Number>`
@@ -67,7 +131,7 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 
 ---
 
-## 阶段三：标准库建设 (v0.4.x)
+## 阶段三：标准库建设 (G.0.3.x.x)
 
 ### 3.1 核心库 (java.lang 等效)
 - [ ] **System 类** - `System.out.println()`, `System.currentTimeMillis()`
@@ -102,7 +166,7 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 
 ---
 
-## 阶段四：高级特性 (v0.5.x)
+## 阶段四：高级特性 (G.0.4.x.x)
 
 ### 4.1 异常处理
 - [ ] **异常类层次** - `Throwable` > `Exception` > `RuntimeException`
@@ -134,7 +198,7 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 
 ---
 
-## 阶段五：模块系统与生态 (v0.6.x)
+## 阶段五：模块系统与生态 (G.0.5.x.x)
 
 ### 5.1 包管理
 - [ ] **包声明** - `package com.example.project;`
@@ -162,7 +226,7 @@ EOL (Ethernos Object Language) 是一个编译为 Windows 可执行文件的静�
 
 ---
 
-## 阶段六：性能优化 (v0.7.x)
+## 阶段六：性能优化 (G.0.6.x.x)
 
 ### 6.1 编译器优化
 - [ ] **逃逸分析** - 栈上分配对象
@@ -243,7 +307,9 @@ List<Integer> result = list.stream()
 
 ---
 
-## 第二级：EOL 特色语法 (v1.0.0)
+## 第二级：EOL 特色语法 (G.0.7.x.x ~ G.1.x.x.x)
+
+**说明：** 在保持 Java 兼容性的基础上，引入 EOL 独特的语法糖。此阶段从 G0 末期开始，贯穿 G1 自托管全程。
 
 在保持 Java 兼容性的基础上，引入 EOL 独特的语法糖和语言特性。
 
