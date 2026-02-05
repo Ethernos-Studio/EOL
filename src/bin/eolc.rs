@@ -5,8 +5,12 @@ use std::path::Path;
 use eol::Compiler;
 use eol::error::{print_error_with_context, EolError};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn print_usage() {
+    println!("eolc v{}", VERSION);
     println!("Usage: eolc <source_file.eol> [output_file.exe]");
+    println!("       eolc --version");
     println!("");
     println!("EOL (Ethernos Object Language) to Windows EXE Compiler");
     println!("Compiles .eol source files directly to Windows executable (.exe)");
@@ -18,6 +22,12 @@ fn main() {
     if args.len() < 2 {
         print_usage();
         process::exit(1);
+    }
+    
+    // 处理 --version 参数
+    if args[1] == "--version" || args[1] == "-v" {
+        println!("eolc v{}", VERSION);
+        process::exit(0);
     }
     
     let source_path = &args[1];
@@ -38,7 +48,7 @@ fn main() {
         .to_string_lossy()
         .to_string();
     
-    println!("EOL 编译器");
+    println!("EOL 编译器 v{}", VERSION);
     println!("源文件: {}", source_path);
     println!("输出: {}", exe_output);
     println!("");

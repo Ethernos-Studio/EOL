@@ -3,8 +3,12 @@ use std::fs;
 use std::process;
 use eol::Compiler;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn print_usage() {
+    println!("eolll v{}", VERSION);
     println!("Usage: eolll <source_file.eol> [output_file.ll]");
+    println!("       eolll --version");
     println!("");
     println!("EOL (Ethernos Object Language) to LLVM IR Compiler");
     println!("Compiles .eol source files to LLVM IR (.ll)");
@@ -16,6 +20,12 @@ fn main() {
     if args.len() < 2 {
         print_usage();
         process::exit(1);
+    }
+    
+    // 处理 --version 参数
+    if args[1] == "--version" || args[1] == "-v" {
+        println!("eolll v{}", VERSION);
+        process::exit(0);
     }
     
     let source_path = &args[1];
@@ -39,6 +49,7 @@ fn main() {
         }
     };
     
+    println!("eolll v{}", VERSION);
     println!("Compiling: {}", source_path);
     println!("Output: {}", output_path);
     println!("");

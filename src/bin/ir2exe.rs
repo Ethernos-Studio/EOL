@@ -2,8 +2,12 @@ use std::env;
 use std::process;
 use std::path::Path;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn print_usage() {
+    println!("ir2exe v{}", VERSION);
     println!("Usage: ir2exe <input_file.ll> [output_file.exe]");
+    println!("       ir2exe --version");
     println!("");
     println!("LLVM IR to Windows EXE Compiler (MinGW-w64 mode)");
     println!("Compiles .ll IR files to Windows executable (.exe) using MinGW-w64");
@@ -17,6 +21,12 @@ fn main() {
         process::exit(1);
     }
     
+    // 处理 --version 参数
+    if args[1] == "--version" || args[1] == "-v" {
+        println!("ir2exe v{}", VERSION);
+        process::exit(0);
+    }
+    
     let input_file = &args[1];
     let output_file = if args.len() >= 3 {
         args[2].clone()
@@ -28,7 +38,7 @@ fn main() {
             .unwrap_or_else(|| "output.exe".to_string())
     };
     
-    println!("IR 编译器 (MinGW-w64 模式)");
+    println!("IR 编译器 v{} (MinGW-w64 模式)", VERSION);
     println!("IR 文件: {}", input_file);
     println!("输出: {}", output_file);
     println!("");
