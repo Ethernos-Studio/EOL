@@ -2,7 +2,7 @@ use std::env;
 use std::process;
 use std::path::Path;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("IR2EXE_VERSION");
 
 struct CompileOptions {
     optimization: String,         // -O0, -O1, -O2, -O3, -Os, -Oz

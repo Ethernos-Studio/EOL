@@ -1,0 +1,266 @@
+//! 语句解析
+
+use crate::ast::*;
+use crate::error::EolResult;
+use super::Parser;
+use super::types::{parse_type, is_primitive_type_token};
+use super::expressions::parse_expression;
+
+/// 解析代码块
+pub fn parse_block(parser: &mut Parser) -> EolResult<Block> {
+    let loc = parser.current_loc();
+    parser.consume(&crate::lexer::Token::LBrace, "Expected '{' to start block")?;
+    
+    let mut statements = Vec::new();
+    while !parser.check(&crate::lexer::Token::RBrace) && !parser.is_at_end() {
+        statements.push(parse_statement(parser)?);
+    }
+    
+    parser.consume(&crate::lexer::Token::RBrace, "Expected '}' to end block")?;
+    
+    Ok(Block { statements, loc })
+}
+
+/// 解析语句
+pub fn parse_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    match parser.current_token() {
+        crate::lexer::Token::LBrace => Ok(Stmt::Block(parse_block(parser)?)),
+        crate::lexer::Token::If => parse_if_statement(parser),
+        crate::lexer::Token::While => parse_while_statement(parser),
+        crate::lexer::Token::For => parse_for_statement(parser),
+        crate::lexer::Token::Do => parse_do_while_statement(parser),
+        crate::lexer::Token::Switch => parse_switch_statement(parser),
+        crate::lexer::Token::Return => parse_return_statement(parser),
+        crate::lexer::Token::Break => {
+            let _loc = parser.current_loc();
+            parser.advance();
+            parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after break")?;
+            Ok(Stmt::Break)
+        }
+        crate::lexer::Token::Continue => {
+            let _loc = parser.current_loc();
+            parser.advance();
+            parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after continue")?;
+            Ok(Stmt::Continue)
+        }
+        _ => {
+            // 检查是否是变量声明（只能是原始类型关键字，不能是任意标识符）
+            if is_primitive_type_token(parser) || parser.check(&crate::lexer::Token::Final) {
+                parse_var_decl(parser)
+            } else {
+                parse_expression_statement(parser)
+            }
+        }
+    }
+}
+
+/// 解析变量声明
+pub fn parse_var_decl(parser: &mut Parser) -> EolResult<Stmt> {
+    let loc = parser.current_loc();
+    
+    let is_final = parser.match_token(&crate::lexer::Token::Final);
+    
+    let var_type = parse_type(parser)?;
+    let name = parser.consume_identifier("Expected variable name")?;
+    
+    let initializer = if parser.match_token(&crate::lexer::Token::Assign) {
+        Some(parse_expression(parser)?)
+    } else {
+        None
+    };
+    
+    parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after variable declaration")?;
+    
+    Ok(Stmt::VarDecl(VarDecl {
+        name,
+        var_type,
+        initializer,
+        is_final,
+        loc,
+    }))
+}
+
+/// 解析 if 语句
+pub fn parse_if_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume 'if'
+    
+    parser.consume(&crate::lexer::Token::LParen, "Expected '(' after 'if'")?;
+    let condition = parse_expression(parser)?;
+    parser.consume(&crate::lexer::Token::RParen, "Expected ')' after if condition")?;
+    
+    let then_branch = Box::new(parse_statement(parser)?);
+    let else_branch = if parser.match_token(&crate::lexer::Token::Else) {
+        Some(Box::new(parse_statement(parser)?))
+    } else {
+        None
+    };
+    
+    Ok(Stmt::If(IfStmt {
+        condition,
+        then_branch,
+        else_branch,
+        loc,
+    }))
+}
+
+/// 解析 while 语句
+pub fn parse_while_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume 'while'
+    
+    parser.consume(&crate::lexer::Token::LParen, "Expected '(' after 'while'")?;
+    let condition = parse_expression(parser)?;
+    parser.consume(&crate::lexer::Token::RParen, "Expected ')' after while condition")?;
+    
+    let body = Box::new(parse_statement(parser)?);
+    
+    Ok(Stmt::While(WhileStmt {
+        condition,
+        body,
+        loc,
+    }))
+}
+
+/// 解析 for 语句
+pub fn parse_for_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume 'for'
+    
+    parser.consume(&crate::lexer::Token::LParen, "Expected '(' after 'for'")?;
+    
+    let init = if parser.check(&crate::lexer::Token::Semicolon) {
+        None
+    } else {
+        Some(Box::new(parse_statement(parser)?))
+    };
+    
+    let condition = if parser.check(&crate::lexer::Token::Semicolon) {
+        None
+    } else {
+        Some(parse_expression(parser)?)
+    };
+    parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after for condition")?;
+    
+    let update = if parser.check(&crate::lexer::Token::RParen) {
+        None
+    } else {
+        Some(parse_expression(parser)?)
+    };
+    
+    parser.consume(&crate::lexer::Token::RParen, "Expected ')' after for clauses")?;
+    
+    let body = Box::new(parse_statement(parser)?);
+    
+    Ok(Stmt::For(ForStmt {
+        init,
+        condition,
+        update,
+        body,
+        loc,
+    }))
+}
+
+/// 解析 do-while 语句
+pub fn parse_do_while_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume 'do'
+    
+    let body = Box::new(parse_statement(parser)?);
+    
+    parser.consume(&crate::lexer::Token::While, "Expected 'while' after 'do'")?;
+    parser.consume(&crate::lexer::Token::LParen, "Expected '(' after 'while'")?;
+    let condition = parse_expression(parser)?;
+    parser.consume(&crate::lexer::Token::RParen, "Expected ')' after condition")?;
+    parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after do-while")?;
+    
+    Ok(Stmt::DoWhile(DoWhileStmt {
+        condition,
+        body,
+        loc,
+    }))
+}
+
+/// 解析 switch 语句
+pub fn parse_switch_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume 'switch'
+    
+    parser.consume(&crate::lexer::Token::LParen, "Expected '(' after 'switch'")?;
+    let expr = parse_expression(parser)?;
+    parser.consume(&crate::lexer::Token::RParen, "Expected ')' after switch expression")?;
+    
+    parser.consume(&crate::lexer::Token::LBrace, "Expected '{' to start switch body")?;
+    
+    let mut cases = Vec::new();
+    let mut default = None;
+    
+    while !parser.check(&crate::lexer::Token::RBrace) && !parser.is_at_end() {
+        if parser.match_token(&crate::lexer::Token::Case) {
+            // 解析 case 值
+            let value = match parser.current_token() {
+                crate::lexer::Token::IntegerLiteral(Some(v)) => {
+                    let val = *v;  // 解引用获取值
+                    parser.advance();
+                    val
+                }
+                _ => return Err(parser.error("Expected integer literal in case")),
+            };
+            parser.consume(&crate::lexer::Token::Colon, "Expected ':' after case value")?;
+            
+            // 解析 case 体（直到遇到另一个 case、default 或 }）
+            let mut body = Vec::new();
+            while !parser.check(&crate::lexer::Token::Case) && !parser.check(&crate::lexer::Token::Default)
+                && !parser.check(&crate::lexer::Token::RBrace) && !parser.is_at_end() {
+                body.push(parse_statement(parser)?);
+            }
+            
+            cases.push(Case { value, body });
+        } else if parser.match_token(&crate::lexer::Token::Default) {
+            parser.consume(&crate::lexer::Token::Colon, "Expected ':' after 'default'")?;
+            
+            // 解析 default 体
+            let mut body = Vec::new();
+            while !parser.check(&crate::lexer::Token::Case) && !parser.check(&crate::lexer::Token::Default)
+                && !parser.check(&crate::lexer::Token::RBrace) && !parser.is_at_end() {
+                body.push(parse_statement(parser)?);
+            }
+            
+            default = Some(body);
+        } else {
+            return Err(parser.error("Expected 'case' or 'default' in switch"));
+        }
+    }
+    
+    parser.consume(&crate::lexer::Token::RBrace, "Expected '}' to end switch body")?;
+    
+    Ok(Stmt::Switch(SwitchStmt {
+        expr,
+        cases,
+        default,
+        loc,
+    }))
+}
+
+/// 解析 return 语句
+pub fn parse_return_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let _loc = parser.current_loc();
+    parser.advance(); // consume 'return'
+    
+    let value = if !parser.check(&crate::lexer::Token::Semicolon) {
+        Some(parse_expression(parser)?)
+    } else {
+        None
+    };
+    
+    parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after return")?;
+    
+    Ok(Stmt::Return(value))
+}
+
+/// 解析表达式语句
+pub fn parse_expression_statement(parser: &mut Parser) -> EolResult<Stmt> {
+    let expr = parse_expression(parser)?;
+    parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after expression")?;
+    Ok(Stmt::Expr(expr))
+}

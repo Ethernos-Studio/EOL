@@ -5,7 +5,7 @@ use std::path::Path;
 use eol::Compiler;
 use eol::error::{print_error_with_context, EolError};
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("EOLC_VERSION");
 
 struct CompileOptions {
     // 基础优化

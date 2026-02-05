@@ -4,7 +4,7 @@ use std::process;
 use std::path::Path;
 use eol::Compiler;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("EOLLL_VERSION");
 
 struct CompileOptions {
     optimization: String,    // -O0, -O1, -O2, -O3, -Os, -Oz

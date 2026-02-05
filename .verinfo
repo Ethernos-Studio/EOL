@@ -1,0 +1,11 @@
+[EOLC]
+version = "0.3.2.0"
+build = 4
+
+[EOLLL]
+version = "0.3.2.0"
+build = 4
+
+[IR2EXE]
+version = "0.3.2.0"
+build = 4
