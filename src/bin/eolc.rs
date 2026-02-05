@@ -1,8 +1,9 @@
 use std::env;
 use std::fs;
 use std::process;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use eol::Compiler;
+use eol::error::{print_error_with_context, EolError};
 
 fn print_usage() {
     println!("Usage: eolc <source_file.eol> [output_file.exe]");
@@ -58,7 +59,8 @@ fn main() {
             println!("  [+] EOL 编译成功");
         }
         Err(e) => {
-            eprintln!("  [-] EOL 编译失败: {}", e);
+            // 使用新的错误打印功能显示详细的错误信息
+            print_error_with_context(&e, &source, source_path);
             process::exit(1);
         }
     }

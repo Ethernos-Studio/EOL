@@ -6,6 +6,8 @@
 
 EOL (Ethernos Object Language) is a simple object-oriented programming language that compiles to native Windows executables.
 
+EOL is a milestone in the Ethernos programming language toolchain, being the first compiled programming language released by Ethernos.
+
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 

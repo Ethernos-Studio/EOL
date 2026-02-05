@@ -1,0 +1,16 @@
+public class TestError {
+    public static void main() {
+        // 错误1：类型不匹配
+        int x = "hello";
+        
+        // 错误2：未定义变量
+        println(y);
+        
+        // 错误3：缺少分号
+        int a = 10
+        
+        // 错误4：重复定义
+        int b = 5;
+        int b = 10;
+    }
+}

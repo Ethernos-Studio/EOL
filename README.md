@@ -6,6 +6,8 @@
 
 EOL (Ethernos Object Language) 是一个简单的面向对象编程语言，支持编译为原生 Windows 可执行文件。
 
+EOL是整个Ethernos编程语言工具链中的里程碑，它是Ethernos发布的所有编程语言中，第一个编译型编程语言。
+
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 

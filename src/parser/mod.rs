@@ -872,6 +872,14 @@ impl Parser {
         self.tokens[self.pos].loc.clone()
     }
 
+    fn previous_loc(&self) -> SourceLocation {
+        if self.pos > 0 {
+            self.tokens[self.pos - 1].loc.clone()
+        } else {
+            self.tokens[0].loc.clone()
+        }
+    }
+
     fn advance(&mut self) -> &Token {
         if !self.is_at_end() {
             self.pos += 1;
@@ -900,7 +908,13 @@ impl Parser {
         if self.check(token) {
             Ok(self.advance())
         } else {
-            Err(self.error(message))
+            // 如果期望分号但没找到，使用上一个token的位置
+            let loc = if message.contains("';'") {
+                self.previous_loc()
+            } else {
+                self.current_loc()
+            };
+            Err(crate::error::parser_error(loc.line, loc.column, message))
         }
     }
 

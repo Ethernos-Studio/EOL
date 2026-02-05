@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::{EolResult, EolError};
+use crate::error::{EolResult, EolError, codegen_error};
 
 pub struct IRGenerator {
     output: String,
@@ -376,7 +376,7 @@ impl IRGenerator {
             Expr::Unary(unary) => self.generate_unary_expression(unary),
             Expr::Call(call) => self.generate_call_expression(call),
             Expr::Assignment(assign) => self.generate_assignment(assign),
-            _ => Err(EolError::CodeGen("Unsupported expression".to_string())),
+            _ => Err(codegen_error("Unsupported expression".to_string())),
         }
     }
 
@@ -553,7 +553,7 @@ impl IRGenerator {
                 self.emit_line(&format!("  {} = lshr {} {}, {}",
                     temp, left_type, left_val, right_val));
             }
-            _ => return Err(EolError::CodeGen(format!("Unsupported binary operator: {:?}", bin.op))),
+            _ => return Err(codegen_error(format!("Unsupported binary operator: {:?}", bin.op))),
         }
         
         Ok(format!("{} {}", left_type, temp))
@@ -586,10 +586,10 @@ impl IRGenerator {
                         temp, op_type, op_val));
                 } else {
                     // 浮点数不支持位取反，但类型系统应该已经阻止了这种情况
-                    return Err(EolError::CodeGen("Bitwise NOT not supported for floating point".to_string()));
+                    return Err(codegen_error("Bitwise NOT not supported for floating point".to_string()));
                 }
             }
-            _ => return Err(EolError::CodeGen("Unsupported unary operator".to_string())),
+            _ => return Err(codegen_error("Unsupported unary operator".to_string())),
         }
         
         Ok(format!("{} {}", op_type, temp))
@@ -613,10 +613,10 @@ impl IRGenerator {
                 if let Expr::Identifier(class_name) = member.object.as_ref() {
                     format!("{}.{}", class_name, member.member)
                 } else {
-                    return Err(EolError::CodeGen("Invalid method call".to_string()));
+                    return Err(codegen_error("Invalid method call".to_string()));
                 }
             }
-            _ => return Err(EolError::CodeGen("Invalid function call".to_string())),
+            _ => return Err(codegen_error("Invalid function call".to_string())),
         };
         
         let args: Vec<String> = call.args.iter()
@@ -632,7 +632,7 @@ impl IRGenerator {
 
     fn generate_print_call(&mut self, args: &[Expr], newline: bool) -> EolResult<String> {
         if args.is_empty() {
-            return Err(EolError::CodeGen("print requires at least one argument".to_string()));
+            return Err(codegen_error("print requires at least one argument".to_string()));
         }
         
         let first_arg = &args[0];
@@ -731,7 +731,7 @@ impl IRGenerator {
             self.emit_line(&format!("  store i64 {}, i64* %{}", val, name));
             Ok(value)
         } else {
-            Err(EolError::CodeGen("Invalid assignment target".to_string()))
+            Err(codegen_error("Invalid assignment target".to_string()))
         }
     }
 
