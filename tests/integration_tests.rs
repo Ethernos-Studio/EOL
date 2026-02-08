@@ -41,6 +41,29 @@ fn compile_and_run_eol(source_path: &str) -> Result<String, String> {
     Ok(stdout)
 }
 
+/// 编译 EOL 文件，期望编译失败，返回错误信息
+fn compile_eol_expect_error(source_path: &str) -> Result<String, String> {
+    let exe_path = source_path.replace(".eol", ".exe");
+    let ir_path = source_path.replace(".eol", ".ll");
+    
+    // 1. 编译 EOL -> EXE (使用 release 版本)
+    let output = Command::new("./target/release/eolc.exe")
+        .args(&[source_path, &exe_path])
+        .output()
+        .map_err(|e| format!("Failed to execute eolc: {}", e))?;
+    
+    // 清理可能生成的文件
+    let _ = fs::remove_file(&exe_path);
+    let _ = fs::remove_file(&ir_path);
+    
+    if output.status.success() {
+        return Err("Expected compilation to fail, but it succeeded".to_string());
+    }
+    
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    Ok(stderr)
+}
+
 #[test]
 fn test_hello_example() {
     let output = compile_and_run_eol("examples/hello.eol").expect("hello.eol should compile and run");
@@ -660,4 +683,118 @@ fn test_method_chaining() {
     let output = compile_and_run_eol("examples/test_method_chaining.eol").expect("method chaining example should compile and run");
     assert!(output.contains("add(5, 3) = 8"), "Method chaining should work, got: {}", output);
     assert!(output.contains("All method chaining tests completed!"), "Test should complete, got: {}", output);
+}
+
+// ==================== 错误测试 ====================
+
+#[test]
+fn test_error_string_plus_int() {
+    let error = compile_eol_expect_error("examples/errors/error_string_plus_int.eol")
+        .expect("string + int should fail to compile");
+    assert!(
+        error.contains("Cannot add") || error.contains("string") || error.contains("type"),
+        "Should report type error for string + int, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_string_plus_float() {
+    let error = compile_eol_expect_error("examples/errors/error_string_plus_float.eol")
+        .expect("string + float should fail to compile");
+    assert!(
+        error.contains("Cannot add") || error.contains("string") || error.contains("type"),
+        "Should report type error for string + float, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_type_mismatch_assign() {
+    let error = compile_eol_expect_error("examples/errors/error_type_mismatch_assign.eol")
+        .expect("type mismatch assignment should fail to compile");
+    assert!(
+        error.contains("type mismatch") || error.contains("Type") || error.contains("expected")
+            || error.contains("Cannot assign") || error.contains("类型"),
+        "Should report type mismatch error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_undefined_variable() {
+    let error = compile_eol_expect_error("examples/errors/error_undefined_variable.eol")
+        .expect("undefined variable should fail to compile");
+    assert!(
+        error.contains("undefined") || error.contains("not found") || error.contains("Undeclared"),
+        "Should report undefined variable error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_redefined_variable() {
+    let error = compile_eol_expect_error("examples/errors/error_redefined_variable.eol")
+        .expect("redefined variable should fail to compile");
+    assert!(
+        error.contains("already defined") || error.contains("redefined") || error.contains("Duplicate"),
+        "Should report redefined variable error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_break_outside_loop() {
+    let error = compile_eol_expect_error("examples/errors/error_break_outside_loop.eol")
+        .expect("break outside loop should fail to compile");
+    assert!(
+        error.contains("break") || error.contains("loop") || error.contains("outside"),
+        "Should report break outside loop error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_continue_outside_loop() {
+    let error = compile_eol_expect_error("examples/errors/error_continue_outside_loop.eol")
+        .expect("continue outside loop should fail to compile");
+    assert!(
+        error.contains("continue") || error.contains("loop") || error.contains("outside"),
+        "Should report continue outside loop error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_invalid_cast() {
+    let error = compile_eol_expect_error("examples/errors/error_invalid_cast.eol")
+        .expect("invalid cast should fail to compile");
+    assert!(
+        error.contains("cast") || error.contains("Cast") || error.contains("unsupported"),
+        "Should report invalid cast error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_array_index_type() {
+    let error = compile_eol_expect_error("examples/errors/error_array_index_type.eol")
+        .expect("array index with string should fail to compile");
+    assert!(
+        error.contains("index") || error.contains("integer") || error.contains("type"),
+        "Should report array index type error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_missing_main() {
+    let error = compile_eol_expect_error("examples/errors/error_missing_main.eol")
+        .expect("missing main should fail to compile");
+    assert!(
+        error.contains("main") || error.contains("entry point") || error.contains("not found")
+            || error.contains("WinMain") || error.contains("undefined symbol"),
+        "Should report missing main error, got: {}",
+        error
+    );
 }
