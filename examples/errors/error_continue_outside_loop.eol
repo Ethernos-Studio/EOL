@@ -1,0 +1,9 @@
+// 错误测试：在循环外使用 continue 应该报错
+// 期望错误：Continue statement outside of loop
+
+class ErrorContinueOutsideLoop {
+    public static void main() {
+        continue;  // 这应该报错：continue 不能在循环外使用
+        println("This should not print");
+    }
+}

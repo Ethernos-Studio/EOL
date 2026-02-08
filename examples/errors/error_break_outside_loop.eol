@@ -1,0 +1,9 @@
+// 错误测试：在循环外使用 break 应该报错
+// 期望错误：Break statement outside of loop
+
+class ErrorBreakOutsideLoop {
+    public static void main() {
+        break;  // 这应该报错：break 不能在循环外使用
+        println("This should not print");
+    }
+}

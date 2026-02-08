@@ -1,0 +1,10 @@
+// 错误测试：string + int 应该报错
+// 期望错误：Cannot add string and numeric types
+
+class ErrorStringPlusInt {
+    public static void main() {
+        string s = "Value: ";
+        string result = s + 42;  // 这应该报错
+        println(result);
+    }
+}

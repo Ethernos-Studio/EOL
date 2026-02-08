@@ -1,0 +1,10 @@
+// 错误测试：无效的类型转换应该报错
+// 期望错误：Unsupported cast
+
+class ErrorInvalidCast {
+    public static void main() {
+        string s = "hello";
+        int x = (int)s;  // 这应该报错：不支持 string 到 int 的转换
+        println(x);
+    }
+}

@@ -10,6 +10,7 @@
 
 !/llvm-minimal/bin/*.exe
 !/examples/*.eol
+!/examples/errors/*.eol
 
 .trae/
 /*.cpp

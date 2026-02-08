@@ -1,0 +1,10 @@
+// 错误测试：string + float 应该报错
+// 期望错误：Cannot add string and numeric types
+
+class ErrorStringPlusFloat {
+    public static void main() {
+        string s = "Pi: ";
+        string result = s + 3.14f;  // 这应该报错
+        println(result);
+    }
+}

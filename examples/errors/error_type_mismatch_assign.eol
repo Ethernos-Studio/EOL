@@ -1,0 +1,9 @@
+// 错误测试：类型不匹配赋值应该报错
+// 期望错误：Type mismatch
+
+class ErrorTypeMismatchAssign {
+    public static void main() {
+        int x = "hello";  // 这应该报错：不能把 string 赋值给 int
+        println(x);
+    }
+}

@@ -1,0 +1,10 @@
+// 错误测试：重复定义变量应该报错
+// 期望错误：Variable already defined
+
+class ErrorRedefinedVariable {
+    public static void main() {
+        int x = 10;
+        int x = 20;  // 这应该报错：x 重复定义
+        println(x);
+    }
+}

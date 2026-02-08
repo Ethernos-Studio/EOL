@@ -1,0 +1,8 @@
+// 错误测试：缺少 main 方法应该报错
+// 期望错误：No main method found
+
+class ErrorMissingMain {
+    public static void helper() {
+        println("No main here");
+    }
+}

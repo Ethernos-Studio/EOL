@@ -1,0 +1,10 @@
+// 错误测试：数组索引类型错误应该报错
+// 期望错误：Array index must be integer
+
+class ErrorArrayIndexType {
+    public static void main() {
+        int[] arr = new int[10];
+        int x = arr["hello"];  // 这应该报错：数组索引必须是整数
+        println(x);
+    }
+}

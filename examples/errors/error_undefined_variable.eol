@@ -1,0 +1,9 @@
+// 错误测试：使用未定义变量应该报错
+// 期望错误：Undefined variable
+
+class ErrorUndefinedVariable {
+    public static void main() {
+        int x = y;  // 这应该报错：y 未定义
+        println(x);
+    }
+}
