@@ -204,15 +204,15 @@ impl IRGenerator {
 
         // then块
         self.emit_line(&format!("{}:", then_label));
-        let then_output_before = self.output.len();
+        let then_code_before = self.code.len();
         self.generate_statement(&if_stmt.then_branch)?;
-        let then_output_after = self.output.len();
-        
+        let then_code_after = self.code.len();
+
         // 检查 then 块是否以终止指令结束
         let mut then_terminates = false;
-        if then_output_after > then_output_before {
-            let then_output = &self.output[then_output_before..then_output_after];
-            let then_lines: Vec<&str> = then_output.trim().lines().collect();
+        if then_code_after > then_code_before {
+            let then_code = &self.code[then_code_before..then_code_after];
+            let then_lines: Vec<&str> = then_code.trim().lines().collect();
             if let Some(last_line) = then_lines.last() {
                 let trimmed = last_line.trim();
                 if trimmed.starts_with("ret") || trimmed.starts_with("br") || trimmed.starts_with("switch") || trimmed.starts_with("unreachable") {
@@ -231,14 +231,14 @@ impl IRGenerator {
         let mut else_terminates = false;
         if let Some(else_branch) = if_stmt.else_branch.as_ref() {
             self.emit_line(&format!("{}:", else_label));
-            let else_output_before = self.output.len();
+            let else_code_before = self.code.len();
             self.generate_statement(else_branch)?;
-            let else_output_after = self.output.len();
-            
+            let else_code_after = self.code.len();
+
             // 检查 else 块是否以终止指令结束
-            if else_output_after > else_output_before {
-                let else_output = &self.output[else_output_before..else_output_after];
-                let else_lines: Vec<&str> = else_output.trim().lines().collect();
+            if else_code_after > else_code_before {
+                let else_code = &self.code[else_code_before..else_code_after];
+                let else_lines: Vec<&str> = else_code.trim().lines().collect();
                 if let Some(last_line) = else_lines.last() {
                     let trimmed = last_line.trim();
                     if trimmed.starts_with("ret") || trimmed.starts_with("br") || trimmed.starts_with("switch") || trimmed.starts_with("unreachable") {

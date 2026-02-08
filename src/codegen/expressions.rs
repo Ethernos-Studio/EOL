@@ -599,7 +599,7 @@ impl IRGenerator {
             if let Some(class_info) = registry.get_class(class_name) {
                 // 尝试找到匹配的方法（根据参数数量）
                 if let Some(methods) = class_info.methods.get(method_name) {
-                    // 找到参数数量匹配的方法
+                    // 首先尝试找到参数数量完全匹配的方法
                     for method in methods {
                         let param_count = method.params.len();
                         let arg_count = processed_args.len();
@@ -617,6 +617,12 @@ impl IRGenerator {
                             // 非可变参数方法：参数数量必须完全匹配
                             return self.build_function_name_from_method(class_name, method_name, &method.params, has_varargs_array);
                         }
+                    }
+
+                    // 如果没有找到参数数量匹配的方法，但只有一个方法，就使用它
+                    // 这处理 main(string[] args) 被无参数调用的情况
+                    if methods.len() == 1 {
+                        return self.build_function_name_from_method(class_name, method_name, &methods[0].params, has_varargs_array);
                     }
                 }
             }

@@ -36,7 +36,8 @@ impl IRGenerator {
         // 生成静态字段的全局变量声明
         self.emit_static_field_declarations();
 
-        // 第二遍：生成所有类方法
+        // 第二遍：生成所有类方法定义（define）
+        // 注意：不需要前向声明，因为所有函数都在同一个模块中定义
         for class in &program.classes {
             self.generate_class(class)?;
         }
@@ -130,7 +131,41 @@ impl IRGenerator {
         self.emit_raw("");
     }
 
-    /// 生成类代码
+    /// 生成类方法声明（前向声明）
+    fn generate_class_declarations(&mut self, class: &ClassDecl) -> EolResult<()> {
+        for member in &class.members {
+            if let ClassMember::Method(method) = member {
+                if !method.modifiers.contains(&Modifier::Native) {
+                    self.generate_method_declaration(&class.name, method)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// 生成方法声明（declare）
+    fn generate_method_declaration(&mut self, class_name: &str, method: &MethodDecl) -> EolResult<()> {
+        let fn_name = self.generate_method_name(class_name, method);
+        let ret_type = self.type_to_llvm(&method.return_type);
+
+        // 生成函数声明（declare）
+        let decl = if method.params.is_empty() {
+            format!("declare {} @{}()\n", ret_type, fn_name)
+        } else {
+            let params: Vec<String> = method.params.iter()
+                .map(|p| self.type_to_llvm(&p.param_type))
+                .collect();
+            format!("declare {} @{}({})\n", ret_type, fn_name, params.join(", "))
+        };
+        
+        // 避免重复声明
+        if !self.method_declarations.contains(&decl) {
+            self.method_declarations.push(decl);
+        }
+        Ok(())
+    }
+
+    /// 生成类代码（方法定义）
     fn generate_class(&mut self, class: &ClassDecl) -> EolResult<()> {
         for member in &class.members {
             match member {
@@ -166,8 +201,7 @@ impl IRGenerator {
         self.scope_manager.reset();
         // 清除循环栈
         self.loop_stack.clear();
-        // 清除代码缓冲区
-        self.code.clear();
+        // 注意：不要清除代码缓冲区，让它累积所有方法的代码
 
         // 函数签名
         let ret_type = self.current_return_type.clone();
