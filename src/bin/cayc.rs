@@ -136,7 +136,7 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
 
         match arg.as_str() {
             "--version" | "-v" => {
-                println!("cayc v{}", VERSION);
+                println!("Cavvy Compiler v{}", VERSION);
                 process::exit(0);
             }
             "--help" | "-h" => {

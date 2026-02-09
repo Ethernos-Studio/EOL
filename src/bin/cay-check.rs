@@ -59,7 +59,7 @@ fn parse_args(args: &[String]) -> Result<(CheckOptions, String), String> {
 
         match arg.as_str() {
             "--version" | "-v" => {
-                println!("cay-check v{}", VERSION);
+                println!("Cavvy Check v{}", VERSION);
                 process::exit(0);
             }
             "--help" | "-h" => {
@@ -103,7 +103,7 @@ fn main() {
         }
     };
 
-    println!("cay-check v{}", VERSION);
+    println!("Cavvy Check v{}", VERSION);
     println!("检查文件: {}", source_path);
     println!("检查级别: {}", match options.level {
         CheckLevel::LexOnly => "词法分析",
