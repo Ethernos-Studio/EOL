@@ -14,24 +14,8 @@ use super::statements::parse_block;
 pub fn parse_class(parser: &mut Parser) -> cayResult<ClassDecl> {
     let loc = parser.current_loc();
 
-    // 检查是否有 @main 注解
-    let has_main_annotation = if parser.check(&Token::At) {
-        parser.advance(); // 消费 @
-        let ident = parser.consume_identifier("Expected identifier after @")?;
-        if ident != "main" {
-            return Err(parser.error(&format!("Unknown annotation: @{} (only @main is supported)", ident)));
-        }
-        true
-    } else {
-        false
-    };
-
-    let mut modifiers = parse_modifiers(parser)?;
-
-    // 如果有 @main 注解，添加 Main 修饰符
-    if has_main_annotation {
-        modifiers.push(Modifier::Main);
-    }
+    // 解析所有修饰符（包括 @main 注解）
+    let modifiers = parse_modifiers(parser)?;
 
     parser.consume(&Token::Class, "Expected 'class' keyword")?;
     
@@ -193,8 +177,12 @@ pub fn parse_modifiers(parser: &mut Parser) -> cayResult<Vec<Modifier>> {
                 modifiers.push(Modifier::Native);
                 parser.advance();
             }
-            Token::Override => {
+            Token::AtOverride => {
                 modifiers.push(Modifier::Override);
+                parser.advance();
+            }
+            Token::AtMain => {
+                modifiers.push(Modifier::Main);
                 parser.advance();
             }
             _ => break,

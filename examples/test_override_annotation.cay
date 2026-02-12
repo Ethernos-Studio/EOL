@@ -13,12 +13,12 @@ public class Shape {
 
 public class Circle extends Shape {
     // 正确使用 @Override
-    Override
+    @Override
     public static void draw() {
         println("Drawing a circle");
     }
     
-    Override
+    @Override
     public static int getArea() {
         return 100;
     }

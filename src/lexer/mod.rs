@@ -22,8 +22,11 @@ pub enum Token {
     Abstract,
     #[token("native")]
     Native,
-    #[token("@")]
-    At,  // 注解符号
+    // 注解 - 注意：@main 和 @Override 是完整的令牌，不是 @ + 标识符
+    #[token("@main")]
+    AtMain,
+    #[token("@Override")]
+    AtOverride,
     #[token("class")]
     Class,
     #[token("void")]
@@ -80,8 +83,6 @@ pub enum Token {
     Super,
     #[token("extends")]
     Extends,
-    #[token("Override")]
-    Override,
     
     // 标识符
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]

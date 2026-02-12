@@ -36,7 +36,7 @@ impl Parser {
                 || self.check(&crate::lexer::Token::Public)
                 || self.check(&crate::lexer::Token::Private)
                 || self.check(&crate::lexer::Token::Protected)
-                || self.check(&crate::lexer::Token::At)
+                || self.check(&crate::lexer::Token::AtMain)
             {
                 classes.push(self.parse_class()?);
             } else {
