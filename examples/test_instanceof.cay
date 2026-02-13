@@ -20,42 +20,35 @@ public class Rectangle extends Shape implements Drawable {
 @main
 public class TestInstanceOf {
     public static void main() {
-        println("=== Testing instanceof ===");
-
-        // 创建对象
         Shape shape = new Shape();
         Rectangle rect = new Rectangle();
 
-        // 测试 instanceof 运算符
-
-        // 测试 Shape 类型
+        // 测试 shape instanceof Shape
         if (shape instanceof Shape) {
             println("shape instanceof Shape: true");
         } else {
             println("shape instanceof Shape: false");
         }
 
-        // 测试 Rectangle 类型
+        // 测试 rect instanceof Rectangle
         if (rect instanceof Rectangle) {
             println("rect instanceof Rectangle: true");
         } else {
             println("rect instanceof Rectangle: false");
         }
 
-        // 测试继承关系
+        // 测试 rect instanceof Shape（继承检查）
         if (rect instanceof Shape) {
             println("rect instanceof Shape: true");
         } else {
             println("rect instanceof Shape: false");
         }
 
-        // 测试接口实现
+        // 测试 rect instanceof Drawable（接口检查）
         if (rect instanceof Drawable) {
             println("rect instanceof Drawable: true");
         } else {
             println("rect instanceof Drawable: false");
         }
-
-        println("=== instanceof tests completed ===");
     }
 }

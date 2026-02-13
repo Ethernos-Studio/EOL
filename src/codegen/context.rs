@@ -118,6 +118,7 @@ pub struct TypeIdInfo {
     pub class_name: String,
     pub parent_type_id: Option<String>,
     pub interfaces: Vec<String>,
+    pub type_id_value: i32,  // 唯一的整数标识符
 }
 
 /// IR生成器核心上下文
@@ -344,6 +345,8 @@ impl IRGenerator {
     pub fn register_type_id(&mut self, class_name: &str, parent_name: Option<&str>, interfaces: Vec<String>) -> String {
         let type_id = format!("@__type_id_{}", class_name);
         let parent_type_id = parent_name.map(|p| format!("@__type_id_{}", p));
+        let type_id_value = self.type_id_counter as i32;
+        self.type_id_counter += 1;
         
         self.type_id_map.insert(
             class_name.to_string(),
@@ -351,10 +354,16 @@ impl IRGenerator {
                 class_name: class_name.to_string(),
                 parent_type_id,
                 interfaces,
+                type_id_value,
             }
         );
         
         type_id
+    }
+    
+    /// 获取类型的整数标识符值
+    pub fn get_type_id_value(&self, class_name: &str) -> Option<i32> {
+        self.type_id_map.get(class_name).map(|info| info.type_id_value)
     }
 
     /// 获取类型标识符
@@ -394,17 +403,11 @@ impl IRGenerator {
         let mut result = String::new();
         for (class_name, info) in &self.type_id_map {
             let type_id_name = format!("@__type_id_{}", class_name);
-            if let Some(ref parent) = info.parent_type_id {
-                result.push_str(&format!(
-                    "{} = private constant i8* {}, align 8\n",
-                    type_id_name, parent
-                ));
-            } else {
-                result.push_str(&format!(
-                    "{} = private constant i8* null, align 8\n",
-                    type_id_name
-                ));
-            }
+            // 使用整数标识符作为类型标识符的值
+            result.push_str(&format!(
+                "{} = private constant i32 {}, align 4\n",
+                type_id_name, info.type_id_value
+            ));
         }
         result
     }

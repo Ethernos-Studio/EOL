@@ -1783,15 +1783,15 @@ impl IRGenerator {
 
     fn generate_new_expression(&mut self, new_expr: &NewExpr) -> cayResult<String> {
         let class_name = &new_expr.class_name;
-        let type_id = self.get_type_id(class_name).unwrap_or_else(|| format!("@__type_id_{}", class_name));
+        let type_id_value = self.get_type_id_value(class_name).unwrap_or(0);
 
         let size = 16i64;
         let calloc_temp = self.new_temp();
         self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_temp, size));
 
         let type_id_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to i8**", type_id_ptr, calloc_temp));
-        self.emit_line(&format!("  store i8* {}, i8** {}", type_id, type_id_ptr));
+        self.emit_line(&format!("  {} = bitcast i8* {} to i32*", type_id_ptr, calloc_temp));
+        self.emit_line(&format!("  store i32 {}, i32* {}", type_id_value, type_id_ptr));
 
         let cast_temp = self.new_temp();
         self.emit_line(&format!("  {} = bitcast i8* {} to i8*", cast_temp, calloc_temp));
@@ -2457,10 +2457,10 @@ impl IRGenerator {
         self.emit_line(&format!("\n{}:", check_label));
 
         let type_id_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast {} {} to i8**", type_id_ptr, expr_type, expr_val));
+        self.emit_line(&format!("  {} = bitcast {} {} to i32*", type_id_ptr, expr_type, expr_val));
 
         let actual_type_id = self.new_temp();
-        self.emit_line(&format!("  {} = load i8*, i8** {}", actual_type_id, type_id_ptr));
+        self.emit_line(&format!("  {} = load i32, i32* {}", actual_type_id, type_id_ptr));
 
         let target_type = &instanceof.target_type;
         let target_class = match target_type {
@@ -2468,17 +2468,13 @@ impl IRGenerator {
             _ => return Err(codegen_error("instanceof target must be an object type".to_string())),
         };
 
-        // 检查目标类型是否是接口
         let is_interface = self.type_registry.as_ref()
             .map(|r| r.get_interface(&target_class).is_some())
             .unwrap_or(false);
 
         if is_interface {
-            // 对于接口类型检查，生成运行时检查代码
-            // 检查对象的类是否实现了该接口
             self.generate_interface_check(&actual_type_id, &target_class, &true_label, &false_label)?;
         } else {
-            // 对于类类型检查，生成继承链检查代码
             self.generate_type_check(&actual_type_id, &target_class, &true_label, &false_label)?;
         }
 
@@ -2497,130 +2493,102 @@ impl IRGenerator {
     }
 
     fn generate_type_check(&mut self, actual_type_id: &str, target_class: &str, true_label: &str, false_label: &str) -> cayResult<()> {
-        let target_type_id = self.get_type_id(target_class)
-            .unwrap_or_else(|| format!("@__type_id_{}", target_class));
+        let target_type_id_value = self.get_type_id_value(target_class).unwrap_or(-1);
 
-        let loop_label = self.new_label("typecheck.loop");
-        let check_match_label = self.new_label("typecheck.match");
-        let check_parent_label = self.new_label("typecheck.parent");
-        let continue_label = self.new_label("typecheck.cont");
-
-        let current_type_var = self.new_temp();
-        self.emit_line(&format!("  {} = alloca i8*", current_type_var));
-        self.emit_line(&format!("  store i8* {}, i8** {}", actual_type_id, current_type_var));
-
-        self.emit_line(&format!("  br label %{}", loop_label));
-
-        self.emit_line(&format!("\n{}:", loop_label));
-        let current_type = self.new_temp();
-        self.emit_line(&format!("  {} = load i8*, i8** {}", current_type, current_type_var));
-
-        let is_match = self.new_temp();
-        self.emit_line(&format!("  {} = icmp eq i8* {}, {}",
-            is_match, current_type, target_type_id));
-        self.emit_line(&format!("  br i1 {}, label %{}, label %{}",
-            is_match, true_label, check_parent_label));
-
-        self.emit_line(&format!("\n{}:", check_parent_label));
-
-        let parent_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to i8**",
-            parent_ptr, current_type));
-
-        let parent_type = self.new_temp();
-        self.emit_line(&format!("  {} = load i8*, i8** {}",
-            parent_type, parent_ptr));
-
-        let has_parent = self.new_temp();
-        self.emit_line(&format!("  {} = icmp ne i8* {}, null",
-            has_parent, parent_type));
-        self.emit_line(&format!("  br i1 {}, label %{}, label %{}",
-            has_parent, continue_label, false_label));
-
-        self.emit_line(&format!("\n{}:", continue_label));
-        self.emit_line(&format!("  store i8* {}, i8** {}", parent_type, current_type_var));
-        self.emit_line(&format!("  br label %{}", loop_label));
-
-        Ok(())
-    }
-
-    fn generate_interface_check(&mut self, actual_type_id: &str, interface_name: &str, true_label: &str, false_label: &str) -> cayResult<()> {
-        // 获取所有实现了该接口的类
-        let implementing_classes: Vec<String> = if let Some(ref registry) = self.type_registry {
-            registry.classes.values()
-                .filter(|c| c.interfaces.contains(&interface_name.to_string()))
-                .map(|c| c.name.clone())
-                .collect()
+        let all_matching_type_ids: Vec<i32> = if let Some(ref registry) = self.type_registry {
+            let mut result = vec![target_type_id_value];
+            for class_info in registry.classes.values() {
+                let mut current = class_info.parent.as_ref().map(|p| p.as_str());
+                while let Some(parent_name) = current {
+                    if parent_name == target_class {
+                        if let Some(type_id) = self.get_type_id_value(&class_info.name) {
+                            result.push(type_id);
+                        }
+                        break;
+                    }
+                    if let Some(parent_class) = registry.get_class(parent_name) {
+                        current = parent_class.parent.as_ref().map(|p| p.as_str());
+                    } else {
+                        break;
+                    }
+                }
+            }
+            result
         } else {
-            Vec::new()
+            vec![target_type_id_value]
         };
 
-        if implementing_classes.is_empty() {
-            // 如果没有类实现该接口，直接返回 false
-            self.emit_line(&format!("  br label %{}", false_label));
-            return Ok(());
-        }
-
-        // 为每个实现类生成检查
-        let loop_label = self.new_label("interface_check.loop");
-        let check_next_label = self.new_label("interface_check.next");
-
-        let current_type_var = self.new_temp();
-        self.emit_line(&format!("  {} = alloca i8*", current_type_var));
-        self.emit_line(&format!("  store i8* {}, i8** {}", actual_type_id, current_type_var));
-
-        self.emit_line(&format!("  br label %{}", loop_label));
-
-        self.emit_line(&format!("\n{}:", loop_label));
-        let current_type = self.new_temp();
-        self.emit_line(&format!("  {} = load i8*, i8** {}", current_type, current_type_var));
-
-        // 检查当前类型是否匹配任何一个实现类
-        let mut prev_label = loop_label.clone();
-        for (i, class_name) in implementing_classes.iter().enumerate() {
-            let class_type_id = self.get_type_id(class_name)
-                .unwrap_or_else(|| format!("@__type_id_{}", class_name));
-
+        for (i, type_id_value) in all_matching_type_ids.iter().enumerate() {
             let is_match = self.new_temp();
-            self.emit_line(&format!("  {} = icmp eq i8* {}, {}",
-                is_match, current_type, class_type_id));
+            self.emit_line(&format!("  {} = icmp eq i32 {}, {}",
+                is_match, actual_type_id, type_id_value));
 
-            let next_check_label = if i < implementing_classes.len() - 1 {
-                self.new_label(&format!("interface_check.class{}", i))
+            let next_check_label = if i < all_matching_type_ids.len() - 1 {
+                self.new_label(&format!("typecheck.class{}", i))
             } else {
-                check_next_label.clone()
+                false_label.to_string()
             };
 
             self.emit_line(&format!("  br i1 {}, label %{}, label %{}",
                 is_match, true_label, next_check_label));
 
-            if i < implementing_classes.len() - 1 {
+            if i < all_matching_type_ids.len() - 1 {
                 self.emit_line(&format!("\n{}:", next_check_label));
             }
         }
 
-        self.emit_line(&format!("\n{}:", check_next_label));
+        Ok(())
+    }
 
-        // 检查父类
-        let parent_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to i8**",
-            parent_ptr, current_type));
+    fn generate_interface_check(&mut self, actual_type_id: &str, interface_name: &str, true_label: &str, false_label: &str) -> cayResult<()> {
+        let implementing_type_ids: Vec<i32> = if let Some(ref registry) = self.type_registry {
+            registry.classes.values()
+                .filter(|c| {
+                    if c.interfaces.contains(&interface_name.to_string()) {
+                        return true;
+                    }
+                    let mut current = c.parent.as_ref().map(|p| p.as_str());
+                    while let Some(parent_name) = current {
+                        if let Some(parent_class) = registry.get_class(parent_name) {
+                            if parent_class.interfaces.contains(&interface_name.to_string()) {
+                                return true;
+                            }
+                            current = parent_class.parent.as_ref().map(|p| p.as_str());
+                        } else {
+                            break;
+                        }
+                    }
+                    false
+                })
+                .filter_map(|c| self.get_type_id_value(&c.name))
+                .collect()
+        } else {
+            Vec::new()
+        };
 
-        let parent_type = self.new_temp();
-        self.emit_line(&format!("  {} = load i8*, i8** {}",
-            parent_type, parent_ptr));
+        if implementing_type_ids.is_empty() {
+            self.emit_line(&format!("  br label %{}", false_label));
+            return Ok(());
+        }
 
-        let has_parent = self.new_temp();
-        self.emit_line(&format!("  {} = icmp ne i8* {}, null",
-            has_parent, parent_type));
+        for (i, type_id_value) in implementing_type_ids.iter().enumerate() {
+            let is_match = self.new_temp();
+            self.emit_line(&format!("  {} = icmp eq i32 {}, {}",
+                is_match, actual_type_id, type_id_value));
 
-        let continue_label = self.new_label("interface_check.cont");
-        self.emit_line(&format!("  br i1 {}, label %{}, label %{}",
-            has_parent, continue_label, false_label));
+            let next_check_label = if i < implementing_type_ids.len() - 1 {
+                self.new_label(&format!("interface_check.class{}", i))
+            } else {
+                false_label.to_string()
+            };
 
-        self.emit_line(&format!("\n{}:", continue_label));
-        self.emit_line(&format!("  store i8* {}, i8** {}", parent_type, current_type_var));
-        self.emit_line(&format!("  br label %{}", loop_label));
+            self.emit_line(&format!("  br i1 {}, label %{}, label %{}",
+                is_match, true_label, next_check_label));
+
+            if i < implementing_type_ids.len() - 1 {
+                self.emit_line(&format!("\n{}:", next_check_label));
+            }
+        }
 
         Ok(())
     }
