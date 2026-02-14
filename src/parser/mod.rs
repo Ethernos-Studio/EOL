@@ -31,6 +31,7 @@ impl Parser {
     pub fn parse(&mut self) -> cayResult<Program> {
         let mut classes = Vec::new();
         let mut interfaces = Vec::new();
+        let mut top_level_functions = Vec::new();
 
         while !self.is_at_end() {
             if self.check(&crate::lexer::Token::Interface)
@@ -38,18 +39,25 @@ impl Parser {
             {
                 interfaces.push(self.parse_interface()?);
             } else if self.check(&crate::lexer::Token::Class)
-                || self.check(&crate::lexer::Token::Public)
                 || self.check(&crate::lexer::Token::Private)
                 || self.check(&crate::lexer::Token::Protected)
                 || self.check(&crate::lexer::Token::AtMain)
             {
                 classes.push(self.parse_class()?);
+            } else if self.check(&crate::lexer::Token::Public) {
+                // 检查是否是顶层 main 函数: public int main() 或 public int main(String[] args)
+                if self.check_top_level_main() {
+                    top_level_functions.push(self.parse_top_level_function()?);
+                } else {
+                    // 否则可能是 public class
+                    classes.push(self.parse_class()?);
+                }
             } else {
-                return Err(self.error("Expected class or interface declaration"));
+                return Err(self.error("Expected class, interface, or top-level function declaration"));
             }
         }
 
-        Ok(Program { classes, interfaces })
+        Ok(Program { classes, interfaces, top_level_functions })
     }
 
     // 类解析方法
@@ -247,6 +255,71 @@ impl Parser {
     
     fn error(&self, message: &str) -> crate::error::cayError {
         utils::error(self, message)
+    }
+
+    /// 检查是否是顶层 main 函数
+    fn check_top_level_main(&self) -> bool {
+        // 需要 lookahead: public (int|void) main
+        let mut pos = self.pos;
+        // 跳过 public
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        pos += 1;
+
+        // 检查是否是 int 或 void
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        match &self.tokens[pos].token {
+            crate::lexer::Token::Int | crate::lexer::Token::Void => {}
+            _ => return false,
+        }
+        pos += 1;
+
+        // 检查是否是 main
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        match &self.tokens[pos].token {
+            crate::lexer::Token::Identifier(name) if name == "main" => true,
+            _ => false,
+        }
+    }
+
+    /// 解析顶层函数
+    fn parse_top_level_function(&mut self) -> cayResult<crate::ast::TopLevelFunction> {
+        let loc = self.current_loc();
+
+        // 必须是以 public 开始
+        self.consume(&crate::lexer::Token::Public, "Expected 'public' for top-level function")?;
+
+        // 解析返回类型
+        let return_type = match self.current_token() {
+            crate::lexer::Token::Int => { self.advance(); crate::types::Type::Int32 }
+            crate::lexer::Token::Void => { self.advance(); crate::types::Type::Void }
+            _ => return Err(self.error("Top-level main function must return int or void")),
+        };
+
+        // 解析函数名
+        let name = self.consume_identifier("Expected function name")?;
+
+        // 解析参数列表
+        self.consume(&crate::lexer::Token::LParen, "Expected '(' after function name")?;
+        let params = self.parse_parameters()?;
+        self.consume(&crate::lexer::Token::RParen, "Expected ')' after parameters")?;
+
+        // 解析函数体
+        let body = self.parse_block()?;
+
+        Ok(crate::ast::TopLevelFunction {
+            name,
+            modifiers: vec![crate::ast::Modifier::Public],
+            return_type,
+            params,
+            body,
+            loc,
+        })
     }
 }
 

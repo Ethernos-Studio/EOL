@@ -8,13 +8,70 @@ use crate::types::Type;
 use crate::error::cayResult;
 
 impl IRGenerator {
+    /// 从表达式推断类型
+    fn infer_type_from_expr(&self, expr: &Expr) -> Option<Type> {
+        match expr {
+            Expr::Literal(lit) => match lit {
+                LiteralValue::Int32(_) => Some(Type::Int32),
+                LiteralValue::Int64(_) => Some(Type::Int64),
+                LiteralValue::Float32(_) => Some(Type::Float32),
+                LiteralValue::Float64(_) => Some(Type::Float64),
+                LiteralValue::String(_) => Some(Type::String),
+                LiteralValue::Bool(_) => Some(Type::Bool),
+                LiteralValue::Char(_) => Some(Type::Char),
+                LiteralValue::Null => Some(Type::Object("Object".to_string())),
+            },
+            Expr::Identifier(name) => {
+                // 从变量类型映射中查找
+                self.var_types.get(name).and_then(|llvm_type| {
+                    self.llvm_type_to_cay_type(llvm_type)
+                })
+            },
+            Expr::Binary(bin) => {
+                // 对于二元表达式，尝试推断结果类型
+                self.infer_type_from_expr(&bin.left)
+            },
+            Expr::Unary(unary) => {
+                self.infer_type_from_expr(&unary.operand)
+            },
+            Expr::Call(call) => {
+                // 对于函数调用，需要知道函数的返回类型
+                // 这里简化处理，返回 int 作为默认值
+                Some(Type::Int32)
+            },
+            _ => Some(Type::Int32), // 默认返回 int
+        }
+    }
+
+    /// 将 LLVM 类型转换为 Cayvy 类型
+    fn llvm_type_to_cay_type(&self, llvm_type: &str) -> Option<Type> {
+        match llvm_type {
+            "i32" => Some(Type::Int32),
+            "i64" => Some(Type::Int64),
+            "float" => Some(Type::Float32),
+            "double" => Some(Type::Float64),
+            "i1" => Some(Type::Bool),
+            "i8" => Some(Type::Char),
+            "i8*" => Some(Type::String),
+            _ => {
+                // 检查是否是对象指针类型
+                if llvm_type.starts_with("%") && llvm_type.ends_with("*") {
+                    let class_name = llvm_type.trim_start_matches('%').trim_end_matches('*');
+                    Some(Type::Object(class_name.to_string()))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     /// 生成变量声明代码
     pub fn generate_var_decl(&mut self, var: &VarDecl) -> cayResult<()> {
         // 处理 auto 类型推断
         let actual_type = if var.var_type == Type::Auto {
             // 从初始化器推断类型
             if let Some(init) = &var.initializer {
-                self.infer_expr_type(init)?
+                self.infer_type_from_expr(init).unwrap_or(Type::Int32)
             } else {
                 return Err(crate::error::semantic_error(
                     var.loc.line, var.loc.column,

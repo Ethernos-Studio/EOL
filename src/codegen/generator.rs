@@ -11,6 +11,15 @@ impl IRGenerator {
         let mut main_method = None;
         let mut fallback_main_class = None;
         let mut fallback_main_method = None;
+        let mut top_level_main = None;
+
+        // 检查是否有顶层 main 函数
+        for func in &program.top_level_functions {
+            if func.name == "main" {
+                top_level_main = Some(func.clone());
+                break;
+            }
+        }
 
         for class in &program.classes {
             self.collect_static_fields(class)?;
@@ -32,7 +41,10 @@ impl IRGenerator {
             }
         }
 
-        if main_class.is_none() {
+        // 优先使用顶层 main 函数
+        let use_top_level_main = top_level_main.is_some();
+
+        if main_class.is_none() && !use_top_level_main {
             main_class = fallback_main_class;
             main_method = fallback_main_method;
         }
@@ -40,13 +52,37 @@ impl IRGenerator {
         self.emit_static_field_declarations();
         self.register_type_identifiers(program);
 
+        // 生成顶层函数
+        for func in &program.top_level_functions {
+            self.generate_top_level_function(func)?;
+        }
+
         for class in &program.classes {
             self.generate_class(class)?;
         }
 
         self.output.push_str(&self.code);
 
-        if let (Some(class_name), Some(main_method)) = (main_class, main_method) {
+        // 生成 C entry point
+        if use_top_level_main {
+            // 使用顶层 main 函数
+            let func = top_level_main.unwrap();
+            self.output.push_str("; C entry point\n");
+            self.output.push_str(&format!("define i32 @main() {{\n"));
+            self.output.push_str("entry:\n");
+            self.output.push_str("  call void @SetConsoleOutputCP(i32 65001)\n");
+            self.generate_static_array_initialization();
+            let main_fn_name = self.generate_top_level_function_name(&func.name);
+            if func.return_type == Type::Void {
+                self.output.push_str(&format!("  call void @{}()\n", main_fn_name));
+                self.output.push_str("  ret i32 0\n");
+            } else {
+                self.output.push_str(&format!("  %ret = call i32 @{}()\n", main_fn_name));
+                self.output.push_str("  ret i32 %ret\n");
+            }
+            self.output.push_str("}\n");
+            self.output.push_str("\n");
+        } else if let (Some(class_name), Some(main_method)) = (main_class, main_method) {
             self.output.push_str("; C entry point\n");
             self.output.push_str(&format!("define i32 @main() {{\n"));
             self.output.push_str("entry:\n");
@@ -538,5 +574,50 @@ impl IRGenerator {
             let param_types: Vec<String> = (0..arg_count).map(|_| "i".to_string()).collect();
             format!("{}.__ctor_{}", class_name, param_types.join("_"))
         }
+    }
+
+    /// 生成顶层函数
+    fn generate_top_level_function(&mut self, func: &crate::ast::TopLevelFunction) -> cayResult<()> {
+        let fn_name = self.generate_top_level_function_name(&func.name);
+        self.current_function = fn_name.clone();
+        self.current_class = String::new(); // 顶层函数没有类
+        self.current_return_type = self.type_to_llvm(&func.return_type);
+
+        self.temp_counter = 0;
+        self.var_types.clear();
+        self.scope_manager.reset();
+        self.loop_stack.clear();
+
+        let ret_type = self.current_return_type.clone();
+        let params: Vec<String> = func.params.iter()
+            .map(|p| format!("{} %{}.param", self.type_to_llvm(&p.param_type), p.name))
+            .collect();
+
+        self.emit_line(&format!("define {} @{}({}) {{",
+            ret_type, fn_name, params.join(", ")));
+        self.indent += 1;
+
+        self.emit_line("entry:");
+
+        for param in &func.params {
+            let param_type = self.type_to_llvm(&param.param_type);
+            let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+            self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
+            self.emit_line(&format!("  store {} %{}.param, {}* %{}",
+                param_type, param.name, param_type, llvm_name));
+            self.var_types.insert(param.name.clone(), param_type);
+        }
+
+        self.generate_block(&func.body)?;
+
+        if func.return_type == Type::Void {
+            self.emit_line("  ret void");
+        }
+
+        self.indent -= 1;
+        self.emit_line("}");
+        self.emit_line("");
+
+        Ok(())
     }
 }

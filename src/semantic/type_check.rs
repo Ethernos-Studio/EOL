@@ -122,7 +122,21 @@ impl SemanticAnalyzer {
                 self.infer_expr_type(expr)?;
             }
             Stmt::VarDecl(var) => {
-                let var_type = var.var_type.clone();
+                let mut var_type = var.var_type.clone();
+                
+                // 处理 auto 类型推断
+                if var_type == Type::Auto {
+                    if let Some(init) = &var.initializer {
+                        var_type = self.infer_expr_type(init)?;
+                    } else {
+                        self.errors.push(format!(
+                            "'auto' variable declaration requires an initializer at line {}",
+                            var.loc.line
+                        ));
+                        var_type = Type::Int32; // 默认回退类型
+                    }
+                }
+                
                 if let Some(init) = &var.initializer {
                     let init_type = self.infer_expr_type(init)?;
                     if !self.types_compatible(&init_type, &var_type) {

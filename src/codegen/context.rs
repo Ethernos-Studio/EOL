@@ -342,6 +342,12 @@ impl IRGenerator {
         }
     }
 
+    /// 生成顶层函数名称
+    /// 格式: __toplevel_function_name
+    pub fn generate_top_level_function_name(&self, name: &str) -> String {
+        format!("__toplevel_{}", name)
+    }
+
     /// 注册类型标识符
     pub fn register_type_id(&mut self, class_name: &str, parent_name: Option<&str>, interfaces: Vec<String>) -> String {
         let type_id = format!("@__type_id_{}", class_name);

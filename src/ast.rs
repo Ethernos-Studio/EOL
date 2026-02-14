@@ -5,6 +5,18 @@ use crate::error::SourceLocation;
 pub struct Program {
     pub classes: Vec<ClassDecl>,
     pub interfaces: Vec<InterfaceDecl>,
+    pub top_level_functions: Vec<TopLevelFunction>,
+}
+
+/// 顶层函数声明（类外函数）
+#[derive(Debug, Clone)]
+pub struct TopLevelFunction {
+    pub name: String,
+    pub modifiers: Vec<Modifier>,
+    pub return_type: Type,
+    pub params: Vec<ParameterInfo>,
+    pub body: Block,
+    pub loc: SourceLocation,
 }
 
 #[derive(Debug, Clone)]
@@ -392,6 +404,7 @@ impl Default for Program {
         Self {
             classes: Vec::new(),
             interfaces: Vec::new(),
+            top_level_functions: Vec::new(),
         }
     }
 }

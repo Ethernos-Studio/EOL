@@ -1,0 +1,25 @@
+// 测试 0.4.3.x 版本新特性 - 基础版
+// - var/let 后置类型声明
+// - auto 自动类型推断
+// - 顶层 main 函数
+
+public int main() {
+    // 测试 var 后置类型声明
+    var x: int = 10;
+    println(x);
+
+    // 测试 let 后置类型声明
+    let y: int = 20;
+    println(y);
+
+    // 测试 auto 自动类型推断 - int
+    auto a = 42;
+    println(a);
+
+    // 测试表达式中的 auto 变量
+    auto sum = x + y + a;
+    println(sum);
+
+    println(9999);
+    return 0;
+}

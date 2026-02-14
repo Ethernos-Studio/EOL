@@ -1,8 +1,8 @@
 (*
- * EOL (Ethernos Object Language) 语法规范 - EBNF 表示
- * 版本: 0.3.5.0
+ * Cavvy 编程语言语法规范 - EBNF 表示
+ * 版本: 0.4.3.0
  *
- * 本文件使用扩展巴科斯-瑙尔范式 (EBNF) 描述 EOL 编程语言的语法结构。
+ * 本文件使用扩展巴科斯-瑙尔范式 (EBNF) 描述 Cavvy 编程语言的语法结构。
  * 符号约定:
  *   - "..."  : 终结符 (字面量)
  *   - =      : 定义
@@ -56,7 +56,15 @@ endif_directive = "#endif";
  * 程序结构
  * ============================================================================ *)
 
-program = { preprocessor_directive | class_declaration | interface_declaration };
+program = { preprocessor_directive | class_declaration | interface_declaration | top_level_function };
+
+(* 顶层函数声明 - 0.4.3.x 新增 *)
+top_level_function = [ modifiers ], ( type | "void" ), "main", "(", [ parameter_list ], ")", block;
+
+(* 顶层函数示例：
+ *   public int main() { return 0; }
+ *   public int main(String[] args) { return 0; }
+ *)
 
 class_declaration = [ annotation ], [ modifiers ], "class", identifier, [ inheritance ], [ implementation ], "{", { class_member }, "}";
 
@@ -135,7 +143,11 @@ varargs_parameter = type, "...", identifier;
 
 type = primitive_type | reference_type;
 
-primitive_type = "int" | "long" | "float" | "double" | "bool" | "string" | "char";
+primitive_type = "int" | "long" | "float" | "double" | "bool" | "string" | "char" | "auto";
+
+(* auto 类型 - 0.4.3.x 新增 *)
+(* auto 类型用于自动类型推断，编译器根据初始化表达式推断实际类型 *)
+(* 注意：auto 类型必须带有初始化表达式 *)
 
 reference_type = identifier, { "[", "]" } | primitive_type, { "[", "]" };
 
@@ -157,7 +169,21 @@ statement = block
           | continue_statement
           | expression_statement;
 
-variable_declaration = [ "final" ], type, identifier, [ "=", ( expression | array_initializer ) ], ";";
+variable_declaration = [ "final" ], type, identifier, [ "=", ( expression | array_initializer ) ], ";"
+                     | modern_variable_declaration;
+
+(* 现代变量声明语法 - 0.4.3.x 新增 *)
+(* 支持 var/let 后置类型声明和 auto 自动类型推断 *)
+modern_variable_declaration = [ "final" ], ( "var" | "let" | "auto" ), identifier, [ ":", type ], [ "=", expression ], ";";
+
+(* 现代变量声明示例：
+ *   var x: int = 10;           (* var 后置类型声明 *)
+ *   let y: int = 20;           (* let 后置类型声明 *)
+ *   final var z: int = 30;     (* final var 后置类型声明 *)
+ *   auto a = 42;               (* auto 自动类型推断为 int *)
+ *   auto b = 3.14;             (* auto 自动类型推断为 double *)
+ *   auto s = "Hello";          (* auto 自动类型推断为 String *)
+ *)
 
 array_initializer = "{", [ expression, { ",", expression } ], "}";
 
