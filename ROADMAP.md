@@ -193,10 +193,15 @@ EOL (Ethernos Object Language) 是一个始终编译为原生机器码的静态�
 - [ ] **支持动态链接库** - 支持在不同平台上的动态链接库加载，避免依赖特定平台的链接器
 
 #### 0.4.7.x 生态兼容
-- [ ] **可导入C/C++库** - 支持导入C/C++库函数，如 `printf`, `malloc`, `free` 等
-- [ ] **可导入C/C++库头文件** - 支持导入C/C++库头文件，如 `<stdio.h>`, `<stdlib.h>` 等
-  - 通过`#include "C" <stdio.h>` 等导入头文件，确保在不同平台上的兼容性
-  - 支持自定义头文件路径，如 `-Ipath` 选项
+- [ ] **手动 extern 声明** - 在 Cavvy 代码中直接声明 C 函数签名
+  - 语法：`extern "C" { fn printf(fmt: *const u8, ...); }`
+  - 支持调用约定标记：`extern "stdcall"` (Windows), `extern "sysv64"` (Linux)
+  - 类型映射：使用显式 FFI 类型（`c_int`, `c_long`, `size_t` 等）
+- [ ] **FFI 基础类型包** - 标准库新增 `std.ffi` 模块
+  - `CInt`, `CLong`, `SizeT` 等跨平台固定宽度别名
+  - `RawPtr<T>` 裸指针类型（不参与 GC，用于接 C 指针）
+- [ ] **链接器集成** - 编译时自动链接系统库（`-lc`, `-lm`, `-luser32` 等）
+  - 命令行支持：`cavvyc link --lib=stdc++`
 
 ### 阶段三：零开销标准库 (0.5.x.x)
 **目标**：建立无 GC、显式内存管理的标准库，证明 EOL 可以替代 C++ 用于系统编程。
