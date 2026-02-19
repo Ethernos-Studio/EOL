@@ -98,6 +98,11 @@ fn main() {
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| out_path.clone());
     
+    // 检测目标平台
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let is_windows = target_os == "windows";
+    let is_linux = target_os == "linux";
+    
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=.verinfo");
     println!("cargo:rerun-if-changed=llvm-minimal/");
@@ -105,23 +110,46 @@ fn main() {
     println!("cargo:rerun-if-changed=mingw-minimal/");
     println!("cargo:rerun-if-changed=third-party/");
     
-    // 复制 llvm-minimal 目录
-    copy_dir_all("llvm-minimal", &target_dir.join("llvm-minimal"))
-        .expect("Failed to copy llvm-minimal directory");
+    if is_windows {
+        // Windows平台：复制Windows版LLVM工具
+        copy_dir_all("llvm-minimal", &target_dir.join("llvm-minimal"))
+            .expect("Failed to copy llvm-minimal directory");
+        
+        // 复制 MinGW 库
+        copy_dir_all("lib", &target_dir.join("lib"))
+            .expect("Failed to copy lib directory");
+        
+        // 复制 MinGW 运行时DLL
+        copy_dir_all("mingw-minimal", &target_dir.join("mingw-minimal"))
+            .expect("Failed to copy mingw-minimal directory");
+        
+        println!("cargo:warning=Copied Windows toolchain (LLVM + MinGW) to {}", target_dir.display());
+    } else if is_linux {
+        // Linux平台：只复制Linux版LLVM工具
+        // 创建 llvm-minimal 目录结构，但只复制 bin-linux
+        let llvm_dst = target_dir.join("llvm-minimal");
+        fs::create_dir_all(&llvm_dst).expect("Failed to create llvm-minimal directory");
+        
+        // 复制 bin-linux 到目标目录
+        copy_dir_all("llvm-minimal/bin-linux", &llvm_dst.join("bin-linux"))
+            .expect("Failed to copy llvm-minimal/bin-linux directory");
+        
+        // 复制 lib 目录（LLVM库是跨平台的）
+        copy_dir_all("llvm-minimal/lib", &llvm_dst.join("lib"))
+            .expect("Failed to copy llvm-minimal/lib directory");
+        
+        println!("cargo:warning=Copied Linux toolchain (LLVM Linux binaries) to {}", target_dir.display());
+    } else {
+        // 其他平台：复制完整的llvm-minimal
+        copy_dir_all("llvm-minimal", &target_dir.join("llvm-minimal"))
+            .expect("Failed to copy llvm-minimal directory");
+        
+        println!("cargo:warning=Copied generic toolchain to {}", target_dir.display());
+    }
     
-    // 复制 lib 目录
-    copy_dir_all("lib", &target_dir.join("lib"))
-        .expect("Failed to copy lib directory");
-    
-    // 复制 mingw-minimal 目录
-    copy_dir_all("mingw-minimal", &target_dir.join("mingw-minimal"))
-        .expect("Failed to copy mingw-minimal directory");
-    
-    // 复制 third-party 目录 (许可证文件)
+    // 复制 third-party 目录 (许可证文件) - 所有平台都需要
     copy_dir_all("third-party", &target_dir.join("third-party"))
         .expect("Failed to copy third-party directory");
-    
-    println!("cargo:warning=Copied toolchain and license directories to {}", target_dir.display());
 }
 
 fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {

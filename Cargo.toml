@@ -8,6 +8,7 @@ thiserror = "2.0"
 anyhow = "1.0"
 logos = "0.15"
 
+# Windows平台构建所有bin（包括依赖MinGW的ir2exe）
 [[bin]]
 name = "cayc"
 path = "src/bin/cayc.rs"

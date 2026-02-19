@@ -5,9 +5,25 @@ use std::path::{Path, PathBuf};
 use cavvy::Compiler;
 use cavvy::error::{print_error_with_context, cayError};
 
+/// 根据平台获取 llvm-minimal 下的 clang 路径
+#[cfg(target_os = "windows")]
+fn get_bundled_clang_path(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("llvm-minimal/bin/clang.exe")
+}
+
+#[cfg(target_os = "linux")]
+fn get_bundled_clang_path(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("llvm-minimal/bin-linux/clang-21")
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+fn get_bundled_clang_path(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("llvm-minimal/bin/clang")
+}
+
 /// 查找 clang 可执行文件
 /// 1. 首先尝试直接调用 "clang"（系统 PATH 中）
-/// 2. 如果失败，尝试查找编译器所在目录下的 llvm-minimal/bin/clang.exe
+/// 2. 如果失败，尝试查找编译器所在目录下的 llvm-minimal/bin/clang
 /// 3. 如果都找不到，返回错误
 fn find_clang() -> Result<PathBuf, String> {
     // 1. 首先尝试系统 PATH 中的 clang
@@ -20,7 +36,7 @@ fn find_clang() -> Result<PathBuf, String> {
     // 2. 尝试编译器所在目录下的 llvm-minimal
     if let Ok(exe_path) = env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
-            let bundled_clang = exe_dir.join("llvm-minimal/bin/clang.exe");
+            let bundled_clang = get_bundled_clang_path(exe_dir);
             if bundled_clang.exists() {
                 return Ok(bundled_clang);
             }
@@ -341,11 +357,18 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
 
     let input_file = input_file.ok_or("需要指定输入文件")?;
     let output_file = output_file.unwrap_or_else(|| {
-        Path::new(&input_file)
+        let stem = Path::new(&input_file)
             .file_stem()
             .and_then(|stem| stem.to_str())
-            .map(|stem| format!("{}.exe", stem))
-            .unwrap_or_else(|| "output.exe".to_string())
+            .unwrap_or("output");
+        
+        // 根据目标平台选择扩展名
+        if options.target.contains("windows") || options.target.contains("mingw") {
+            format!("{}.exe", stem)
+        } else {
+            // Linux和其他系统不使用.exe扩展名
+            stem.to_string()
+        }
     });
 
     Ok((options, input_file, output_file))

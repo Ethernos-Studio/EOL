@@ -2,9 +2,41 @@ use std::env;
 use std::process;
 use std::path::{Path, PathBuf};
 
+/// 根据平台获取 clang 可执行文件名
+#[cfg(target_os = "windows")]
+fn get_clang_exe_name() -> &'static str {
+    "clang.exe"
+}
+
+#[cfg(target_os = "linux")]
+fn get_clang_exe_name() -> &'static str {
+    "clang-21"
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+fn get_clang_exe_name() -> &'static str {
+    "clang"
+}
+
+/// 根据平台获取 llvm-minimal 下的 clang 路径
+#[cfg(target_os = "windows")]
+fn get_bundled_clang_path(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("llvm-minimal/bin/clang.exe")
+}
+
+#[cfg(target_os = "linux")]
+fn get_bundled_clang_path(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("llvm-minimal/bin-linux/clang-21")
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+fn get_bundled_clang_path(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("llvm-minimal/bin/clang")
+}
+
 /// 查找 clang 可执行文件
 /// 1. 首先尝试直接调用 "clang"（系统 PATH 中）
-/// 2. 如果失败，尝试查找编译器所在目录下的 llvm-minimal/bin/clang.exe
+/// 2. 如果失败，尝试查找编译器所在目录下的 llvm-minimal/bin/clang
 /// 3. 如果都找不到，返回错误
 fn find_clang() -> Result<PathBuf, String> {
     // 1. 首先尝试系统 PATH 中的 clang
@@ -17,7 +49,7 @@ fn find_clang() -> Result<PathBuf, String> {
     // 2. 尝试编译器所在目录下的 llvm-minimal
     if let Ok(exe_path) = env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
-            let bundled_clang = exe_dir.join("llvm-minimal/bin/clang.exe");
+            let bundled_clang = get_bundled_clang_path(exe_dir);
             if bundled_clang.exists() {
                 return Ok(bundled_clang);
             }
@@ -119,9 +151,34 @@ impl Default for CompileOptions {
     }
 }
 
+/// 获取默认目标平台（用于帮助信息）
+fn get_default_target_for_help() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "x86_64-w64-mingw32"
+    } else if cfg!(target_os = "linux") {
+        "x86_64-unknown-linux-gnu"
+    } else if cfg!(target_os = "macos") {
+        "x86_64-apple-darwin"
+    } else {
+        "x86_64-unknown-linux-gnu"
+    }
+}
+
+/// 获取输出文件扩展名示例
+fn get_output_extension() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "output.exe"
+    } else {
+        "output"
+    }
+}
+
 fn print_usage() {
+    let default_target = get_default_target_for_help();
+    let output_ext = get_output_extension();
+    
     println!("ir2exe v{}", VERSION);
-    println!("Usage: ir2exe [options] <input_file.ll> [output_file.exe]");
+    println!("Usage: ir2exe [options] <input_file.ll> [output_file]");
     println!("");
     println!("Optimization Options:");
     println!("  -O0, -O1, -O2, -O3    优化级别 (默认: -O2)");
@@ -151,7 +208,7 @@ fn print_usage() {
     println!("  --cflags <flags>      传递额外的编译器标志");
     println!("  --static              静态链接");
     println!("  -fPIC                 生成位置无关代码");
-    println!("  --target <target>     指定目标平台 (默认: x86_64-w64-mingw32)");
+    println!("  --target <target>     指定目标平台 (默认: {})", default_target);
     println!("  --fno-exceptions      禁用异常处理");
     println!("  --fno-rtti            禁用运行时类型信息");
     println!("");
@@ -160,14 +217,14 @@ fn print_usage() {
     println!("  --help, -h            显示帮助信息");
     println!("");
     println!("Examples:");
-    println!("  ir2exe input.ll output.exe");
-    println!("  ir2exe -O3 --lto input.ll output.exe");
-    println!("  ir2exe -O3 --march=native --mtune=native input.ll output.exe");
-    println!("  ir2exe -O3 --mavx2 --fvectorize input.ll output.exe");
-    println!("  ir2exe --pgo-gen -O2 input.ll output.exe      # 编译分析版本");
+    println!("  ir2exe input.ll {}", output_ext);
+    println!("  ir2exe -O3 --lto input.ll {}", output_ext);
+    println!("  ir2exe -O3 --march=native --mtune=native input.ll {}", output_ext);
+    println!("  ir2exe -O3 --mavx2 --fvectorize input.ll {}", output_ext);
+    println!("  ir2exe --pgo-gen -O2 input.ll {}      # 编译分析版本", output_ext);
     println!("  # 运行程序生成 .profraw 文件后...");
     println!("  llvm-profdata merge *.profraw -o app.profdata");
-    println!("  ir2exe --pgo-use app.profdata -O3 input.ll output.exe  # 编译优化版本");
+    println!("  ir2exe --pgo-use app.profdata -O3 input.ll {}  # 编译优化版本", output_ext);
 }
 
 fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), String> {
@@ -697,11 +754,23 @@ fn main() {
         println!("");
         println!("[I] PGO: 运行程序生成 .profraw 文件后，执行:");
         println!("    llvm-profdata merge *.profraw -o app.profdata");
-        println!("    ir2exe --pgo-use app.profdata [其他选项] input.ll output.exe");
+        println!("    ir2exe --pgo-use app.profdata [其他选项] input.ll {}", 
+            if cfg!(target_os = "windows") { "output.exe" } else { "output" });
     }
 
     println!("");
-    println!("[I] 提示: 使用 '{}' 可直接运行并测速", output_file);
+    println!("[I] 提示: 使用 './{}' 可直接运行并测速", output_file);
     println!("");
-    println!("编译完成 (MinGW-w64 模式)");
+    
+    // 根据目标平台显示完成消息
+    let mode_str = if options.target.contains("windows") || options.target.contains("mingw") {
+        "MinGW-w64 模式"
+    } else if options.target.contains("linux") {
+        "Linux ELF 模式"
+    } else if options.target.contains("darwin") {
+        "macOS 模式"
+    } else {
+        "通用模式"
+    };
+    println!("编译完成 ({})", mode_str);
 }
