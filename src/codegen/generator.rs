@@ -179,8 +179,8 @@ impl IRGenerator {
             self.output.push_str("; C entry point\n");
             self.output.push_str(&format!("define i32 @main() {{\n"));
             self.output.push_str("entry:\n");
-            // 只在 Windows 平台上设置控制台代码页
-            if cfg!(target_os = "windows") {
+            // 只在 Windows 目标平台上设置控制台代码页
+            if self.is_windows_target() {
                 self.output.push_str("  call void @SetConsoleOutputCP(i32 65001)\n");
             }
             self.generate_static_array_initialization();

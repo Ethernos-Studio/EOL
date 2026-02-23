@@ -51,9 +51,8 @@ impl IRGenerator {
             let mut declarations = String::new();
             match config.target_os.as_str() {
                 "windows" => {
-                    if config.is_feature_enabled("console_utf8") {
-                        declarations.push_str("declare dllimport void @SetConsoleOutputCP(i32)\n");
-                    }
+                    // Windows 平台总是声明 SetConsoleOutputCP，因为 generator.rs 中总是调用它
+                    declarations.push_str("declare dllimport void @SetConsoleOutputCP(i32)\n");
                     if config.is_defined("WINDOWS_SPECIFIC") {
                         declarations.push_str("declare void @WindowsSpecificInit()\n");
                     }
@@ -73,8 +72,8 @@ impl IRGenerator {
                 _ => {}
             }
             declarations
-        } else if cfg!(target_os = "windows") {
-            // 向后兼容：如果没有平台配置，使用编译时平台
+        } else if self.target_triple.contains("windows") || self.target_triple.contains("mingw32") {
+            // 向后兼容：如果没有平台配置，使用目标三元组判断
             "declare void @SetConsoleOutputCP(i32)\n".to_string()
         } else {
             "".to_string()
