@@ -23,7 +23,14 @@ impl IRGenerator {
         self.emit_raw("; cay (Ethernos Object Language) Generated LLVM IR");
         
         // 根据目标平台设置目标三元组
-        let target_triple = if cfg!(target_os = "windows") {
+        let target_triple = if let Some(config) = &self.platform_config {
+            match config.target_os.as_str() {
+                "windows" => "x86_64-w64-mingw32",
+                "linux" => "x86_64-unknown-linux-gnu",
+                "macos" => "x86_64-apple-darwin",
+                _ => "x86_64-unknown-linux-gnu"
+            }
+        } else if cfg!(target_os = "windows") {
             "x86_64-w64-mingw32"
         } else if cfg!(target_os = "linux") {
             "x86_64-unknown-linux-gnu"
@@ -39,9 +46,60 @@ impl IRGenerator {
         self.emit_raw("declare i32 @printf(i8*, ...)");
         self.emit_raw("declare i32 @scanf(i8*, ...)");
         
-        // 只在 Windows 平台上声明 Windows API 函数
-        if cfg!(target_os = "windows") {
-            self.emit_raw("declare void @SetConsoleOutputCP(i32)");
+        // 根据平台配置声明平台特定函数
+        let platform_declarations = if let Some(config) = &self.platform_config {
+            let mut declarations = String::new();
+            match config.target_os.as_str() {
+                "windows" => {
+                    if config.is_feature_enabled("console_utf8") {
+                        declarations.push_str("declare dllimport void @SetConsoleOutputCP(i32)\n");
+                    }
+                    if config.is_defined("WINDOWS_SPECIFIC") {
+                        declarations.push_str("declare void @WindowsSpecificInit()\n");
+                    }
+                }
+                "linux" | "macos" => {
+                    if config.is_feature_enabled("console_utf8") {
+                        declarations.push_str("declare i8* @setlocale(i32, i8*)\n");
+                        declarations.push_str("@.str.locale = private unnamed_addr constant [6 x i8] c\"C.UTF-8\"\00\n");
+                    }
+                    if config.is_defined("LINUX_SPECIFIC") {
+                        declarations.push_str("declare void @LinuxSpecificInit()\n");
+                    }
+                    if config.is_defined("MACOS_SPECIFIC") {
+                        declarations.push_str("declare void @MacOSSpecificInit()\n");
+                    }
+                }
+                _ => {}
+            }
+            declarations
+        } else if cfg!(target_os = "windows") {
+            // 向后兼容：如果没有平台配置，使用编译时平台
+            "declare void @SetConsoleOutputCP(i32)\n".to_string()
+        } else {
+            "".to_string()
+        };
+        
+        // 发射宏定义
+        if let Some(config) = &self.platform_config {
+            let mut has_macros = false;
+            let defines = config.defines.clone(); // 克隆以避免借用冲突
+            let undefines = config.undefines.clone(); // 克隆以避免借用冲突
+            
+            for define in &defines {
+                if !undefines.contains(define) {
+                    self.emit_raw(&format!("; #define {}", define));
+                    has_macros = true;
+                }
+            }
+            if has_macros {
+                self.emit_raw("");
+            }
+        }
+
+        // 发射平台特定声明
+        if !platform_declarations.is_empty() {
+            self.emit_raw(&platform_declarations);
         }
         
         self.emit_raw("declare i64 @strlen(i8*)");

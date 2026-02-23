@@ -3,6 +3,81 @@ use crate::ast::*;
 use crate::types::Type;
 use crate::error::cayResult;
 
+/// 平台抽象层 - 处理不同操作系统的差异
+#[derive(Debug, Clone)]
+pub struct PlatformAbstraction {
+    pub target_os: String,
+    pub features: Vec<String>,
+    pub defines: Vec<String>,
+    pub undefines: Vec<String>,
+}
+
+impl PlatformAbstraction {
+    pub fn new(target_os: &str) -> Self {
+        Self {
+            target_os: target_os.to_string(),
+            features: Vec::new(),
+            defines: Vec::new(),
+            undefines: Vec::new(),
+        }
+    }
+    
+    /// 添加平台特性
+    pub fn with_feature(mut self, feature: &str) -> Self {
+        self.features.push(feature.to_string());
+        self
+    }
+    
+    /// 添加宏定义
+    pub fn with_define(mut self, define: &str) -> Self {
+        self.defines.push(define.to_string());
+        self
+    }
+    
+    /// 取消宏定义
+    pub fn with_undefine(mut self, undefine: &str) -> Self {
+        self.undefines.push(undefine.to_string());
+        self
+    }
+    
+    /// 生成平台特定的初始化代码
+    pub fn generate_platform_init(&self) -> String {
+        match self.target_os.as_str() {
+            "windows" => {
+                if self.features.contains(&"console_utf8".to_string()) {
+                    return "  call void @SetConsoleOutputCP(i32 65001)\n".to_string();
+                }
+            }
+            "linux" | "macos" => {
+                // Linux/macOS 使用 setlocale 设置 UTF-8
+                if self.features.contains(&"console_utf8".to_string()) {
+                    return "  call void @setlocale(i32 0, i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.locale, i32 0, i32 0))\n".to_string();
+                }
+            }
+            _ => {}
+        }
+        String::new()
+    }
+    
+    /// 生成平台特定的运行时声明
+    pub fn generate_platform_declarations(&self) -> String {
+        let mut declarations = String::new();
+        
+        match self.target_os.as_str() {
+            "windows" => {
+                declarations.push_str("declare dllimport void @SetConsoleOutputCP(i32)\n");
+            }
+            "linux" | "macos" => {
+                declarations.push_str("declare i8* @setlocale(i32, i8*)\n");
+                declarations.push_str("@.str.locale = private unnamed_addr constant [6 x i8] c\\\"C.UTF-8\\\"\\00\n");
+            }
+            _ => {}
+        }
+        
+        declarations
+    }
+}
+
 impl IRGenerator {
     pub fn generate(&mut self, program: &Program) -> cayResult<String> {
         self.emit_header();
@@ -74,17 +149,21 @@ impl IRGenerator {
 
         self.output.push_str(&self.code);
 
-        // 生成 C entry point
+        // 生成跨平台 C entry point
         if use_top_level_main {
             // 使用顶层 main 函数
             let func = top_level_main.unwrap();
-            self.output.push_str("; C entry point\n");
-            self.output.push_str(&format!("define i32 @main() {{\n"));
+            self.output.push_str("; Cross-platform C entry point\n");
+            self.output.push_str(&format!("define i32 @main() {{
+"));
             self.output.push_str("entry:\n");
-            // 只在 Windows 平台上设置控制台代码页
-            if cfg!(target_os = "windows") {
-                self.output.push_str("  call void @SetConsoleOutputCP(i32 65001)\n");
+            
+            // 使用平台配置生成初始化代码
+            let platform_init = self.generate_platform_init();
+            if !platform_init.is_empty() {
+                self.output.push_str(&platform_init);
             }
+            
             self.generate_static_array_initialization();
             let main_fn_name = self.generate_top_level_function_name(&func.name);
             if func.return_type == Type::Void {

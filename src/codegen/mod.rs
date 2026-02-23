@@ -9,6 +9,8 @@ mod expressions;
 mod statements;
 pub mod runtime;
 mod generator;
+mod platform;
+pub mod obfuscator;
 
 // 公开 IRGenerator 作为代码生成器的入口
 pub use context::IRGenerator;

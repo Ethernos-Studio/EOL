@@ -1,6 +1,7 @@
 //! IR生成上下文和状态管理
 use std::collections::HashMap;
 use crate::types::TypeRegistry;
+use crate::codegen::platform::PlatformConfig;
 
 /// 循环上下文，用于支持 break/continue
 #[derive(Debug, Clone)]
@@ -171,6 +172,7 @@ pub struct IRGenerator {
     pub type_id_map: HashMap<String, TypeIdInfo>,
     pub type_id_counter: usize,
     pub class_layouts: HashMap<String, ClassLayoutInfo>,  // 类实例布局信息
+    pub platform_config: Option<PlatformConfig>, 
 }
 
 impl IRGenerator {
@@ -203,6 +205,7 @@ impl IRGenerator {
             type_id_map: HashMap::new(),
             type_id_counter: 0,
             class_layouts: HashMap::new(),
+            platform_config: None,
         }
     }
 
@@ -213,7 +216,11 @@ impl IRGenerator {
 
     /// 检查是否是 Windows 目标平台
     pub fn is_windows_target(&self) -> bool {
-        self.target_triple.contains("windows") || self.target_triple.contains("mingw32")
+        if let Some(config) = &self.platform_config {
+            config.target_os == "windows"
+        } else {
+            self.target_triple.contains("windows") || self.target_triple.contains("mingw32")
+        }
     }
 
     /// 获取 i64 类型的 printf/scanf 格式符
@@ -503,5 +510,41 @@ impl IRGenerator {
     /// 获取实例字段信息
     pub fn get_instance_field(&self, class_name: &str, field_name: &str) -> Option<&InstanceFieldInfo> {
         self.class_layouts.get(class_name)?.fields.get(field_name)
+    }
+
+    /// 设置平台配置
+    pub fn set_platform_config(&mut self, config: &crate::CompilerOptions) {
+        let platform_config = PlatformConfig {
+            target_os: config.target_os.clone(),
+            features: config.features.clone(),
+            no_features: config.no_features.clone(),
+            defines: config.defines.clone(),
+            undefines: config.undefines.clone(),
+            obfuscate: config.obfuscate,
+        };
+        self.platform_config = Some(platform_config);
+    }
+
+    /// 获取平台配置
+    pub fn get_platform_config(&self) -> Option<&PlatformConfig> {
+        self.platform_config.as_ref()
+    }
+
+    /// 生成平台特定的运行时声明
+    pub fn generate_platform_declarations(&self) -> String {
+        if let Some(config) = &self.platform_config {
+            config.generate_platform_declarations()
+        } else {
+            String::new()
+        }
+    }
+
+    /// 生成平台特定的初始化代码
+    pub fn generate_platform_init(&self) -> String {
+        if let Some(config) = &self.platform_config {
+            config.generate_platform_init()
+        } else {
+            String::new()
+        }
     }
 }

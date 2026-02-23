@@ -37,6 +37,12 @@ struct CompileOptions {
     optimization: String,    // -O0, -O1, -O2, -O3, -Os, -Oz
     optimize_ir: bool,       // --opt-ir: 使用 clang 优化 IR
     emit_optimized: bool,    // --emit-optimized: 输出发优化后的 IR
+    target_os: String,       // --target: 目标操作系统
+    features: Vec<String>,   // -f:XX 或 --feature:XX 开启特性
+    no_features: Vec<String>, // -No:XX 关闭特性
+    defines: Vec<String>,    // -D:XX 定义宏
+    undefines: Vec<String>,  // -U:XX 取消定义宏
+    obfuscate: bool,         // --obfuscate 混淆 IR 代码
 }
 
 impl Default for CompileOptions {
@@ -45,6 +51,12 @@ impl Default for CompileOptions {
             optimization: "-O2".to_string(),
             optimize_ir: false,
             emit_optimized: false,
+            target_os: std::env::consts::OS.to_string(),
+            features: Vec::new(),
+            no_features: Vec::new(),
+            defines: Vec::new(),
+            undefines: Vec::new(),
+            obfuscate: false,
         }
     }
 }
@@ -58,6 +70,12 @@ fn print_usage() {
     println!("  -Os, -Oz              优化代码大小");
     println!("  --opt-ir              使用 LLVM 优化 IR (增加编译时间，提高运行时性能)");
     println!("  --emit-optimized      输出优化后的 IR (与 --opt-ir 一起使用)");
+    println!("  --target <os>         目标操作系统 (windows, linux, macos)");
+    println!("  --obfuscate           混淆 IR 代码");
+    println!("  -f:XX, --feature:XX   启用特定功能");
+    println!("  -No:XX                禁用特定功能");
+    println!("  -D:XX                 定义宏");
+    println!("  -U:XX                 取消定义宏");
     println!("  --version, -v         显示版本号");
     println!("  --help, -h            显示帮助信息");
     println!("");
@@ -94,6 +112,37 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
             }
             "--emit-optimized" => {
                 options.emit_optimized = true;
+            }
+            "--target" => {
+                if i + 1 < args.len() {
+                    options.target_os = args[i + 1].clone();
+                    i += 1;
+                } else {
+                    return Err("--target 需要一个参数，如 windows、linux、macos".to_string());
+                }
+            }
+            "--obfuscate" => {
+                options.obfuscate = true;
+            }
+            arg if arg.starts_with("-f:") || arg.starts_with("--feature:") => {
+                let feature = if arg.starts_with("-f:") {
+                    &arg[3..]
+                } else {
+                    &arg[10..]
+                };
+                options.features.push(feature.to_string());
+            }
+            arg if arg.starts_with("-No:") => {
+                let feature = &arg[4..];
+                options.no_features.push(feature.to_string());
+            }
+            arg if arg.starts_with("-D:") => {
+                let define = &arg[3..];
+                options.defines.push(define.to_string());
+            }
+            arg if arg.starts_with("-U:") => {
+                let undefine = &arg[3..];
+                options.undefines.push(undefine.to_string());
             }
             _ => {
                 if arg.starts_with('-') {
@@ -182,8 +231,18 @@ fn main() {
     }
     println!("");
 
+    // 创建多平台编译器配置
+    let compiler_options = cavvy::CompilerOptions {
+        target_os: options.target_os,
+        features: options.features,
+        no_features: options.no_features,
+        defines: options.defines,
+        undefines: options.undefines,
+        obfuscate: options.obfuscate,
+    };
+
     // 编译 Cavvy → IR
-    let compiler = Compiler::new();
+    let compiler = Compiler::with_options(compiler_options);
     let temp_ir_file = format!("{}.tmp.ll", output_path.trim_end_matches(".ll"));
 
     match compiler.compile_file(&source_path, &temp_ir_file) {

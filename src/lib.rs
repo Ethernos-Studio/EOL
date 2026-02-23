@@ -10,11 +10,43 @@ pub mod codegen;
 use std::path::{Path, PathBuf};
 use error::cayResult;
 
-pub struct Compiler;
+/// 编译器配置选项
+#[derive(Debug, Clone)]
+pub struct CompilerOptions {
+    pub target_os: String,
+    pub features: Vec<String>,
+    pub no_features: Vec<String>,
+    pub defines: Vec<String>,
+    pub undefines: Vec<String>,
+    pub obfuscate: bool,
+}
+
+impl Default for CompilerOptions {
+    fn default() -> Self {
+        Self {
+            target_os: std::env::consts::OS.to_string(),
+            features: Vec::new(),
+            no_features: Vec::new(),
+            defines: Vec::new(),
+            undefines: Vec::new(),
+            obfuscate: false,
+        }
+    }
+}
+
+pub struct Compiler {
+    options: CompilerOptions,
+}
 
 impl Compiler {
     pub fn new() -> Self {
-        Self
+        Self {
+            options: CompilerOptions::default(),
+        }
+    }
+    
+    pub fn with_options(options: CompilerOptions) -> Self {
+        Self { options }
     }
 
     /// 编译源代码为 LLVM IR
@@ -48,9 +80,18 @@ impl Compiler {
 
         // 4. 代码生成 - 生成LLVM IR（字符串常量已在生成器内处理）
         let mut ir_gen = codegen::IRGenerator::new();
+        // 传递多平台配置
+        ir_gen.set_platform_config(&self.options);
         // 传递类型注册表以支持正确的方法名生成
         ir_gen.set_type_registry(analyzer.get_type_registry().clone());
-        let ir = ir_gen.generate(&ast)?;
+        let mut ir = ir_gen.generate(&ast)?;
+        
+        // 5. 如果启用了混淆，应用IR混淆
+        if self.options.obfuscate {
+            use codegen::obfuscator::IRObfuscator;
+            let mut obfuscator = IRObfuscator::new();
+            ir = obfuscator.obfuscate_ir(&ir);
+        }
         
         // 输出到文件
         std::fs::write(output_path, ir)
