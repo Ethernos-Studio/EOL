@@ -1,6 +1,6 @@
 [package]
 name = "cavvy"
-version = "0.4.4"
+version = "0.4.6"
 edition = "2024"
 
 [dependencies]
@@ -24,3 +24,15 @@ path = "src/bin/ir2exe.rs"
 [[bin]]
 name = "cay-check"
 path = "src/bin/cay-check.rs"
+
+[[bin]]
+name = "cay-run"
+path = "src/bin/cay-run.rs"
+
+[[bin]]
+name = "cay-dll"
+path = "src/bin/cay-dll.rs"
+
+[[bin]]
+name = "cay-rcpl"
+path = "src/bin/cay-rcpl.rs"

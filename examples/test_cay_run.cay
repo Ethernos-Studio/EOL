@@ -1,0 +1,24 @@
+// 测试 cay-run 伪运行时功能的示例程序
+// 使用: cay-run test_cay_run.cay
+
+public class Main {
+    public static int main(String[] args) {
+        println("Hello from cay-run!");
+        println("This program is compiled to temp directory and executed.");
+        
+        // 测试基本运算
+        int a = 10;
+        int b = 20;
+        int sum = a + b;
+        println("Sum of " + a + " and " + b + " is: " + sum);
+        
+        // 测试循环
+        println("Counting from 1 to 5:");
+        for (int i = 1; i <= 5; i = i + 1) {
+            println("  " + i);
+        }
+        
+        println("Program completed successfully!");
+        return 0;
+    }
+}
