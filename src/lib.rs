@@ -1,5 +1,6 @@
 pub mod error;
 pub mod diagnostic;
+pub mod miette_diagnostic;
 pub mod types;
 pub mod ast;
 pub mod preprocessor;
