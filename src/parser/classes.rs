@@ -253,11 +253,12 @@ pub fn parse_method(parser: &mut Parser) -> cayResult<MethodDecl> {
     let params = parse_parameters(parser)?;
     parser.consume(&Token::RParen, "Expected ')' after parameters")?;
     
-    // 检查是否是native方法
+    // 检查是否是native方法或abstract方法（这两种都可以没有方法体）
     let is_native = modifiers.contains(&Modifier::Native);
+    let is_abstract = modifiers.contains(&Modifier::Abstract);
     
-    let body = if is_native {
-        parser.consume(&Token::Semicolon, "Expected ';' after native method declaration")?;
+    let body = if is_native || is_abstract {
+        parser.consume(&Token::Semicolon, "Expected ';' after method declaration")?;
         None
     } else {
         Some(parse_block(parser)?)
