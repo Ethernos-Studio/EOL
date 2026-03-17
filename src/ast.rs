@@ -6,6 +6,7 @@ pub struct Program {
     pub classes: Vec<ClassDecl>,
     pub interfaces: Vec<InterfaceDecl>,
     pub top_level_functions: Vec<TopLevelFunction>,
+    pub extern_declarations: Vec<ExternDecl>,  // FFI extern 声明
 }
 
 /// 顶层函数声明（类外函数）
@@ -17,6 +18,33 @@ pub struct TopLevelFunction {
     pub params: Vec<ParameterInfo>,
     pub body: Block,
     pub loc: SourceLocation,
+}
+
+/// Extern 声明 - FFI 外部函数声明
+#[derive(Debug, Clone)]
+pub struct ExternDecl {
+    pub calling_convention: CallingConvention,  // 调用约定
+    pub functions: Vec<ExternFunction>,         // 声明的函数列表
+    pub loc: SourceLocation,
+}
+
+/// 外部函数声明
+#[derive(Debug, Clone)]
+pub struct ExternFunction {
+    pub name: String,
+    pub return_type: Type,
+    pub params: Vec<ParameterInfo>,
+    pub loc: SourceLocation,
+}
+
+/// 调用约定
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallingConvention {
+    Cdecl,      // 默认 C 调用约定
+    Stdcall,    // Windows stdcall
+    Fastcall,   // fastcall
+    Sysv64,     // System V AMD64 ABI (Linux/macOS)
+    Win64,      // Windows x64 calling convention
 }
 
 #[derive(Debug, Clone)]
@@ -405,6 +433,7 @@ impl Default for Program {
             classes: Vec::new(),
             interfaces: Vec::new(),
             top_level_functions: Vec::new(),
+            extern_declarations: Vec::new(),
         }
     }
 }

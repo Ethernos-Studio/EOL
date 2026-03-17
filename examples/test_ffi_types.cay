@@ -1,0 +1,44 @@
+// 测试 FFI 类型系统
+
+extern {
+    // 基本整数类型
+    c_char get_char();
+    c_short get_short();
+    c_int get_int();
+    c_long get_long();
+
+    // 浮点类型
+    c_float get_float();
+    c_double get_double();
+
+    // 指针类型
+    size_t get_size();
+    ssize_t get_ssize();
+    uintptr_t get_uintptr();
+    intptr_t get_intptr();
+
+    // 布尔类型
+    c_bool check_condition();
+
+    // 带参数的函数
+    c_int process_data(c_int data, c_long size);
+    c_double calculate(c_float x, c_double y);
+}
+
+class TestFFITypes {
+    public static int main() {
+        // 声明 FFI 类型的变量
+        c_int ci = 42;
+        c_long cl = 100L;
+        c_float cf = 3.14f;
+        c_double cd = 2.71828;
+        c_char cc = 65;  // 'A'
+        c_short cs = 1000;
+        size_t sz = 1024;
+        ssize_t ssz = -1;
+        c_bool cb = 1;
+
+        println("FFI types test passed");
+        return 0;
+    }
+}

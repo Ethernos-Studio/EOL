@@ -1,0 +1,15 @@
+// 测试基本的 extern 声明功能
+// 声明 C 标准库函数
+
+extern {
+    c_int printf(c_int fmt);
+    c_int puts(c_int str);
+}
+
+class TestExternBasic {
+    public static int main() {
+        // 测试调用外部函数（只是声明，不实际执行）
+        println("Extern declaration test passed");
+        return 0;
+    }
+}

@@ -1,0 +1,20 @@
+// 测试 extern 调用约定
+
+extern cdecl {
+    c_int printf_cdecl(c_int fmt);
+}
+
+extern stdcall {
+    c_int printf_stdcall(c_int fmt);
+}
+
+extern sysv64 {
+    c_int printf_sysv(c_int fmt);
+}
+
+class TestExternCallingConvention {
+    public static int main() {
+        println("Calling convention test passed");
+        return 0;
+    }
+}

@@ -138,6 +138,11 @@ impl IRGenerator {
         self.emit_static_field_declarations();
         self.register_type_identifiers(program);
 
+        // 生成 extern 函数声明
+        for extern_decl in &program.extern_declarations {
+            self.generate_extern_declaration(extern_decl)?;
+        }
+
         // 生成顶层函数
         for func in &program.top_level_functions {
             self.generate_top_level_function(func)?;
@@ -216,6 +221,11 @@ impl IRGenerator {
         }
 
         self.output = output;
+
+        // 如果有 extern 声明，添加调用约定属性
+        if !program.extern_declarations.is_empty() {
+            self.output.push_str(&self.generate_calling_convention_attributes());
+        }
 
         Ok(self.output.clone())
     }
@@ -733,5 +743,55 @@ impl IRGenerator {
         self.emit_line("");
 
         Ok(())
+    }
+
+    /// 生成 extern 函数声明
+    fn generate_extern_declaration(&mut self, extern_decl: &crate::ast::ExternDecl) -> cayResult<()> {
+        for func in &extern_decl.functions {
+            self.generate_extern_function(extern_decl.calling_convention, func)?;
+        }
+        Ok(())
+    }
+
+    /// 生成单个 extern 函数声明
+    fn generate_extern_function(&mut self, calling_conv: crate::ast::CallingConvention, func: &crate::ast::ExternFunction) -> cayResult<()> {
+        let ret_type = self.type_to_llvm(&func.return_type);
+
+        // 构建参数列表
+        let params: Vec<String> = func.params.iter()
+            .map(|p| self.type_to_llvm(&p.param_type))
+            .collect();
+
+        // 获取调用约定属性
+        let cc_attr = self.calling_convention_to_llvm_attr(calling_conv);
+
+        // 生成声明
+        let decl = if params.is_empty() {
+            if cc_attr.is_empty() {
+                format!("declare {} @{}()\n", ret_type, func.name)
+            } else {
+                format!("declare {} @{}() {}\n", ret_type, func.name, cc_attr)
+            }
+        } else {
+            if cc_attr.is_empty() {
+                format!("declare {} @{}({})\n", ret_type, func.name, params.join(", "))
+            } else {
+                format!("declare {} @{}({}) {}\n", ret_type, func.name, params.join(", "), cc_attr)
+            }
+        };
+
+        self.emit_raw(&decl);
+        Ok(())
+    }
+
+    /// 将调用约定转换为 LLVM 属性
+    fn calling_convention_to_llvm_attr(&self, cc: crate::ast::CallingConvention) -> String {
+        match cc {
+            crate::ast::CallingConvention::Cdecl => "#0".to_string(),
+            crate::ast::CallingConvention::Stdcall => "#1".to_string(),
+            crate::ast::CallingConvention::Fastcall => "#2".to_string(),
+            crate::ast::CallingConvention::Sysv64 => "#3".to_string(),
+            crate::ast::CallingConvention::Win64 => "#4".to_string(),
+        }
     }
 }

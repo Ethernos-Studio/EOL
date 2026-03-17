@@ -95,6 +95,46 @@ pub enum Token {
     Let,
     #[token("auto")]
     Auto,
+    #[token("extern")]
+    Extern,
+
+    // FFI 类型关键字
+    #[token("c_int")]
+    CInt,
+    #[token("c_long")]
+    CLong,
+    #[token("c_short")]
+    CShort,
+    #[token("c_char")]
+    CChar,
+    #[token("c_float")]
+    CFloat,
+    #[token("c_double")]
+    CDouble,
+    #[token("size_t")]
+    SizeT,
+    #[token("ssize_t")]
+    SSizeT,
+    #[token("uintptr_t")]
+    UIntPtr,
+    #[token("intptr_t")]
+    IntPtr,
+    #[token("c_void")]
+    CVoid,
+    #[token("c_bool")]
+    CBool,
+
+    // 调用约定关键字
+    #[token("cdecl")]
+    Cdecl,
+    #[token("stdcall")]
+    Stdcall,
+    #[token("fastcall")]
+    Fastcall,
+    #[token("sysv64")]
+    Sysv64,
+    #[token("win64")]
+    Win64,
 
     // 标识符
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]

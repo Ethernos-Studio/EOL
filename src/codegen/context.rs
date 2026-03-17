@@ -374,6 +374,19 @@ impl IRGenerator {
             Type::Array(inner) => format!("a{}", self.type_to_signature(inner)),
             Type::Function(_) => "fn".to_string(),
             Type::Auto => panic!("Type::Auto should have been resolved before code generation"),
+            // FFI 类型签名
+            Type::CInt => "ci".to_string(),
+            Type::CLong => "cl".to_string(),
+            Type::CShort => "cs".to_string(),
+            Type::CChar => "cc".to_string(),
+            Type::CFloat => "cf".to_string(),
+            Type::CDouble => "cd".to_string(),
+            Type::SizeT => "sz".to_string(),
+            Type::SSizeT => "ssz".to_string(),
+            Type::UIntPtr => "up".to_string(),
+            Type::IntPtr => "ip".to_string(),
+            Type::CVoid => "cv".to_string(),
+            Type::CBool => "cb".to_string(),
         }
     }
 
@@ -546,5 +559,18 @@ impl IRGenerator {
         } else {
             String::new()
         }
+    }
+
+    /// 生成调用约定属性组定义
+    pub fn generate_calling_convention_attributes(&self) -> String {
+        let mut attrs = String::new();
+        attrs.push_str("; Calling convention attributes\n");
+        attrs.push_str("attributes #0 = { \"cdecl\" }\n");
+        attrs.push_str("attributes #1 = { \"stdcall\" }\n");
+        attrs.push_str("attributes #2 = { \"fastcall\" }\n");
+        attrs.push_str("attributes #3 = { \"sysv64\" }\n");
+        attrs.push_str("attributes #4 = { \"win64\" }\n");
+        attrs.push('\n');
+        attrs
     }
 }

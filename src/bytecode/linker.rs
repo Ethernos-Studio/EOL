@@ -162,6 +162,134 @@ impl AutoLinker {
                 self.config.libraries.insert("ws2_32".to_string());
             }
         }
+
+        // 分析 extern 声明中的 C 库函数
+        self.analyze_extern_declarations(ir_code);
+    }
+
+    /// 分析 extern 声明中的 C 库函数
+    fn analyze_extern_declarations(&mut self, ir_code: &str) {
+        // 常见的 C 标准库函数及其所属的库
+        let c_stdlib_functions = [
+            ("@printf", "c"),
+            ("@scanf", "c"),
+            ("@sprintf", "c"),
+            ("@sscanf", "c"),
+            ("@fprintf", "c"),
+            ("@fscanf", "c"),
+            ("@malloc", "c"),
+            ("@calloc", "c"),
+            ("@realloc", "c"),
+            ("@free", "c"),
+            ("@strlen", "c"),
+            ("@strcpy", "c"),
+            ("@strncpy", "c"),
+            ("@strcat", "c"),
+            ("@strncat", "c"),
+            ("@strcmp", "c"),
+            ("@strncmp", "c"),
+            ("@strchr", "c"),
+            ("@strstr", "c"),
+            ("@memcpy", "c"),
+            ("@memmove", "c"),
+            ("@memset", "c"),
+            ("@memcmp", "c"),
+            ("@fopen", "c"),
+            ("@fclose", "c"),
+            ("@fread", "c"),
+            ("@fwrite", "c"),
+            ("@fgets", "c"),
+            ("@fputs", "c"),
+            ("@getchar", "c"),
+            ("@putchar", "c"),
+            ("@puts", "c"),
+            ("@gets", "c"),
+            ("@exit", "c"),
+            ("@abort", "c"),
+            ("@qsort", "c"),
+            ("@bsearch", "c"),
+            ("@time", "c"),
+            ("@clock", "c"),
+            ("@srand", "c"),
+            ("@rand", "c"),
+        ];
+
+        let math_functions = [
+            ("@sqrt", "m"),
+            ("@sqrtf", "m"),
+            ("@sin", "m"),
+            ("@cos", "m"),
+            ("@tan", "m"),
+            ("@asin", "m"),
+            ("@acos", "m"),
+            ("@atan", "m"),
+            ("@atan2", "m"),
+            ("@exp", "m"),
+            ("@log", "m"),
+            ("@log10", "m"),
+            ("@pow", "m"),
+            ("@ceil", "m"),
+            ("@floor", "m"),
+            ("@fabs", "m"),
+            ("@fmod", "m"),
+            ("@round", "m"),
+            ("@trunc", "m"),
+        ];
+
+        // 检查 C 标准库函数
+        for (func, lib) in &c_stdlib_functions {
+            if ir_code.contains(func) {
+                self.config.libraries.insert(lib.to_string());
+            }
+        }
+
+        // 检查数学库函数
+        for (func, lib) in &math_functions {
+            if ir_code.contains(func) {
+                self.config.libraries.insert(lib.to_string());
+            }
+        }
+
+        // Windows 特定函数
+        if cfg!(target_os = "windows") {
+            let windows_functions = [
+                ("@MessageBox", "user32"),
+                ("@GetLastError", "kernel32"),
+                ("@Sleep", "kernel32"),
+                ("@CreateThread", "kernel32"),
+                ("@WaitForSingleObject", "kernel32"),
+                ("@SetConsoleOutputCP", "kernel32"),
+                ("@GetConsoleOutputCP", "kernel32"),
+                ("@SetConsoleCP", "kernel32"),
+                ("@GetConsoleCP", "kernel32"),
+                ("@AllocConsole", "kernel32"),
+                ("@FreeConsole", "kernel32"),
+            ];
+
+            for (func, lib) in &windows_functions {
+                if ir_code.contains(func) {
+                    self.config.libraries.insert(lib.to_string());
+                }
+            }
+        }
+
+        // POSIX / Linux 特定函数
+        if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
+            let posix_functions = [
+                ("@pthread_create", "pthread"),
+                ("@pthread_join", "pthread"),
+                ("@pthread_mutex_lock", "pthread"),
+                ("@dlopen", "dl"),
+                ("@dlsym", "dl"),
+                ("@dlclose", "dl"),
+            ];
+
+            for (func, lib) in &posix_functions {
+                if ir_code.contains(func) {
+                    self.config.libraries.insert(lib.to_string());
+                }
+            }
+        }
     }
 
     /// 从字节码模块分析需要的库
@@ -245,11 +373,39 @@ impl AutoLinker {
 
         // 平台特定的默认库
         if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
-            args.push("-lm".to_string()); // 数学库
-            args.push("-lc".to_string()); // C库
+            // 确保数学库和 C 库被链接
+            if !self.config.libraries.contains("m") {
+                args.push("-lm".to_string());
+            }
+            if !self.config.libraries.contains("c") {
+                args.push("-lc".to_string());
+            }
         }
 
         args
+    }
+
+    /// 添加外部库链接（用于 extern 声明）
+    pub fn add_external_library(&mut self, lib_name: &str) {
+        self.config.libraries.insert(lib_name.to_string());
+    }
+
+    /// 添加多个外部库链接
+    pub fn add_external_libraries(&mut self, libs: &[&str]) {
+        for lib in libs {
+            self.config.libraries.insert(lib.to_string());
+        }
+    }
+
+    /// 从 extern 声明添加库
+    pub fn link_extern_library(&mut self, lib_name: &str) -> bool {
+        // 检查库是否存在
+        if self.find_library(lib_name).is_some() {
+            self.config.libraries.insert(lib_name.to_string());
+            true
+        } else {
+            false
+        }
     }
 
     /// 检查所有需要的库是否都存在

@@ -42,6 +42,40 @@ impl SemanticAnalyzer {
             (Type::Array(from_elem), Type::Array(to_elem)) => {
                 self.types_compatible(from_elem, to_elem)
             }
+            // FFI 类型与基本类型之间的兼容
+            // c_int <-> int
+            (Type::CInt, Type::Int32) | (Type::Int32, Type::CInt) => true,
+            // c_long <-> long
+            (Type::CLong, Type::Int64) | (Type::Int64, Type::CLong) => true,
+            // c_short <-> int
+            (Type::CShort, Type::Int32) | (Type::Int32, Type::CShort) => true,
+            // c_char <-> int 或 char
+            (Type::CChar, Type::Int32) | (Type::Int32, Type::CChar) => true,
+            (Type::CChar, Type::Char) | (Type::Char, Type::CChar) => true,
+            // c_float <-> float
+            (Type::CFloat, Type::Float32) | (Type::Float32, Type::CFloat) => true,
+            // c_double <-> double
+            (Type::CDouble, Type::Float64) | (Type::Float64, Type::CDouble) => true,
+            // size_t/ssize_t <-> long 和 int
+            (Type::SizeT, Type::Int64) | (Type::Int64, Type::SizeT) => true,
+            (Type::SizeT, Type::Int32) | (Type::Int32, Type::SizeT) => true,
+            (Type::SSizeT, Type::Int64) | (Type::Int64, Type::SSizeT) => true,
+            (Type::SSizeT, Type::Int32) | (Type::Int32, Type::SSizeT) => true,
+            // uintptr_t/intptr_t <-> long 和 int
+            (Type::UIntPtr, Type::Int64) | (Type::Int64, Type::UIntPtr) => true,
+            (Type::UIntPtr, Type::Int32) | (Type::Int32, Type::UIntPtr) => true,
+            (Type::IntPtr, Type::Int64) | (Type::Int64, Type::IntPtr) => true,
+            (Type::IntPtr, Type::Int32) | (Type::Int32, Type::IntPtr) => true,
+            // c_bool <-> bool 和 int
+            (Type::CBool, Type::Bool) | (Type::Bool, Type::CBool) => true,
+            (Type::CBool, Type::Int32) | (Type::Int32, Type::CBool) => true,
+            // FFI 类型之间的兼容
+            (Type::CInt, Type::CLong) | (Type::CLong, Type::CInt) => true,
+            (Type::CInt, Type::CShort) | (Type::CShort, Type::CInt) => true,
+            (Type::CInt, Type::CChar) | (Type::CChar, Type::CInt) => true,
+            (Type::CFloat, Type::CDouble) | (Type::CDouble, Type::CFloat) => true,
+            (Type::SizeT, Type::UIntPtr) | (Type::UIntPtr, Type::SizeT) => true,
+            (Type::SSizeT, Type::IntPtr) | (Type::IntPtr, Type::SSizeT) => true,
             _ => false,
         }
     }

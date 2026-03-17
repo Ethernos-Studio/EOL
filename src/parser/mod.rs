@@ -32,6 +32,7 @@ impl Parser {
         let mut classes = Vec::new();
         let mut interfaces = Vec::new();
         let mut top_level_functions = Vec::new();
+        let mut extern_declarations = Vec::new();
 
         while !self.is_at_end() {
             if self.check(&crate::lexer::Token::Interface)
@@ -52,12 +53,14 @@ impl Parser {
                     // 否则可能是 public class
                     classes.push(self.parse_class()?);
                 }
+            } else if self.check(&crate::lexer::Token::Extern) {
+                extern_declarations.push(self.parse_extern_declaration()?);
             } else {
-                return Err(self.error("Expected class, interface, or top-level function declaration"));
+                return Err(self.error("Expected class, interface, extern declaration, or top-level function declaration"));
             }
         }
 
-        Ok(Program { classes, interfaces, top_level_functions })
+        Ok(Program { classes, interfaces, top_level_functions, extern_declarations })
     }
 
     // 类解析方法
@@ -318,6 +321,108 @@ impl Parser {
             return_type,
             params,
             body,
+            loc,
+        })
+    }
+
+    /// 解析 extern 声明
+    fn parse_extern_declaration(&mut self) -> cayResult<crate::ast::ExternDecl> {
+        let loc = self.current_loc();
+
+        // 消费 extern 关键字
+        self.consume(&crate::lexer::Token::Extern, "Expected 'extern'")?;
+
+        // 解析调用约定（可选）
+        let calling_convention = self.parse_calling_convention()?;
+
+        // 解析函数声明列表
+        let mut functions = Vec::new();
+
+        // 支持两种语法:
+        // 1. extern "C" { type func(params); ... }
+        // 2. extern type func(params);
+
+        if self.check(&crate::lexer::Token::StringLiteral(None)) ||
+           matches!(self.current_token(), crate::lexer::Token::StringLiteral(Some(_))) {
+            // 字符串字面量指定调用约定，如 extern "C" { ... }
+            self.advance(); // 消费字符串字面量
+            self.consume(&crate::lexer::Token::LBrace, "Expected '{' after extern calling convention")?;
+
+            while !self.check(&crate::lexer::Token::RBrace) && !self.is_at_end() {
+                functions.push(self.parse_extern_function()?);
+            }
+
+            self.consume(&crate::lexer::Token::RBrace, "Expected '}' after extern block")?;
+        } else if self.check(&crate::lexer::Token::LBrace) {
+            // extern { ... } - 默认 C 调用约定
+            self.advance(); // 消费 {
+
+            while !self.check(&crate::lexer::Token::RBrace) && !self.is_at_end() {
+                functions.push(self.parse_extern_function()?);
+            }
+
+            self.consume(&crate::lexer::Token::RBrace, "Expected '}' after extern block")?;
+        } else {
+            // 单个函数声明: extern type func(params);
+            functions.push(self.parse_extern_function()?);
+        }
+
+        Ok(crate::ast::ExternDecl {
+            calling_convention,
+            functions,
+            loc,
+        })
+    }
+
+    /// 解析调用约定
+    fn parse_calling_convention(&mut self) -> cayResult<crate::ast::CallingConvention> {
+        match self.current_token() {
+            crate::lexer::Token::Cdecl => {
+                self.advance();
+                Ok(crate::ast::CallingConvention::Cdecl)
+            }
+            crate::lexer::Token::Stdcall => {
+                self.advance();
+                Ok(crate::ast::CallingConvention::Stdcall)
+            }
+            crate::lexer::Token::Fastcall => {
+                self.advance();
+                Ok(crate::ast::CallingConvention::Fastcall)
+            }
+            crate::lexer::Token::Sysv64 => {
+                self.advance();
+                Ok(crate::ast::CallingConvention::Sysv64)
+            }
+            crate::lexer::Token::Win64 => {
+                self.advance();
+                Ok(crate::ast::CallingConvention::Win64)
+            }
+            _ => Ok(crate::ast::CallingConvention::Cdecl), // 默认 C 调用约定
+        }
+    }
+
+    /// 解析单个外部函数声明
+    fn parse_extern_function(&mut self) -> cayResult<crate::ast::ExternFunction> {
+        let loc = self.current_loc();
+
+        // 解析返回类型
+        let return_type = self.parse_type()?;
+
+        // 解析函数名
+        let name = self.consume_identifier("Expected function name in extern declaration")?;
+
+        // 解析参数列表
+        self.consume(&crate::lexer::Token::LParen, "Expected '(' after extern function name")?;
+        let params = self.parse_parameters()?;
+        self.consume(&crate::lexer::Token::RParen, "Expected ')' after extern function parameters")?;
+
+        // 消费分号
+        self.consume(&crate::lexer::Token::Semicolon, "Expected ';' after extern function declaration")?;
+
+        Ok(crate::ast::ExternFunction {
+            name,
+            return_type,
+            params,
             loc,
         })
     }

@@ -1,0 +1,52 @@
+// Cavvy v0.4.8.0 功能测试
+// 测试 FFI (Foreign Function Interface) 功能
+
+// 基本 extern 声明 - 声明 C 标准库函数
+extern {
+    c_int printf(c_int fmt);
+    c_int puts(c_int str);
+    c_void exit(c_int code);
+}
+
+// 使用特定调用约定
+extern cdecl {
+    c_int sprintf(c_int buf, c_int fmt);
+}
+
+// Windows 特定调用约定（仅在 Windows 上有效）
+extern stdcall {
+    c_int MessageBoxA(c_int hwnd, c_int text, c_int caption, c_int type);
+}
+
+// Linux/macOS 特定调用约定
+extern sysv64 {
+    c_long sys_write(c_int fd, c_int buf, size_t count);
+}
+
+// 测试 FFI 类型变量声明
+class TestFFI {
+    public static int main() {
+        // 声明 FFI 类型的变量
+        c_int ci = 42;
+        c_long cl = 100L;
+        c_float cf = 3.14f;
+        c_double cd = 2.71828;
+        c_char cc = 65;
+        c_short cs = 1000;
+        size_t sz = (size_t)1024;
+        ssize_t ssz = (ssize_t)(-1);
+        c_bool cb = (c_bool)1;
+
+        // 基本类型转换测试
+        int i = (int)ci;
+        long l = (long)cl;
+        float f = (float)cf;
+        double d = (double)cd;
+
+        println("FFI feature test passed");
+        println("c_int value: " + i);
+        println("c_long value: " + (int)l);
+
+        return 0;
+    }
+}
