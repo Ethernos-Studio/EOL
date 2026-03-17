@@ -1,6 +1,45 @@
 use std::env;
 use std::process;
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, Component};
+use std::fs;
+
+/// 规范化路径，去除 . 和 ..
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut components = Vec::new();
+    
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => {
+                components.push(Component::Prefix(prefix));
+            }
+            Component::RootDir => {
+                components.push(Component::RootDir);
+            }
+            Component::CurDir => {
+                // 忽略 .
+            }
+            Component::ParentDir => {
+                // 处理 ..
+                if let Some(last) = components.last() {
+                    if !matches!(last, Component::ParentDir) {
+                        components.pop();
+                    } else {
+                        components.push(Component::ParentDir);
+                    }
+                }
+            }
+            Component::Normal(normal) => {
+                components.push(Component::Normal(normal));
+            }
+        }
+    }
+    
+    let mut result = PathBuf::new();
+    for component in components {
+        result.push(component.as_os_str());
+    }
+    result
+}
 
 /// 根据平台获取 clang 可执行文件名
 #[cfg(target_os = "windows")]
@@ -465,6 +504,52 @@ fn main() {
             process::exit(1);
         }
     };
+
+    // 将输入文件转换为规范化绝对路径
+    let input_path = Path::new(&input_file);
+    let input_file_abs = if input_path.is_absolute() {
+        input_path.to_path_buf()
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("无法获取当前目录: {}", e))
+            .unwrap_or_else(|e| {
+                eprintln!("错误: {}", e);
+                process::exit(1);
+            })
+            .join(input_path)
+    };
+    // 规范化路径（去除 . 和 ..）
+    let input_file_abs = normalize_path(&input_file_abs);
+    let input_file = input_file_abs.to_string_lossy().to_string();
+
+    // 将输出文件转换为规范化绝对路径
+    let output_path = Path::new(&output_file);
+    let output_file_abs = if output_path.is_absolute() {
+        output_path.to_path_buf()
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("无法获取当前目录: {}", e))
+            .unwrap_or_else(|e| {
+                eprintln!("错误: {}", e);
+                process::exit(1);
+            })
+            .join(output_path)
+    };
+    // 规范化路径（去除 . 和 ..）
+    let output_file_abs = normalize_path(&output_file_abs);
+    let output_file = output_file_abs.to_string_lossy().to_string();
+
+    // 确保输出目录存在
+    if let Some(parent) = output_file_abs.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("无法创建输出目录: {}", e))
+                .unwrap_or_else(|e| {
+                    eprintln!("错误: {}", e);
+                    process::exit(1);
+                });
+        }
+    }
 
     // 根据目标平台显示编译模式
     let mode = if options.target.contains("windows") || options.target.contains("mingw") {

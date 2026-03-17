@@ -192,35 +192,6 @@ enum FileType {
     LlvmIr,      // .ll
 }
 
-/// 查找clang编译器
-fn find_clang() -> Result<PathBuf, String> {
-    // 1. 尝试系统PATH中的clang
-    if let Ok(output) = Command::new("clang").arg("--version").output() {
-        if output.status.success() {
-            return Ok(PathBuf::from("clang"));
-        }
-    }
-
-    // 2. 尝试gcc
-    if let Ok(output) = Command::new("gcc").arg("--version").output() {
-        if output.status.success() {
-            return Ok(PathBuf::from("gcc"));
-        }
-    }
-
-    // 3. 尝试编译器所在目录下的llvm-minimal
-    if let Ok(exe_path) = env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            let bundled_clang = exe_dir.join("llvm-minimal/bin/clang.exe");
-            if bundled_clang.exists() {
-                return Ok(bundled_clang);
-            }
-        }
-    }
-
-    Err("找不到clang或gcc编译器。请确保编译器已安装并在PATH中。".to_string())
-}
-
 /// 获取临时目录
 fn get_temp_dir() -> PathBuf {
     let temp_dir = env::temp_dir().join("cavvy-run");
@@ -378,10 +349,8 @@ fn compile_bytecode_to_ir(bytecode_path: &str, options: &RunOptions) -> Result<S
         .map_err(|e| format!("字节码转IR失败: {}", e))
 }
 
-/// 编译IR为可执行文件
+/// 编译IR为可执行文件（使用ir2exe）
 fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptions) -> Result<(), String> {
-    let clang = find_clang()?;
-
     // 创建临时IR文件
     let temp_ir_file = generate_unique_filename("cay", "ll");
     fs::write(&temp_ir_file, ir_code)
@@ -392,79 +361,65 @@ fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptio
     }
 
     // 获取可执行文件所在目录
-    let exe_dir = env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_else(|| PathBuf::from("."));
+    let current_exe = env::current_exe()
+        .map_err(|e| format!("无法获取当前执行路径: {}", e))?;
+    let bin_dir = current_exe.parent()
+        .ok_or("无法获取执行目录")?;
 
-    // 根据目标平台选择库路径
-    let lib_paths: Vec<PathBuf> = if cfg!(target_os = "windows") {
-        vec![
-            exe_dir.join("lib/mingw64/x86_64-w64-mingw32/lib"),
-            exe_dir.join("lib/mingw64/lib"),
-            exe_dir.join("lib/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0"),
-        ]
-    } else {
-        vec![]
-    };
+    // 查找 ir2exe
+    let ir2exe_paths = [
+        bin_dir.join("ir2exe"),
+        bin_dir.join("ir2exe.exe")
+    ];
+    
+    let ir2exe_path = ir2exe_paths.iter()
+        .find(|path| path.exists())
+        .ok_or_else(|| {
+            let paths_str = ir2exe_paths.iter()
+                .map(|p| format!("  {:?}", p))
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!("错误: 找不到 ir2exe 或 ir2exe.exe 在以下位置:\n{}", paths_str)
+        })?;
 
-    // 直接编译IR到可执行文件（一步完成）
-    let mut cmd = Command::new(&clang);
-    cmd.arg(&temp_ir_file)
-        .arg("-o")
-        .arg(output_path)
-        .arg(&options.optimize)
-        .arg("-Wno-override-module");
+    // 构建 ir2exe 参数
+    let mut ir2exe_args: Vec<String> = vec![];
 
-    // 添加库路径
-    for lib_path in &lib_paths {
-        if lib_path.exists() {
-            cmd.arg("-L").arg(lib_path);
-        }
-    }
+    // 优化级别
+    ir2exe_args.push(options.optimize.clone());
 
-    // 用户指定的库路径
+    // 额外库路径
     for path in &options.lib_paths {
-        cmd.arg("-L").arg(path);
+        ir2exe_args.push(format!("-L{}", path));
     }
 
-    // 自动检测并链接库
-    let mut auto_linker = linker::AutoLinker::default();
-    auto_linker.analyze_ir(ir_code);
-
-    // 添加用户指定的库
+    // 额外库
     for lib in &options.link_libs {
-        auto_linker.config.libraries.insert(lib.clone());
+        ir2exe_args.push(format!("-l{}", lib));
     }
 
-    // 使用 lld 链接器
-    cmd.arg("-fuse-ld=lld");
+    // 输入输出文件
+    ir2exe_args.push(temp_ir_file.to_string_lossy().to_string());
+    ir2exe_args.push(output_path.to_string());
 
-    // 平台特定的默认库
-    if cfg!(target_os = "windows") {
-        cmd.arg("-lkernel32")
-            .arg("-lmsvcrt")
-            .arg("-ladvapi32");
-    } else if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
-        cmd.arg("-lc").arg("-lm");
+    if options.verbose {
+        println!("调用: {} {}", ir2exe_path.display(), ir2exe_args.join(" "));
     }
 
-    // 添加自动检测到的库
-    for lib in &auto_linker.config.libraries {
-        cmd.arg(format!("-l{}", lib));
-    }
+    // 调用ir2exe
+    let output = Command::new(&ir2exe_path)
+        .args(&ir2exe_args)
+        .output()
+        .map_err(|e| format!("执行ir2exe失败: {}", e))?;
 
-    let output = cmd.output()
-        .map_err(|e| format!("运行clang失败: {}", e))?;
+    // 清理临时IR文件
+    if !options.keep_temp {
+        let _ = fs::remove_file(&temp_ir_file);
+    }
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("编译IR失败: {}", stderr));
-    }
-
-    // 清理临时文件
-    if !options.keep_temp {
-        let _ = fs::remove_file(&temp_ir_file);
     }
 
     Ok(())
@@ -472,12 +427,23 @@ fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptio
 
 /// 运行可执行文件
 fn run_executable(exe_path: &str, options: &RunOptions) -> Result<i32, String> {
+    // 转换为绝对路径
+    let exe_path_abs = Path::new(exe_path);
+    let exe_path_abs = if exe_path_abs.is_absolute() {
+        exe_path_abs.to_path_buf()
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("无法获取当前目录: {}", e))?
+            .join(exe_path_abs)
+    };
+    let exe_path_str = exe_path_abs.to_string_lossy().to_string();
+
     if options.verbose {
-        println!("运行: {}", exe_path);
+        println!("运行: {}", exe_path_str);
         println!();
     }
 
-    let mut cmd = Command::new(exe_path);
+    let mut cmd = Command::new(&exe_path_str);
     cmd.stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
