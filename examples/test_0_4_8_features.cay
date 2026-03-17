@@ -1,26 +1,25 @@
 // Cavvy v0.4.8.0 功能测试
 // 测试 FFI (Foreign Function Interface) 功能
 
-// 基本 extern 声明 - 声明 C 标准库函数
+// 基本 extern 声明 - 声明 C 标准库函数（使用不常见的函数避免冲突）
 extern {
-    c_int printf(c_int fmt);
-    c_int puts(c_int str);
-    c_void exit(c_int code);
+    c_int getchar();
+    c_int putchar(c_int c);
 }
 
 // 使用特定调用约定
 extern cdecl {
-    c_int sprintf(c_int buf, c_int fmt);
+    c_int atoi(c_int str);
 }
 
 // Windows 特定调用约定（仅在 Windows 上有效）
 extern stdcall {
-    c_int MessageBoxA(c_int hwnd, c_int text, c_int caption, c_int type);
+    c_int GetLastError();
 }
 
 // Linux/macOS 特定调用约定
 extern sysv64 {
-    c_long sys_write(c_int fd, c_int buf, size_t count);
+    c_long getpid();
 }
 
 // 测试 FFI 类型变量声明
