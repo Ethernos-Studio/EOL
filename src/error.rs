@@ -365,7 +365,9 @@ fn get_error_location(error: &cayError) -> Option<(usize, usize)> {
 /// 
 /// # Example
 /// ```
-/// print_error_with_context(&error, &source, "test.cay");
+/// use cavvy::error::{lexer_error, print_error_with_context};
+/// let error = lexer_error(1, 1, "无效的字符");
+/// print_error_with_context(&error, "let x = @", "test.cay");
 /// ```
 pub fn print_error_with_context(error: &cayError, source: &str, filename: &str) {
     // 尝试获取错误位置
@@ -464,6 +466,7 @@ fn get_highlight_length(error: &cayError) -> usize {
 /// 
 /// # Example
 /// ```
+/// use cavvy::error::print_miette_error;
 /// print_miette_error("cavvy::io_error", "无法读取文件", Some("请检查文件路径是否正确"));
 /// ```
 pub fn print_miette_error(error_type: &str, message: &str, help: Option<&str>) {
@@ -488,6 +491,7 @@ pub fn print_miette_error(error_type: &str, message: &str, help: Option<&str>) {
 /// 
 /// # Example
 /// ```
+/// use cavvy::error::print_compile_error;
 /// print_compile_error("词法分析", "无效的字符", "test.cay", Some("请检查字符编码"));
 /// ```
 pub fn print_compile_error(stage: &str, error: &str, source_path: &str, help: Option<&str>) {
@@ -515,6 +519,7 @@ pub fn print_compile_error(stage: &str, error: &str, source_path: &str, help: Op
 /// 
 /// # Example
 /// ```
+/// use cavvy::error::print_tool_error;
 /// print_tool_error("clang", "编译失败", Some("请检查 LLVM 安装"));
 /// ```
 pub fn print_tool_error(tool: &str, message: &str, help: Option<&str>) {
@@ -539,6 +544,7 @@ pub fn print_tool_error(tool: &str, message: &str, help: Option<&str>) {
 /// 
 /// # Example
 /// ```
+/// use cavvy::error::print_warning;
 /// print_warning("未使用的变量 'x'");
 /// ```
 pub fn print_warning(message: &str) {
@@ -555,6 +561,7 @@ pub fn print_warning(message: &str) {
 /// 
 /// # Example
 /// ```
+/// use cavvy::error::print_warning_with_location;
 /// print_warning_with_location("未使用的变量", "test.cay", 10, 5);
 /// ```
 pub fn print_warning_with_location(message: &str, filename: &str, line: usize, column: usize) {
