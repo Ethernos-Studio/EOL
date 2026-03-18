@@ -3,13 +3,12 @@
 //! 实现 0.3.5.0 版本的预处理指令系统：
 //! - #include "path"  - 文件包含（隐式 #pragma once）
 //! - #define NAME value  - 常量定义（无参数宏）
-//! - #ifdef / #ifndef / #endif  - 条件编译
+//! - #ifdef / #ifndef / #else / #elif / #endif  - 条件编译
 //! - #error "message"  - 编译期错误
 //! - #warning "message"  - 编译期警告
 //! 
 //! 设计约束：
 //! - 仅支持简单常量定义，禁止宏函数
-//! - 不支持 #else / #elif，简化条件逻辑
 //! - 隐式 #pragma once 基于绝对路径哈希
 //! - 预处理在词法分析之前执行，生成纯源代码
 
@@ -40,8 +39,10 @@ pub struct Preprocessor {
 enum ConditionalState {
     /// 当前条件为真，正在处理代码
     Active,
-    /// 当前条件为假，跳过代码
-    Skipping,
+    /// 当前条件为假，但处于可能执行 #else 的链中
+    Inactive,
+    /// 当前条件为假，且已经执行过某个分支，跳过后续所有 #elif/#else
+    Done,
 }
 
 /// 预处理指令类型
@@ -55,6 +56,10 @@ enum Directive {
     Ifdef(String),
     /// #ifndef name
     Ifndef(String),
+    /// #else
+    Else,
+    /// #elif name
+    Elif(String),
     /// #endif
     Endif,
     /// #error "message"
@@ -211,6 +216,21 @@ impl Preprocessor {
                 let name = self.parse_identifier(args, line_num)?;
                 Ok(Some(Directive::Ifndef(name)))
             }
+            "else" => {
+                if !args.is_empty() {
+                    return Err(cayError::Preprocessor {
+                        line: line_num,
+                        column: 1,
+                        message: "#else 指令不接受参数".to_string(),
+                        suggestion: "使用 #else 而不是 #else CONDITION".to_string(),
+                    });
+                }
+                Ok(Some(Directive::Else))
+            }
+            "elif" => {
+                let name = self.parse_identifier(args, line_num)?;
+                Ok(Some(Directive::Elif(name)))
+            }
             "endif" => {
                 if !args.is_empty() {
                     return Err(cayError::Preprocessor {
@@ -235,7 +255,7 @@ impl Preprocessor {
                     line: line_num,
                     column: 1,
                     message: format!("未知的预处理指令: {}", directive_name),
-                    suggestion: "支持的指令: #include, #define, #ifdef, #ifndef, #endif, #error, #warning".to_string(),
+                    suggestion: "支持的指令: #include, #define, #ifdef, #ifndef, #else, #elif, #endif, #error, #warning".to_string(),
                 })
             }
         }
@@ -357,12 +377,18 @@ impl Preprocessor {
                 }
             }
             Directive::Ifdef(name) => {
-                let should_process = self.defines.contains_key(&name);
+                let should_process = !self.skipping && self.defines.contains_key(&name);
                 self.push_conditional(should_process);
             }
             Directive::Ifndef(name) => {
-                let should_process = !self.defines.contains_key(&name);
+                let should_process = !self.skipping && !self.defines.contains_key(&name);
                 self.push_conditional(should_process);
+            }
+            Directive::Else => {
+                self.handle_else()?;
+            }
+            Directive::Elif(name) => {
+                self.handle_elif(name)?;
             }
             Directive::Endif => {
                 self.pop_conditional()?;
@@ -385,6 +411,79 @@ impl Preprocessor {
             }
         }
         Ok(())
+    }
+
+    /// 处理 #else 指令
+    fn handle_else(&mut self) -> cayResult<()> {
+        if self.conditional_stack.is_empty() {
+            return Err(cayError::Preprocessor {
+                line: 0,
+                column: 0,
+                message: "#else 没有对应的 #ifdef 或 #ifndef".to_string(),
+                suggestion: "确保 #else 在 #ifdef 或 #ifndef 块内".to_string(),
+            });
+        }
+
+        let last_idx = self.conditional_stack.len() - 1;
+        let current_state = self.conditional_stack[last_idx];
+
+        match current_state {
+            ConditionalState::Active => {
+                // 当前分支已执行，跳过后续
+                self.conditional_stack[last_idx] = ConditionalState::Done;
+            }
+            ConditionalState::Inactive => {
+                // 当前分支未执行，开始执行 else 分支
+                self.conditional_stack[last_idx] = ConditionalState::Active;
+            }
+            ConditionalState::Done => {
+                // 已经执行过某个分支，保持跳过状态
+            }
+        }
+
+        self.update_skipping_state();
+        Ok(())
+    }
+
+    /// 处理 #elif 指令
+    fn handle_elif(&mut self, name: String) -> cayResult<()> {
+        if self.conditional_stack.is_empty() {
+            return Err(cayError::Preprocessor {
+                line: 0,
+                column: 0,
+                message: "#elif 没有对应的 #ifdef 或 #ifndef".to_string(),
+                suggestion: "确保 #elif 在 #ifdef 或 #ifndef 块内".to_string(),
+            });
+        }
+
+        let last_idx = self.conditional_stack.len() - 1;
+        let current_state = self.conditional_stack[last_idx];
+
+        match current_state {
+            ConditionalState::Active => {
+                // 当前分支已执行，跳过后续所有分支
+                self.conditional_stack[last_idx] = ConditionalState::Done;
+            }
+            ConditionalState::Inactive => {
+                // 检查条件是否满足
+                if self.defines.contains_key(&name) {
+                    self.conditional_stack[last_idx] = ConditionalState::Active;
+                }
+                // 否则保持 Inactive，等待下一个 #elif 或 #else
+            }
+            ConditionalState::Done => {
+                // 已经执行过某个分支，保持跳过状态
+            }
+        }
+
+        self.update_skipping_state();
+        Ok(())
+    }
+
+    /// 更新跳过状态
+    fn update_skipping_state(&mut self) {
+        self.skipping = self.conditional_stack.iter()
+            .any(|state| *state != ConditionalState::Active);
     }
 
     /// 处理 #include 指令
@@ -490,15 +589,13 @@ impl Preprocessor {
 
     /// 压入条件编译状态
     fn push_conditional(&mut self, should_process: bool) {
-        self.conditional_stack.push(
-            if self.skipping || !should_process {
-                ConditionalState::Skipping
-            } else {
-                ConditionalState::Active
-            }
-        );
-        self.skipping = self.conditional_stack.iter()
-            .any(|state| *state == ConditionalState::Skipping);
+        let state = if should_process {
+            ConditionalState::Active
+        } else {
+            ConditionalState::Inactive
+        };
+        self.conditional_stack.push(state);
+        self.update_skipping_state();
     }
 
     /// 弹出条件编译状态
@@ -512,9 +609,7 @@ impl Preprocessor {
             });
         }
         
-        self.skipping = self.conditional_stack.iter()
-            .any(|state| *state == ConditionalState::Skipping);
-        
+        self.update_skipping_state();
         Ok(())
     }
 
@@ -538,35 +633,17 @@ impl Preprocessor {
 }
 
 /// 便捷的预处理函数
-/// 
+///
+/// 创建一个临时预处理器实例并处理源代码
+///
 /// # Arguments
 /// * `source` - 原始源代码
-/// * `file_path` - 源文件路径
-/// * `base_dir` - 基础目录
-/// 
+/// * `file_path` - 源文件路径（用于错误报告）
+/// * `base_dir` - 源代码基础目录，用于解析相对路径
+///
 /// # Returns
-/// 预处理后的源代码
+/// 预处理后的源代码字符串
 pub fn preprocess(source: &str, file_path: &str, base_dir: impl AsRef<Path>) -> cayResult<String> {
     let mut preprocessor = Preprocessor::new(base_dir);
-    preprocessor.process(source, file_path)
-}
-
-/// 带系统包含路径的预处理函数
-/// 
-/// # Arguments
-/// * `source` - 原始源代码
-/// * `file_path` - 源文件路径
-/// * `base_dir` - 基础目录
-/// * `system_paths` - 系统包含路径列表
-/// 
-/// # Returns
-/// 预处理后的源代码
-pub fn preprocess_with_system_paths(
-    source: &str, 
-    file_path: &str, 
-    base_dir: impl AsRef<Path>,
-    system_paths: Vec<PathBuf>
-) -> cayResult<String> {
-    let mut preprocessor = Preprocessor::with_system_paths(base_dir, system_paths);
     preprocessor.process(source, file_path)
 }

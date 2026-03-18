@@ -41,8 +41,10 @@ impl IRGenerator {
                 // 如果值类型与字段类型不匹配，需要转换
                 if value_type != field_info.llvm_type {
                     let temp = self.new_temp();
-                    // 类型转换逻辑（简化版）
-                    if value_type.starts_with("i") && field_info.llvm_type.starts_with("i") {
+                    // 完整类型转换逻辑
+                    // 整数类型之间的转换
+                    if value_type.starts_with("i") && field_info.llvm_type.starts_with("i")
+                        && !value_type.ends_with("*") && !field_info.llvm_type.ends_with("*") {
                         let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
                         let to_bits: u32 = field_info.llvm_type.trim_start_matches('i').parse().unwrap_or(64);
                         if to_bits > from_bits {
@@ -52,7 +54,38 @@ impl IRGenerator {
                             self.emit_line(&format!("  {} = trunc {} {} to {}",
                                 temp, value_type, val, field_info.llvm_type));
                         }
-                        self.emit_line(&format!("  store {} {}, {}* {}, align {}", 
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}",
+                            field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
+                        return Ok(format!("{} {}", field_info.llvm_type, temp));
+                    }
+                    // 整数到浮点数转换
+                    else if value_type.starts_with("i") && !value_type.ends_with("*") &&
+                            (field_info.llvm_type == "float" || field_info.llvm_type == "double") {
+                        self.emit_line(&format!("  {} = sitofp {} {} to {}",
+                            temp, value_type, val, field_info.llvm_type));
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}",
+                            field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
+                        return Ok(format!("{} {}", field_info.llvm_type, temp));
+                    }
+                    // 浮点数到整数转换
+                    else if (value_type == "float" || value_type == "double") &&
+                            field_info.llvm_type.starts_with("i") && !field_info.llvm_type.ends_with("*") {
+                        self.emit_line(&format!("  {} = fptosi {} {} to {}",
+                            temp, value_type, val, field_info.llvm_type));
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}",
+                            field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
+                        return Ok(format!("{} {}", field_info.llvm_type, temp));
+                    }
+                    // 浮点数类型转换
+                    else if value_type == "double" && field_info.llvm_type == "float" {
+                        self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}",
+                            field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
+                        return Ok(format!("{} {}", field_info.llvm_type, temp));
+                    }
+                    else if value_type == "float" && field_info.llvm_type == "double" {
+                        self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}",
                             field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
                         return Ok(format!("{} {}", field_info.llvm_type, temp));
                     }
@@ -120,7 +153,9 @@ impl IRGenerator {
                 // 如果值类型与字段类型不匹配，需要转换
                 let final_val = if value_type != field_info.llvm_type {
                     let temp = self.new_temp();
-                    if value_type.starts_with("i") && field_info.llvm_type.starts_with("i") {
+                    // 整数类型之间的转换
+                    if value_type.starts_with("i") && field_info.llvm_type.starts_with("i")
+                        && !value_type.ends_with("*") && !field_info.llvm_type.ends_with("*") {
                         let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
                         let to_bits: u32 = field_info.llvm_type.trim_start_matches('i').parse().unwrap_or(64);
                         if to_bits > from_bits {
@@ -130,11 +165,38 @@ impl IRGenerator {
                             self.emit_line(&format!("  {} = trunc {} {} to {}",
                                 temp, value_type, val, field_info.llvm_type));
                         }
-                    } else {
-                        // 其他类型转换，直接使用原值
-                        self.emit_line(&format!("  {} = {} {}", temp, value_type, val));
+                        temp
                     }
-                    temp
+                    // 整数到浮点数转换
+                    else if value_type.starts_with("i") && !value_type.ends_with("*") &&
+                            (field_info.llvm_type == "float" || field_info.llvm_type == "double") {
+                        self.emit_line(&format!("  {} = sitofp {} {} to {}",
+                            temp, value_type, val, field_info.llvm_type));
+                        temp
+                    }
+                    // 浮点数到整数转换
+                    else if (value_type == "float" || value_type == "double") &&
+                            field_info.llvm_type.starts_with("i") && !field_info.llvm_type.ends_with("*") {
+                        self.emit_line(&format!("  {} = fptosi {} {} to {}",
+                            temp, value_type, val, field_info.llvm_type));
+                        temp
+                    }
+                    // 浮点数类型转换
+                    else if value_type == "double" && field_info.llvm_type == "float" {
+                        self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
+                        temp
+                    }
+                    else if value_type == "float" && field_info.llvm_type == "double" {
+                        self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
+                        temp
+                    }
+                    else {
+                        // 其他不支持的类型转换，报错
+                        return Err(codegen_error(format!(
+                            "Cannot convert {} to {} for field assignment",
+                            value_type, field_info.llvm_type
+                        )));
+                    }
                 } else {
                     val.to_string()
                 };

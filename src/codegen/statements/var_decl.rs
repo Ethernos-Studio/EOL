@@ -35,12 +35,73 @@ impl IRGenerator {
                 self.infer_type_from_expr(&unary.operand)
             },
             Expr::Call(call) => {
-                // 对于函数调用，需要知道函数的返回类型
-                // 这里简化处理，返回 int 作为默认值
-                Some(Type::Int32)
+                // 对于函数调用，尝试从类型注册表获取返回类型
+                self.infer_call_return_type(call)
             },
-            _ => Some(Type::Int32), // 默认返回 int
+            Expr::MemberAccess(member) => {
+                // 对于方法调用如 obj.method()，尝试推断返回类型
+                if let Expr::Identifier(obj_name) = &*member.object {
+                    // 获取对象类型
+                    if let Some(class_name) = self.var_class_map.get(obj_name.as_ref()) {
+                        return self.infer_method_return_type(class_name, &member.member);
+                    }
+                }
+                None
+            }
+            _ => None, // 无法推断，返回 None
         }
+    }
+
+    /// 推断函数调用的返回类型
+    fn infer_call_return_type(&self, call: &CallExpr) -> Option<Type> {
+        // 处理内置函数
+        if let Expr::Identifier(name) = call.callee.as_ref() {
+            match name.as_str() {
+                "print" | "println" => return Some(Type::Void),
+                "readInt" => return Some(Type::Int32),
+                "readLong" => return Some(Type::Int64),
+                "readFloat" => return Some(Type::Float32),
+                "readDouble" => return Some(Type::Float64),
+                "readLine" => return Some(Type::String),
+                "readChar" => return Some(Type::Char),
+                "readBool" => return Some(Type::Bool),
+                _ => {}
+            }
+        }
+
+        // 尝试从类型注册表获取
+        if let Some(ref registry) = self.type_registry {
+            if let Expr::Identifier(name) = call.callee.as_ref() {
+                // 尝试在当前类中查找
+                if !self.current_class.is_empty() {
+                    if let Some(method_info) = registry.get_method(&self.current_class, name.as_ref()) {
+                        return Some(method_info.return_type.clone());
+                    }
+                }
+            } else if let Expr::MemberAccess(member) = call.callee.as_ref() {
+                // obj.method() 形式
+                if let Expr::Identifier(obj_name) = &*member.object {
+                    if let Some(class_name) = self.var_class_map.get(obj_name.as_ref()) {
+                        if let Some(method_info) = registry.get_method(class_name, &member.member) {
+                            return Some(method_info.return_type.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        // 无法推断
+        None
+    }
+
+    /// 推断方法的返回类型
+    fn infer_method_return_type(&self, class_name: &str, method_name: &str) -> Option<Type> {
+        if let Some(ref registry) = self.type_registry {
+            if let Some(method_info) = registry.get_method(class_name, method_name) {
+                return Some(method_info.return_type.clone());
+            }
+        }
+        None
     }
 
     /// 将 LLVM 类型转换为 Cayvy 类型
@@ -53,6 +114,7 @@ impl IRGenerator {
             "i1" => Some(Type::Bool),
             "i8" => Some(Type::Char),
             "i8*" => Some(Type::String),
+            "void" => Some(Type::Void),
             _ => {
                 // 检查是否是对象指针类型
                 if llvm_type.starts_with("%") && llvm_type.ends_with("*") {
@@ -128,6 +190,11 @@ impl IRGenerator {
                             temp, value_type, val, var_type));
                         self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
                     }
+                    // null 赋值给指针类型（int 0 转换为指针）
+                    else if (val == "0" || val == "null") && var_type.ends_with("*") {
+                        // null 可以直接存储到指针类型
+                        self.emit_line(&format!("  store {} null, {}* %{}, align {}", var_type, var_type, llvm_name, align));
+                    }
                     // 整数类型转换
                     else if value_type.starts_with("i") && var_type.starts_with("i") && !value_type.ends_with("*") && !var_type.ends_with("*") {
                         let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
@@ -157,9 +224,11 @@ impl IRGenerator {
                         self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
                     }
                     else {
-                        // 类型不兼容，直接存储（可能会出错）
-                        self.emit_line(&format!("  store {}, {}* %{}",
-                            value, var_type, llvm_name));
+                        // 类型不兼容，报错
+                        return Err(crate::error::semantic_error(
+                            var.loc.line, var.loc.column,
+                            format!("Cannot convert {} to {} in variable initialization", value_type, var_type)
+                        ));
                     }
                 } else {
                     // 类型匹配，直接存储

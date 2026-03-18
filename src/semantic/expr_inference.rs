@@ -802,8 +802,8 @@ impl SemanticAnalyzer {
     /// 推断方法引用表达式类型
     fn infer_method_ref_type(&mut self, method_ref: &MethodRefExpr) -> cayResult<Type> {
         // 方法引用: ClassName::methodName 或 obj::methodName
-        // 返回函数类型（这里简化为 Object 类型，实际应该返回函数类型）
-        // TODO: 实现完整的函数类型系统
+        // 返回函数类型，包含参数类型和返回类型信息
+        
         if let Some(ref class_name) = method_ref.class_name {
             // 检查类是否存在
             if !self.type_registry.class_exists(class_name) {
@@ -813,9 +813,23 @@ impl SemanticAnalyzer {
                     format!("Unknown class: {}", class_name)
                 ));
             }
-            // 检查方法是否存在
+            // 获取方法信息
             if let Some(class_info) = self.type_registry.get_class(class_name) {
-                if !class_info.methods.contains_key(&method_ref.method_name) {
+                if let Some(methods) = class_info.methods.get(&method_ref.method_name) {
+                    if let Some(method_info) = methods.first() {
+                        // 构建函数类型
+                        let param_types: Vec<Type> = method_info.params.iter()
+                            .map(|p| p.param_type.clone())
+                            .collect();
+                        let return_type = Box::new(method_info.return_type.clone());
+                        
+                        return Ok(Type::Function(Box::new(crate::types::FunctionType {
+                            params: param_types,
+                            return_type,
+                            is_static: method_info.is_static,
+                        })));
+                    }
+                } else {
                     return Err(semantic_error(
                         method_ref.loc.line,
                         method_ref.loc.column,
@@ -823,8 +837,30 @@ impl SemanticAnalyzer {
                     ));
                 }
             }
+        } else if let Some(object) = method_ref.object.as_ref() {
+            // 实例方法引用: obj::methodName
+            let obj_type = self.infer_expr_type(object)?;
+            if let Type::Object(class_name) = obj_type {
+                if let Some(class_info) = self.type_registry.get_class(&class_name) {
+                    if let Some(methods) = class_info.methods.get(&method_ref.method_name) {
+                        if let Some(method_info) = methods.first() {
+                            let param_types: Vec<Type> = method_info.params.iter()
+                                .map(|p| p.param_type.clone())
+                                .collect();
+                            let return_type = Box::new(method_info.return_type.clone());
+                            
+                            return Ok(Type::Function(Box::new(crate::types::FunctionType {
+                                params: param_types,
+                                return_type,
+                                is_static: false,
+                            })));
+                        }
+                    }
+                }
+            }
         }
-        // 方法引用返回 Object 类型（简化处理）
+        
+        // 无法确定具体函数类型，返回通用 Function 类型
         Ok(Type::Object("Function".to_string()))
     }
 
@@ -835,8 +871,10 @@ impl SemanticAnalyzer {
         self.symbol_table.enter_scope();
 
         // 添加 Lambda 参数到符号表
+        let mut param_types = Vec::new();
         for param in &lambda.params {
             let param_type = param.param_type.clone().unwrap_or(Type::Int32);
+            param_types.push(param_type.clone());
             self.symbol_table.declare(
                 param.name.clone(),
                 SemanticSymbolInfo {
@@ -849,25 +887,37 @@ impl SemanticAnalyzer {
         }
 
         // 推断 Lambda 体类型
-        let body_type = match &lambda.body {
-            LambdaBody::Expr(expr) => self.infer_expr_type(expr)?,
+        let return_type = match &lambda.body {
+            LambdaBody::Expr(expr) => {
+                let expr_type = self.infer_expr_type(expr)?;
+                Box::new(expr_type)
+            }
             LambdaBody::Block(block) => {
-                // 分析块中的语句
-                let mut last_type = Type::Void;
+                // 分析块中的语句，查找 return 语句
+                let mut inferred_return: Option<Type> = None;
                 for stmt in &block.statements {
-                    // 查找 return 语句来确定返回类型
-                    if let Stmt::Return(Some(ret_expr)) = stmt {
-                        last_type = self.infer_expr_type(ret_expr)?;
+                    if let Stmt::Return(ret_expr_opt) = stmt {
+                        if let Some(ret_expr) = ret_expr_opt {
+                            let ret_type = self.infer_expr_type(ret_expr)?;
+                            inferred_return = Some(ret_type);
+                        } else {
+                            inferred_return = Some(Type::Void);
+                        }
+                        break; // 使用第一个 return 语句的类型
                     }
                 }
-                last_type
+                Box::new(inferred_return.unwrap_or(Type::Void))
             }
         };
 
         self.symbol_table.exit_scope();
 
-        // Lambda 表达式返回 Object 类型（简化处理）
-        Ok(Type::Object("Function".to_string()))
+        // 返回完整的函数类型
+        Ok(Type::Function(Box::new(crate::types::FunctionType {
+            params: param_types,
+            return_type,
+            is_static: true,
+        })))
     }
 
     /// 推断三元运算符表达式类型
