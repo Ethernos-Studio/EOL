@@ -531,18 +531,25 @@ impl IRGenerator {
         }
 
         for param in &method.params {
-            let (param_type, store_type) = if param.is_varargs {
-                // 可变参数：参数类型是 i8*，但存储时需要特殊处理
-                ("i8*".to_string(), "i8*".to_string())
+            let (param_type, store_type, var_type) = if param.is_varargs {
+                // 可变参数：参数类型是 i8*，但 var_types 中存储实际的数组类型
+                // 从 Array(ElementType) 提取元素类型
+                let elem_type = match &param.param_type {
+                    crate::types::Type::Array(elem) => self.type_to_llvm(elem),
+                    _ => self.type_to_llvm(&param.param_type),
+                };
+                // 数组类型是元素类型加 *
+                let array_type = format!("{}*", elem_type);
+                ("i8*".to_string(), "i8*".to_string(), array_type)
             } else {
                 let t = self.type_to_llvm(&param.param_type);
-                (t.clone(), t)
+                (t.clone(), t.clone(), t)
             };
             let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
             self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
             self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
                 store_type, class_name, param.name, param_type, llvm_name));
-            self.var_types.insert(param.name.clone(), param_type);
+            self.var_types.insert(param.name.clone(), var_type);
         }
 
         if let Some(body) = method.body.as_ref() {
