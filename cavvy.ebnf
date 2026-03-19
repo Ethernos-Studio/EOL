@@ -1,6 +1,7 @@
 (*
  * Cavvy 编程语言语法规范 - EBNF 表示
- * 版本: 0.4.8.0
+ * 版本: 0.4.8.2
+ * 构建号: 26
  *
  * 本文件使用扩展巴科斯-瑙尔范式 (EBNF) 描述 Cavvy 编程语言的语法结构。
  * 符号约定:
@@ -15,19 +16,31 @@
  *)
 
 (* ============================================================================
- * 预处理器指令
+ * 预处理器指令 (Preprocessor Directives)
  * ============================================================================ *)
 
-(* 预处理器指令在编译前处理，支持条件编译 *)
+(* 预处理器指令在编译前处理，支持条件编译和宏定义 *)
 preprocessor_directive = define_directive
+                       | undef_directive
                        | ifdef_directive
                        | ifndef_directive
-                       | endif_directive;
+                       | if_directive
+                       | elif_directive
+                       | else_directive
+                       | endif_directive
+                       | include_directive
+                       | pragma_directive;
 
-(* #define 定义宏 *)
-define_directive = "#define", identifier, [ replacement_text ];
+(* #define 定义宏 - 支持对象宏和函数宏 *)
+define_directive = "#define", identifier, [ replacement_text ]
+                 | "#define", identifier, "(", [ macro_parameter_list ], ")", replacement_text;
+
+macro_parameter_list = identifier, { ",", identifier };
 
 replacement_text = { any_character_except_newline };
+
+(* #undef 取消宏定义 *)
+undef_directive = "#undef", identifier;
 
 (* #ifdef 条件编译 - 如果宏已定义则包含代码 *)
 ifdef_directive = "#ifdef", identifier;
@@ -35,28 +48,58 @@ ifdef_directive = "#ifdef", identifier;
 (* #ifndef 条件编译 - 如果宏未定义则包含代码 *)
 ifndef_directive = "#ifndef", identifier;
 
+(* #if 条件编译 - 基于常量表达式 *)
+if_directive = "#if", constant_expression;
+
+(* #elif 条件编译 -  else if 分支 *)
+elif_directive = "#elif", constant_expression;
+
+(* #else 条件编译 - else 分支 *)
+else_directive = "#else";
+
 (* #endif 结束条件编译块 *)
 endif_directive = "#endif";
 
+(* #include 文件包含 *)
+include_directive = "#include", ( "<", header_name, ">" | '"', header_name, '"' );
+
+header_name = { any_character_except_angle_quote };
+
+(* #pragma 编译器指令 *)
+pragma_directive = "#pragma", pragma_directive_name, [ pragma_arguments ];
+
+pragma_directive_name = identifier;
+pragma_arguments = { any_character_except_newline };
+
 (* 预处理器指令示例：
  *   #define DEBUG
+ *   #define MAX_SIZE 100
+ *   #define ADD(a, b) ((a) + (b))
  *   
  *   #ifdef DEBUG
  *   result = result + 1;
- *   println("Debug code included");
+ *   #elif defined(LOG_LEVEL)
+ *   result = result + 2;
+ *   #else
+ *   result = result + 0;
  *   #endif
  *   
  *   #ifndef RELEASE
- *   result = result + 10;
  *   println("Non-release code included");
  *   #endif
  *)
 
 (* ============================================================================
- * 程序结构
+ * 程序结构 (Program Structure)
  * ============================================================================ *)
 
-program = { preprocessor_directive | class_declaration | interface_declaration | top_level_function | extern_declaration };
+program = { preprocessor_directive | declaration };
+
+declaration = class_declaration
+            | interface_declaration
+            | top_level_function
+            | extern_declaration
+            | namespace_declaration;
 
 (* 顶层函数声明 - 0.4.3.x 新增 *)
 top_level_function = [ modifiers ], ( type | "void" ), "main", "(", [ parameter_list ], ")", block;
@@ -66,22 +109,56 @@ top_level_function = [ modifiers ], ( type | "void" ), "main", "(", [ parameter_
  *   public int main(String[] args) { return 0; }
  *)
 
-class_declaration = [ annotation ], [ modifiers ], "class", identifier, [ inheritance ], [ implementation ], "{", { class_member }, "}";
+(* 命名空间声明 *)
+namespace_declaration = "namespace", identifier, "{", { declaration }, "}";
+
+(* 类声明 *)
+class_declaration = [ annotation ], [ modifiers ], "class", identifier, 
+                    [ inheritance_clause ], [ implementation_clause ], 
+                    "{", { class_member }, "}";
 
 (* 继承声明 - 支持 extends 关键字或 : 符号 *)
-inheritance = "extends", identifier | ":", identifier;
+inheritance_clause = "extends", qualified_name
+                   | ":", qualified_name;
 
 (* 接口实现声明 *)
-implementation = "implements", identifier, { ",", identifier };
+implementation_clause = "implements", qualified_name, { ",", qualified_name };
 
 (* 接口声明 *)
-interface_declaration = [ modifiers ], "interface", identifier, "{", { interface_method_declaration }, "}";
+interface_declaration = [ modifiers ], "interface", identifier, 
+                        [ interface_extends_clause ],
+                        "{", { interface_member_declaration }, "}";
+
+interface_extends_clause = "extends", qualified_name, { ",", qualified_name };
+
+(* 接口成员声明 *)
+interface_member_declaration = interface_method_declaration
+                             | interface_field_declaration
+                             | interface_default_method
+                             | interface_static_method;
 
 (* 接口方法声明 - 只有声明，没有实现 *)
-interface_method_declaration = [ modifiers ], ( type | "void" ), identifier, "(", [ parameter_list ], ")", ";";
+interface_method_declaration = [ modifiers ], ( type | "void" ), identifier, 
+                               "(", [ parameter_list ], ")", ";";
+
+(* 接口字段声明 - 隐式 static final *)
+interface_field_declaration = [ modifiers ], type, identifier, "=", expression, ";";
+
+(* 接口默认方法 - 0.4.x 新增 *)
+interface_default_method = "default", [ modifiers ], ( type | "void" ), identifier,
+                           "(", [ parameter_list ], ")", block;
+
+(* 接口静态方法 - 0.4.x 新增 *)
+interface_static_method = "static", [ modifiers ], ( type | "void" ), identifier,
+                          "(", [ parameter_list ], ")", block;
 
 (* 主类注解 - 用于显式指定程序入口类 *)
-annotation = "@", identifier;
+annotation = "@", identifier, [ "(", [ annotation_arguments ], ")" ];
+
+annotation_arguments = annotation_argument, { ",", annotation_argument };
+
+annotation_argument = identifier, "=", expression
+                    | expression;
 
 (* @main 注解示例：
  *   @main
@@ -90,33 +167,63 @@ annotation = "@", identifier;
  *   }
  *)
 
-class_member = field_declaration | method_declaration;
+class_member = field_declaration 
+             | method_declaration
+             | constructor_declaration
+             | static_initializer
+             | instance_initializer
+             | nested_class_declaration
+             | nested_interface_declaration;
+
+(* 嵌套类声明 *)
+nested_class_declaration = class_declaration;
+
+(* 嵌套接口声明 *)
+nested_interface_declaration = interface_declaration;
 
 (* ============================================================================
- * 修饰符
+ * 修饰符 (Modifiers)
  * ============================================================================ *)
 
 modifiers = modifier, { modifier };
 
-modifier = "public" | "private" | "protected" | "static" | "final" | "abstract" | "native" | "Override";
+modifier = access_modifier
+         | "static"
+         | "final"
+         | "abstract"
+         | "native"
+         | "Override"
+         | "transient"
+         | "volatile"
+         | "strictfp"
+         | "synchronized";
+
+access_modifier = "public" | "private" | "protected" | "internal";
 
 (* ============================================================================
- * 字段声明（支持静态字段）
+ * 字段声明（支持静态字段、final 字段）
  * ============================================================================ *)
 
-field_declaration = [ modifiers ], type, identifier, [ "=", expression ], ";";
+field_declaration = [ modifiers ], type, identifier, [ "=", variable_initializer ], ";";
+
+variable_initializer = expression
+                     | array_initializer
+                     | lambda_expression;
 
 (* 静态字段示例：
  *   static int count;
+ *   static final int MAX_SIZE = 100;
  *   static long[][] memo = new long[21][441]();
- *   static bool[][] vis = new bool[21][441]();
  *)
 
 (* ============================================================================
- * 方法声明（支持方法重载和可变参数）
+ * 方法声明（支持方法重载、可变参数、Lambda）
  * ============================================================================ *)
 
-method_declaration = [ modifiers ], ( type | "void" ), identifier, "(", [ parameter_list ], ")", ( block | ";" );
+method_declaration = [ modifiers ], ( type | "void" ), identifier, 
+                     "(", [ parameter_list ], ")", 
+                     [ throws_clause ],
+                     ( block | ";" );
 
 (* 方法重载示例：
  *   public static int add() { return 0; }
@@ -125,12 +232,16 @@ method_declaration = [ modifiers ], ( type | "void" ), identifier, "(", [ parame
  *   public static double add(double a, double b) { return a + b; }
  *)
 
-parameter_list = parameter, { ",", parameter } | varargs_parameter;
+(* throws 子句 *)
+throws_clause = "throws", qualified_name, { ",", qualified_name };
 
-parameter = type, identifier;
+parameter_list = parameter, { ",", parameter } 
+               | varargs_parameter;
+
+parameter = [ "final" ], type, identifier, [ "=", expression ];
 
 (* 可变参数声明 *)
-varargs_parameter = type, "...", identifier;
+varargs_parameter = [ "final" ], type, "...", identifier;
 
 (* 可变参数示例：
  *   public static int sum(int... numbers) { ... }
@@ -138,49 +249,110 @@ varargs_parameter = type, "...", identifier;
  *)
 
 (* ============================================================================
- * 类型系统
+ * 构造函数
  * ============================================================================ *)
 
-type = primitive_type | reference_type | ffi_type;
+constructor_declaration = [ modifiers ], identifier, 
+                          "(", [ parameter_list ], ")", 
+                          [ constructor_chaining ],
+                          block;
 
-primitive_type = "int" | "long" | "float" | "double" | "bool" | "string" | "char" | "auto";
+(* 构造函数链调用 *)
+constructor_chaining = "this", "(", [ argument_list ], ")"
+                     | "super", "(", [ argument_list ], ")";
+
+(* ============================================================================
+ * 初始化块
+ * ============================================================================ *)
+
+static_initializer = "static", block;
+
+instance_initializer = block;
+
+(* ============================================================================
+ * 类型系统 (Type System)
+ * ============================================================================ *)
+
+type = primitive_type 
+     | reference_type 
+     | ffi_type
+     | function_type
+     | wildcard_type;
+
+(* 基本类型 *)
+primitive_type = "int" 
+               | "long" 
+               | "float" 
+               | "double" 
+               | "bool" 
+               | "boolean"
+               | "char" 
+               | "byte"
+               | "short"
+               | "void"
+               | "auto";
 
 (* auto 类型 - 0.4.3.x 新增 *)
 (* auto 类型用于自动类型推断，编译器根据初始化表达式推断实际类型 *)
 (* 注意：auto 类型必须带有初始化表达式 *)
 
-(* FFI 类型 - 0.4.8.x 新增 *)
-ffi_type = "c_int" | "c_long" | "c_short" | "c_char" |
-           "c_float" | "c_double" |
-           "size_t" | "ssize_t" | "uintptr_t" | "intptr_t" |
-           "c_void" | "c_bool";
+(* FFI 类型 - 0.4.8.x 新增，用于外部函数接口 *)
+ffi_type = "c_int" | "c_long" | "c_short" | "c_char" | "c_byte"
+         | "c_float" | "c_double" | "c_bool" | "c_void"
+         | "size_t" | "ssize_t" 
+         | "uintptr_t" | "intptr_t"
+         | "uint8_t" | "uint16_t" | "uint32_t" | "uint64_t"
+         | "int8_t" | "int16_t" | "int32_t" | "int64_t";
 
-reference_type = identifier, { "[", "]" } | primitive_type, { "[", "]" };
+(* 引用类型 *)
+reference_type = qualified_name, { "[", "]" } 
+               | primitive_type, { "[", "]" }
+               | "String"
+               | "Object";
+
+(* 函数类型 - 用于 Lambda 和方法引用 *)
+function_type = "function", "<", type, "(", [ type_list ], ")", ">";
+
+type_list = type, { ",", type };
+
+(* 通配符类型 - 用于泛型 *)
+wildcard_type = "?", [ ( "extends" | "super" ), type ];
+
+qualified_name = identifier, { ".", identifier };
 
 (* ============================================================================
- * 语句
+ * 语句 (Statements)
  * ============================================================================ *)
 
 block = "{", { statement }, "}";
 
 statement = block
+          | labeled_statement
           | variable_declaration
           | if_statement
           | while_statement
           | for_statement
           | do_while_statement
           | switch_statement
+          | try_statement
           | return_statement
           | break_statement
           | continue_statement
+          | throw_statement
+          | synchronized_statement
           | expression_statement;
 
-variable_declaration = [ "final" ], type, identifier, [ "=", ( expression | array_initializer ) ], ";"
+(* 标签语句 *)
+labeled_statement = identifier, ":", statement;
+
+variable_declaration = [ "final" ], type, identifier, 
+                       [ "=", variable_initializer ], ";"
                      | modern_variable_declaration;
 
 (* 现代变量声明语法 - 0.4.3.x 新增 *)
 (* 支持 var/let 后置类型声明和 auto 自动类型推断 *)
-modern_variable_declaration = [ "final" ], ( "var" | "let" | "auto" ), identifier, [ ":", type ], [ "=", expression ], ";";
+modern_variable_declaration = [ "final" ], ( "var" | "let" | "auto" ), identifier, 
+                              [ ":", type ], [ "=", expression ], ";";
 
 (* 现代变量声明示例：
  *   var x: int = 10;           (* var 后置类型声明 *)
@@ -197,43 +369,69 @@ if_statement = "if", "(", expression, ")", statement, [ "else", statement ];
 
 while_statement = "while", "(", expression, ")", statement;
 
-for_statement = "for", "(", [ statement ], [ expression ], ";", [ expression ], ")", statement;
+for_statement = "for", "(", [ for_init ], ";", [ expression ], ";", [ for_update ], ")", statement
+              | enhanced_for_statement;
+
+(* 增强 for 循环 *)
+enhanced_for_statement = "for", "(", [ "final" ], type, identifier, ":", expression, ")", statement;
+
+for_init = variable_declaration_no_semi
+         | expression_list;
+
+for_update = expression_list;
+
+variable_declaration_no_semi = [ "final" ], type, identifier, 
+                               [ "=", variable_initializer ];
+
+expression_list = expression, { ",", expression };
 
 do_while_statement = "do", statement, "while", "(", expression, ")", ";";
 
-switch_statement = "switch", "(", expression, ")", "{", { case_clause }, [ default_clause ], "}";
+switch_statement = "switch", "(", expression, ")", "{", { switch_label }, "}";
 
-case_clause = "case", integer_literal, ":", { statement };
+switch_label = "case", constant_expression, ":", { statement }
+             | "default", ":", { statement };
 
-default_clause = "default", ":", { statement };
+(* try-catch-finally *)
+try_statement = "try", block, { catch_clause }, [ finally_clause ];
+
+catch_clause = "catch", "(", [ "final" ], type, [ identifier ], ")", block;
+
+finally_clause = "finally", block;
 
 return_statement = "return", [ expression ], ";";
 
-break_statement = "break", ";";
+break_statement = "break", [ identifier ], ";";
 
-continue_statement = "continue", ";";
+continue_statement = "continue", [ identifier ], ";";
+
+throw_statement = "throw", expression, ";";
+
+synchronized_statement = "synchronized", "(", expression, ")", block;
 
 expression_statement = expression, ";";
 
 (* ============================================================================
- * 表达式 (按优先级从低到高)
+ * 表达式 (Expressions) - 按优先级从低到高
  * ============================================================================ *)
 
 expression = assignment_expression;
 
-assignment_expression = conditional_or_expression, [ assignment_operator, assignment_expression ];
+assignment_expression = conditional_expression, [ assignment_operator, assignment_expression ];
 
-assignment_operator = "=" | "+=" | "-=" | "*=" | "/=" | "%=";
+assignment_operator = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=";
+
+conditional_expression = conditional_or_expression, [ "?", expression, ":", conditional_expression ];
 
 conditional_or_expression = conditional_and_expression, { "||", conditional_and_expression };
 
-conditional_and_expression = bitwise_or_expression, { "&&", bitwise_or_expression };
+conditional_and_expression = inclusive_or_expression, { "&&", inclusive_or_expression };
 
-bitwise_or_expression = bitwise_xor_expression, { "|", bitwise_xor_expression };
+inclusive_or_expression = exclusive_or_expression, { "|", exclusive_or_expression };
 
-bitwise_xor_expression = bitwise_and_expression, { "^", bitwise_and_expression };
+exclusive_or_expression = and_expression, { "^", and_expression };
 
-bitwise_and_expression = equality_expression, { "&", equality_expression };
+and_expression = equality_expression, { "&", equality_expression };
 
 equality_expression = relational_expression, { ( "==" | "!=" ), relational_expression };
 
@@ -245,7 +443,7 @@ additive_expression = multiplicative_expression, { ( "+" | "-" ), multiplicative
 
 multiplicative_expression = unary_expression, { ( "*" | "/" | "%" ), unary_expression };
 
-unary_expression = ( "-" | "!" | "~" | "++" | "--" ), unary_expression
+unary_expression = ( "+" | "-" | "!" | "~" | "++" | "--" ), unary_expression
                  | cast_expression
                  | postfix_expression;
 
@@ -254,7 +452,7 @@ cast_expression = "(", type, ")", unary_expression;
 postfix_expression = primary_expression, { postfix_operator };
 
 postfix_operator = "(", [ argument_list ], ")"
-                 | ".", identifier, [ "(", [ argument_list ], ")" ]  (* 方法调用或属性访问 *)
+                 | ".", identifier, [ "(", [ argument_list ], ")" ]
                  | "[", expression, "]"
                  | "++"
                  | "--";
@@ -268,16 +466,66 @@ argument_list = expression, { ",", expression };
 
 primary_expression = literal
                    | identifier
+                   | "this"
+                   | "super"
                    | "(", expression, ")"
                    | array_creation_expression
-                   | object_creation_expression;
+                   | object_creation_expression
+                   | lambda_expression
+                   | method_reference
+                   | class_literal;
 
-array_creation_expression = "new", type, "[", expression, "]", { "[", expression, "]" }, [ "(", ")" ];
+(* Lambda 表达式 *)
+lambda_expression = lambda_parameters, "->", lambda_body;
 
-object_creation_expression = "new", identifier, "(", [ argument_list ], ")";
+lambda_parameters = identifier
+                  | "(", [ lambda_parameter_list ], ")";
+
+lambda_parameter_list = lambda_parameter, { ",", lambda_parameter };
+
+lambda_parameter = [ "final" ], [ type ], identifier;
+
+lambda_body = expression
+            | block;
+
+(* Lambda 表达式示例：
+ *   x -> x + 1
+ *   (x, y) -> x + y
+ *   (int x, int y) -> { return x + y; }
+ *   () -> { println("Hello"); }
+ *)
+
+(* 方法引用 *)
+method_reference = qualified_name, "::", identifier
+                 | qualified_name, "::", "new"
+                 | "this", "::", identifier
+                 | "super", "::", identifier
+                 | type, "::", identifier;
+
+(* 方法引用示例：
+ *   Math::max
+ *   String::length
+ *   System.out::println
+ *   ArrayList::new
+ *)
+
+(* 类字面量 *)
+class_literal = type, ".", "class";
+
+array_creation_expression = "new", type, "[", expression, "]", { "[", expression, "]" }, [ array_initializer ]
+                          | "new", type, array_initializer;
+
+object_creation_expression = "new", qualified_name, "(", [ argument_list ], ")"
+                           | qualified_name, ".", "new", identifier, "(", [ argument_list ], ")";
 
 (* ============================================================================
- * 字面量
+ * 常量表达式 (用于 switch case、数组大小等)
+ * ============================================================================ *)
+
+constant_expression = conditional_expression;
+
+(* ============================================================================
+ * 字面量 (Literals)
  * ============================================================================ *)
 
 literal = integer_literal
@@ -297,7 +545,7 @@ binary_literal = "0b" | "0B", binary_digit, { binary_digit | "_" };
 
 octal_literal = "0o" | "0O", octal_digit, { octal_digit | "_" };
 
-integer_suffix = "L" | "l";
+integer_suffix = "L" | "l" | "LL" | "ll";
 
 floating_point_literal = [ "-" ], ( decimal_floating_point_literal ), [ floating_point_suffix ];
 
@@ -330,6 +578,17 @@ null_literal = "null";
  *   int indexOf(String str)               - 查找子串位置，未找到返回-1
  *   String replace(String old, String new) - 替换子串
  *   char charAt(int index)                - 获取指定位置字符（返回ASCII码）
+ *   String toLowerCase()                  - 转换为小写
+ *   String toUpperCase()                  - 转换为大写
+ *   String trim()                         - 去除首尾空白
+ *   bool startsWith(String prefix)        - 是否以指定前缀开头
+ *   bool endsWith(String suffix)          - 是否以指定后缀结尾
+ *   bool contains(String str)             - 是否包含子串
+ *   String concat(String str)             - 连接字符串
+ *   bool equals(String str)               - 比较字符串相等
+ *   bool isEmpty()                        - 是否为空字符串
+ *   int compareTo(String str)             - 字典序比较
+ *   String valueOf(int/long/float/double) - 数值转字符串（静态方法）
  *
  * 示例：
  *   string s = "Hello, World!";
@@ -350,6 +609,16 @@ null_literal = "null";
  *   int[][] matrix = new int[3][4];
  *   int rows = matrix.length;     // 3
  *   int cols = matrix[0].length;  // 4
+ *
+ * 数组支持的方法（通过工具类 Arrays）：
+ *   static void sort(int[] arr)                    - 排序
+ *   static void sort(int[] arr, int from, int to)  - 部分排序
+ *   static int binarySearch(int[] arr, int key)    - 二分查找
+ *   static void fill(int[] arr, int val)           - 填充
+ *   static void fill(int[] arr, int from, int to, int val) - 部分填充
+ *   static int[] copyOf(int[] arr, int newLength)  - 复制数组
+ *   static boolean equals(int[] a, int[] b)        - 比较数组
+ *   static String toString(int[] arr)              - 数组转字符串
  *)
 
 (* ============================================================================
@@ -362,6 +631,10 @@ null_literal = "null";
  * 静态方法调用：
  *   ClassName.methodName(args)
  *
+ * 静态导入：
+ *   import static ClassName.staticMember;
+ *   import static ClassName.*;
+ *
  * 示例：
  *   static int counter;
  *   public static int getCounter() { return counter; }
@@ -372,27 +645,48 @@ null_literal = "null";
  *)
 
 (* ============================================================================
- * 内置函数
+ * 内置函数 (Built-in Functions)
  * ============================================================================ *)
 
 (* 内置函数是编译器直接支持的函数，无需声明即可使用 *)
 
 (* 输出函数 *)
-(* print(value)   - 输出值（不换行） *)
-(* println(value) - 输出值（换行） *)
-(* 支持类型: int, long, float, double, string *)
+(* print(value)   - 输出值（不换行），支持类型: int, long, float, double, string, bool *)
+(* println(value) - 输出值（换行），支持类型: int, long, float, double, string, bool *)
+(* printf(format, ...) - 格式化输出，类似 C 语言 printf *)
 
 (* 输入函数 *)
-(* readInt()    - 读取整数，返回 long *)
-(* readFloat()  - 读取浮点数，返回 double *)
+(* readInt()    - 读取整数，返回 int *)
+(* readLong()   - 读取长整数，返回 long *)
+(* readFloat()  - 读取浮点数，返回 float *)
+(* readDouble() - 读取双精度浮点数，返回 double *)
 (* readLine()   - 读取一行字符串，返回 string *)
+(* readChar()   - 读取单个字符，返回 char *)
+
+(* 类型转换函数 *)
+(* parseInt(String s)     - 字符串转整数，返回 int *)
+(* parseLong(String s)    - 字符串转长整数，返回 long *)
+(* parseFloat(String s)   - 字符串转浮点数，返回 float *)
+(* parseDouble(String s)  - 字符串转双精度浮点数，返回 double *)
+
+(* 数学函数（在 Math 类中） *)
+(* Math.abs(int/long/float/double)    - 绝对值 *)
+(* Math.max(a, b)                     - 最大值 *)
+(* Math.min(a, b)                     - 最小值 *)
+(* Math.sqrt(double)                  - 平方根 *)
+(* Math.pow(double, double)           - 幂运算 *)
+(* Math.sin/cos/tan(double)           - 三角函数 *)
+(* Math.log/log10(double)             - 对数 *)
+(* Math.exp(double)                   - e的幂 *)
+(* Math.ceil/floor/round(double)      - 取整 *)
+(* Math.random()                      - 随机数 [0.0, 1.0) *)
 
 (* ============================================================================
- * FFI (Foreign Function Interface) - 0.4.8.x 新增
+ * FFI (Foreign Function Interface) - 0.4.8.x
  * ============================================================================ *)
 
 (*
- * Cavvy 0.4.8.0 引入了 FFI 功能，支持直接声明和调用 C 函数
+ * Cavvy 0.4.8.x 引入了 FFI 功能，支持直接声明和调用 C 函数
  *
  * 语法:
  *   extern { type func(params); ... }                    - 默认 C 调用约定
@@ -401,11 +695,30 @@ null_literal = "null";
  *   extern sysv64 { type func(params); ... }             - System V AMD64 ABI
  *   extern win64 { type func(params); ... }              - Windows x64 ABI
  *   extern fastcall { type func(params); ... }           - fastcall 调用约定
+ *   extern thiscall { type func(params); ... }           - thiscall 调用约定
+ *   extern vectorcall { type func(params); ... }         - vectorcall 调用约定
+ *
+ * FFI 类型映射:
+ *   Cavvy Type    ->   C Type
+ *   c_int         ->   int
+ *   c_long        ->   long
+ *   c_short       ->   short
+ *   c_char        ->   char
+ *   c_byte        ->   signed char
+ *   c_float       ->   float
+ *   c_double      ->   double
+ *   c_bool        ->   _Bool (C99)
+ *   c_void        ->   void
+ *   size_t        ->   size_t
+ *   ssize_t       ->   ssize_t
+ *   uintptr_t     ->   uintptr_t
+ *   intptr_t      ->   intptr_t
  *
  * 示例:
  *   extern {
- *       c_int printf(c_int fmt);
+ *       c_int printf(c_int fmt, ...);
  *       c_void exit(c_int code);
+ *       c_int strcmp(c_int s1, c_int s2);
  *   }
  *
  *   extern stdcall {
@@ -415,7 +728,8 @@ null_literal = "null";
 
 extern_declaration = "extern", [ calling_convention ], extern_body;
 
-calling_convention = "cdecl" | "stdcall" | "fastcall" | "sysv64" | "win64";
+calling_convention = "cdecl" | "stdcall" | "fastcall" | "thiscall" | "vectorcall" 
+                   | "sysv64" | "win64" | "aapcs" | "msp430";
 
 extern_body = extern_block | extern_single;
 
@@ -423,37 +737,86 @@ extern_block = "{", { extern_function_declaration }, "}";
 
 extern_single = extern_function_declaration;
 
-extern_function_declaration = type, identifier, "(", [ parameter_list ], ")", ";";
+extern_function_declaration = ( type | "void" ), identifier, "(", [ extern_parameter_list ], ")", [ varargs ], ";";
+
+extern_parameter_list = extern_parameter, { ",", extern_parameter };
+
+extern_parameter = ffi_type, identifier;
+
+varargs = "," , "...";
 
 (* ============================================================================
- * 运行时系统 (0.4.6.0 新增)
+ * 类型转换规则
  * ============================================================================ *)
 
 (*
- * Cavvy 0.4.6.0 引入了伪运行时系统，支持以下功能：
+ * 隐式类型转换（自动，无需显式转换）：
+ *   - byte -> short -> int -> long
+ *   - int -> float -> double
+ *   - long -> double
+ *   - char -> int
+ * 
+ * 显式类型转换（需要强制转换）：
+ *   - long -> int        (可能丢失高位)
+ *   - double -> float    (可能丢失精度)
+ *   - double -> int      (截断小数部分)
+ *   - float -> int       (截断小数部分)
+ *   - int -> char        (截断高位)
+ *   - 任何类型 -> String (调用 toString())
  *
- * 1. 临时目录编译执行
- *    - cay-run 工具将 IR 代码编译到临时目录
- *    - 运行时从临时目录打开并执行可执行文件
- *    - 支持 --keep-cache 选项保留编译缓存
- *    - 支持 --cache-dir 选项指定自定义缓存目录
+ * 转换语法：
+ *   (target_type) expression
  *
- * 2. 动态链接库支持 (cay-dll)
- *    - load <path>     - 加载动态链接库
- *    - unload <handle> - 卸载动态链接库
- *    - list            - 列出已加载的库
- *    - info <path>     - 显示库信息
- *
- * 3. 运行时命令行参数传递
- *    - cay-run <source.cay> -- <arg1> <arg2> ...
- *    - 参数通过 String[] args 传递给 main 函数
+ * 示例：
+ *   int i = 100;
+ *   long l = i;          // 隐式转换，OK
+ *   double d = i;        // 隐式转换，OK
+ *   int i2 = (int)d;     // 显式转换，截断小数
  *)
 
 (* ============================================================================
- * 基本定义
+ * 访问控制规则
  * ============================================================================ *)
 
-identifier = letter | "_", { letter | digit | "_" };
+(*
+ * public    - 任何地方可访问
+ * private   - 仅类内部可访问
+ * protected - 类内部和子类可访问
+ * default   - 同包内可访问（未指定修饰符时）
+ *
+ * 示例：
+ *   public class PublicClass { }
+ *   private int privateField;
+ *   protected void protectedMethod() { }
+ *)
+
+(* ============================================================================
+ * 继承和多态规则
+ * ============================================================================ *)
+
+(*
+ * - Cavvy 支持单继承（只能有一个父类）
+ * - 支持多接口实现
+ * - 所有非 final 方法默认是虚方法
+ * - 使用 @Override 注解检查方法重写
+ * - 支持 super 关键字调用父类方法
+ *
+ * 示例：
+ *   class Animal {
+ *       public virtual void speak() { }
+ *   }
+ *   
+ *   class Dog : Animal {
+ *       @Override
+ *       public void speak() { println("Woof!"); }
+ *   }
+ *)
+
+(* ============================================================================
+ * 基本定义 (Basic Definitions)
+ * ============================================================================ *)
+
+identifier = letter | "_", { letter | digit | "_" | "$" };
 
 letter = "a" .. "z" | "A" .. "Z";
 
@@ -465,7 +828,9 @@ binary_digit = "0" | "1";
 
 octal_digit = "0" .. "7";
 
-escape_sequence = "\\", ( "n" | "t" | "r" | "\\" | "'" | '"' );
+escape_sequence = "\\", ( "n" | "t" | "r" | "\\" | "'" | '"' | "b" | "f" | "0" 
+                        | "u", hex_digit, hex_digit, hex_digit, hex_digit
+                        | octal_digit, [ octal_digit, [ octal_digit ] ] );
 
 character = any_unicode_character;
 
@@ -473,4 +838,141 @@ any_character_except_double_quote = ? 除双引号外的任何字符 ?;
 
 any_character_except_newline = ? 除换行符外的任何字符 ?;
 
+any_character_except_angle_quote = ? 除 < 和 > 外的任何字符 ?;
+
 any_unicode_character = ? 任何 Unicode 字符 ?;
+
+(* ============================================================================
+ * 编译器指令和元数据
+ * ============================================================================ *)
+
+(*
+ * 编译器版本检查：
+ *   #if __CAVVY_VERSION__ >= 0x00040800
+ *       // 0.4.8.0+ 代码
+ *   #endif
+ *
+ * 预定义宏：
+ *   __CAVVY__         - 定义为 1
+ *   __CAVVY_VERSION__ - 版本号十六进制 (0x00040802 = 0.4.8.2)
+ *   __FILE__          - 当前文件名
+ *   __LINE__          - 当前行号
+ *   __DATE__          - 编译日期
+ *   __TIME__          - 编译时间
+ *   __TIMESTAMP__     - 编译时间戳
+ *   __cplusplus       - 未定义（与 C++ 区分）
+ *
+ * 平台宏：
+ *   _WIN32, _WIN64    - Windows 平台
+ *   __linux__         - Linux 平台
+ *   __APPLE__         - macOS 平台
+ *   __x86_64__        - x86_64 架构
+ *   __aarch64__       - ARM64 架构
+ *)
+
+(* ============================================================================
+ * 版本历史
+ * ============================================================================ *)
+
+(*
+ * 0.4.8.x (Build 26) - 当前版本
+ *   - 添加完整的 #else 和 #elif 预处理指令支持
+ *   - 修复 Lambda 返回类型推断
+ *   - 修复方法引用类型推断
+ *   - 完善类型转换系统
+ *   - 增强 FFI 类型支持
+ *
+ * 0.4.8.0
+ *   - FFI (Foreign Function Interface) 支持
+ *   - extern 声明和调用约定
+ *   - FFI 类型系统 (c_int, c_long, size_t 等)
+ *
+ * 0.4.7.x
+ *   - Cavvy 字节码系统 (CayBC)
+ *   - 字节码混淆系统
+ *   - cay-bcgen 工具
+ *   - 增强 cay-run 工具
+ *
+ * 0.4.6.x
+ *   - 伪运行时系统
+ *   - 临时目录编译执行
+ *   - 动态链接库支持
+ *   - 运行时命令行参数传递
+ *
+ * 0.4.5.x
+ *   - 多平台适配 IR 代码
+ *   - 可选生成参数
+ *   - IR 代码混淆
+ *
+ * 0.4.4.x
+ *   - final 类和方法
+ *   - 静态成员和静态初始化块
+ *   - 常量表达式
+ *
+ * 0.4.3.x
+ *   - var/let 后置类型声明
+ *   - auto 自动类型推断
+ *   - 顶层 main 函数支持
+ *
+ * 0.4.2.x
+ *   - 构造函数和构造链
+ *   - 析构函数支持
+ *   - 成员初始化顺序
+ *
+ * 0.4.1.x
+ *   - 动态分派
+ *   - 抽象类
+ *   - 接口实现
+ *   - instanceof 运算符
+ *
+ * 0.4.0.x
+ *   - 单继承模型
+ *   - 虚函数表 (vtable)
+ *   - 方法重写与 @Override
+ *   - 访问控制 (public/private/protected)
+ *
+ * 0.3.4.x
+ *   - 字符串方法增强
+ *   - 方法重载
+ *   - 可变参数
+ *   - 方法引用
+ *   - Lambda 表达式
+ *
+ * 0.3.3.x
+ *   - 多维数组
+ *   - 数组初始化
+ *   - 数组 length 属性
+ *   - 数组边界检查
+ *
+ * 0.3.2.x
+ *   - 浮点类型 (float, double)
+ *   - 字符类型 (char)
+ *   - 布尔类型 (bool/boolean)
+ *   - 长整型 (long)
+ *   - 类型转换
+ *   - 字面量增强
+ *
+ * 0.3.1.x
+ *   - for 循环
+ *   - 增强 for 循环
+ *   - do-while 循环
+ *   - switch 语句
+ *   - break/continue 标签
+ *
+ * 0.3.0.x
+ *   - 基础控制流完善
+ *   - 数组基础功能
+ *   - print/println 函数
+ *   - 输入函数 (readInt, readFloat, readLine)
+ *
+ * 0.2.x
+ *   - 版本号集成
+ *   - 编译优化选项
+ *   - 完整编译器驱动
+ *
+ * 0.1.x
+ *   - 基础词法/语法分析器
+ *   - LLVM IR 代码生成
+ *   - Windows EXE 输出
+ *   - 基础类型和类
+ *)

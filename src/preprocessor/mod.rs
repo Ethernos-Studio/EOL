@@ -56,9 +56,11 @@ enum Directive {
     Ifdef(String),
     /// #ifndef name
     Ifndef(String),
+    /// #if expression
+    If(String),
     /// #else
     Else,
-    /// #elif name
+    /// #elif expression
     Elif(String),
     /// #endif
     Endif,
@@ -215,6 +217,10 @@ impl Preprocessor {
             "ifndef" => {
                 let name = self.parse_identifier(args, line_num)?;
                 Ok(Some(Directive::Ifndef(name)))
+            }
+            "if" => {
+                let expr = args.trim().to_string();
+                Ok(Some(Directive::If(expr)))
             }
             "else" => {
                 if !args.is_empty() {
@@ -384,6 +390,10 @@ impl Preprocessor {
                 let should_process = !self.skipping && !self.defines.contains_key(&name);
                 self.push_conditional(should_process);
             }
+            Directive::If(expr) => {
+                let result = self.evaluate_if_expression(&expr);
+                self.push_conditional(!self.skipping && result);
+            }
             Directive::Else => {
                 self.handle_else()?;
             }
@@ -478,6 +488,50 @@ impl Preprocessor {
 
         self.update_skipping_state();
         Ok(())
+    }
+
+    /// 评估 #if 表达式
+    fn evaluate_if_expression(&self, expr: &str) -> bool {
+        let trimmed = expr.trim();
+        
+        // 简单表达式求值
+        // 支持: defined(MACRO), MACRO == value, MACRO != value
+        
+        // 检查 defined(MACRO)
+        if trimmed.starts_with("defined(") && trimmed.ends_with(")") {
+            let macro_name = &trimmed[8..trimmed.len()-1];
+            return self.defines.contains_key(macro_name);
+        }
+        
+        // 检查数字字面量（非0为真）
+        if let Ok(num) = trimmed.parse::<i64>() {
+            return num != 0;
+        }
+        
+        // 检查宏是否存在且非空/非0
+        if let Some(value) = self.defines.get(trimmed) {
+            if value.is_empty() {
+                return true; // 空定义视为真
+            }
+            if let Ok(num) = value.parse::<i64>() {
+                return num != 0;
+            }
+            return true; // 非空字符串视为真
+        }
+        
+        // 支持简单比较: MACRO == value
+        if trimmed.contains("==") {
+            let parts: Vec<&str> = trimmed.split("==").collect();
+            if parts.len() == 2 {
+                let left = parts[0].trim();
+                let right = parts[1].trim();
+                let left_val = self.defines.get(left).map(|s| s.as_str()).unwrap_or(left);
+                return left_val == right;
+            }
+        }
+        
+        // 默认：未定义的宏视为假
+        false
     }
 
     /// 更新跳过状态
