@@ -1,0 +1,331 @@
+/**
+ * IOPlus - 输入输出增强工具类
+ *
+ * 提供类似 Python 的便捷打印功能：
+ * - prints(String...): 类似 Python 的 print，支持多字符串参数自动空格分隔和换行
+ * - prints(int...): 打印多个整数
+ * - printsNoLn(String...): 类似 prints 但不换行
+ * - printsSep(String, String...): 使用指定分隔符打印
+ * - input(String): 显示提示并读取用户输入
+ * - input(): 读取用户输入
+ */
+public class IOPlus {
+
+    // ==================== 字符串可变参数打印 ====================
+
+    /**
+     * 类似 Python 的 print 函数 - 字符串版本
+     * 接受多个参数，用空格分隔，最后输出换行
+     * @param args 要打印的字符串参数
+     */
+    public static void prints(String... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(" ");
+            }
+
+            i = i + 1;
+        }
+
+        println("");
+    }
+
+    /**
+     * 类似 prints 但不输出换行 - 字符串版本
+     * @param args 要打印的字符串参数
+     */
+    public static void printsNoLn(String... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(" ");
+            }
+
+            i = i + 1;
+        }
+    }
+
+    /**
+     * 使用指定分隔符打印多个字符串
+     * @param separator 分隔符
+     * @param args 要打印的字符串参数
+     */
+    public static void printsSep(String separator, String... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(separator);
+            }
+
+            i = i + 1;
+        }
+
+        println("");
+    }
+
+    /**
+     * 使用指定分隔符打印多个字符串，不换行
+     * @param separator 分隔符
+     * @param args 要打印的字符串参数
+     */
+    public static void printsSepNoLn(String separator, String... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(separator);
+            }
+
+            i = i + 1;
+        }
+    }
+
+    // ==================== 整数可变参数打印 ====================
+
+    /**
+     * 打印多个整数，用空格分隔，最后换行
+     * @param args 要打印的整数参数
+     */
+    public static void printi(int... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(" ");
+            }
+
+            i = i + 1;
+        }
+
+        println("");
+    }
+
+    /**
+     * 打印多个整数，不换行
+     * @param args 要打印的整数参数
+     */
+    public static void printiNoLn(int... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(" ");
+            }
+
+            i = i + 1;
+        }
+    }
+
+    // ==================== 浮点数可变参数打印 ====================
+
+    /**
+     * 打印多个浮点数，用空格分隔，最后换行
+     * @param args 要打印的浮点数参数
+     */
+    public static void printfl(float... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(" ");
+            }
+
+            i = i + 1;
+        }
+
+        println("");
+    }
+
+    /**
+     * 打印多个双精度浮点数，用空格分隔，最后换行
+     * @param args 要打印的双精度浮点数参数
+     */
+    public static void printdb(double... args) {
+        int count = args.length;
+
+        int i = 0;
+        while (i < count) {
+            print(args[i]);
+
+            if (i < count - 1) {
+                print(" ");
+            }
+
+            i = i + 1;
+        }
+
+        println("");
+    }
+
+    // ==================== 混合类型打印（手动组合） ====================
+
+    /**
+     * 打印字符串和整数组合
+     * @param s1 字符串
+     * @param i1 整数
+     */
+    public static void printsi(String s1, int i1) {
+        print(s1);
+        print(" ");
+        print(i1);
+        println("");
+    }
+
+    /**
+     * 打印字符串和浮点数组合
+     * @param s1 字符串
+     * @param f1 浮点数
+     */
+    public static void printsf(String s1, float f1) {
+        print(s1);
+        print(" ");
+        print(f1);
+        println("");
+    }
+
+    /**
+     * 打印字符串、整数和字符串组合
+     * @param s1 字符串1
+     * @param i1 整数
+     * @param s2 字符串2
+     */
+    public static void printsis(String s1, int i1, String s2) {
+        print(s1);
+        print(" ");
+        print(i1);
+        print(" ");
+        print(s2);
+        println("");
+    }
+
+    /**
+     * 打印两个字符串和一个整数组合
+     * @param s1 字符串1
+     * @param s2 字符串2
+     * @param i1 整数
+     */
+    public static void printssi(String s1, String s2, int i1) {
+        print(s1);
+        print(" ");
+        print(s2);
+        print(" ");
+        print(i1);
+        println("");
+    }
+
+    // ==================== 输入方法 ====================
+
+    /**
+     * 显示提示并读取用户输入
+     * @param prompt 提示信息
+     * @return 用户输入的字符串
+     */
+    public static String input(String prompt) {
+        print(prompt);
+        return readLine();
+    }
+
+    /**
+     * 读取用户输入（无提示）
+     * @return 用户输入的字符串
+     */
+    public static String input() {
+        return readLine();
+    }
+
+    /**
+     * 读取整数输入
+     * @param prompt 提示信息
+     * @return 用户输入的整数
+     */
+    public static int inputInt(String prompt) {
+        print(prompt);
+        return readInt();
+    }
+
+    /**
+     * 读取浮点数输入
+     * @param prompt 提示信息
+     * @return 用户输入的浮点数
+     */
+    public static float inputFloat(String prompt) {
+        print(prompt);
+        return readFloat();
+    }
+
+    // ==================== 辅助方法 ====================
+
+    /**
+     * 打印空行
+     */
+    public static void println() {
+        println("");
+    }
+
+    /**
+     * 重复打印某个字符串多次
+     * @param str 要重复的字符串
+     * @param count 重复次数
+     */
+    public static void repeat(String str, int count) {
+        int i = 0;
+        while (i < count) {
+            print(str);
+            i = i + 1;
+        }
+    }
+
+    /**
+     * 重复打印某个字符串多次并换行
+     * @param str 要重复的字符串
+     * @param count 重复次数
+     */
+    public static void repeatLn(String str, int count) {
+        repeat(str, count);
+        println();
+    }
+
+    /**
+     * 打印水平分割线
+     * @param length 分割线长度
+     */
+    public static void divider(int length) {
+        repeat("-", length);
+        println();
+    }
+
+    /**
+     * 打印水平分割线（使用指定字符）
+     * @param length 分割线长度
+     * @param ch 使用的字符
+     */
+    public static void divider(int length, String ch) {
+        repeat(ch, length);
+        println();
+    }
+}

@@ -123,9 +123,21 @@ impl IRGenerator {
             }
         }
         
-        // 添加其他参数
-        for arg_str in &processed_args {
-            final_args.push(arg_str.clone());
+        // 获取方法的参数类型信息以进行必要的类型转换
+        let param_types = self.get_method_param_types(&class_name, &method_name, &processed_args, has_varargs_array);
+        
+        // 添加其他参数（根据需要进行类型转换）
+        for (idx, arg_str) in processed_args.iter().enumerate() {
+            let (arg_type, arg_val) = self.parse_typed_value(arg_str);
+            
+            // 检查是否需要类型转换
+            if idx < param_types.len() {
+                let param_llvm_type = self.type_to_llvm(&param_types[idx]);
+                let converted_arg = self.convert_arg_type(&arg_type, &arg_val, &param_llvm_type);
+                final_args.push(converted_arg);
+            } else {
+                final_args.push(arg_str.clone());
+            }
         }
 
         // 生成函数名 - 使用类型注册表获取方法定义的参数类型
@@ -523,7 +535,14 @@ impl IRGenerator {
             "float" => {
                 let elem_ptr = self.new_temp();
                 self.emit_line(&format!("  {} = bitcast i8* {} to float*", elem_ptr, elem_ptr_i8));
-                self.emit_line(&format!("  store float {}, float* {}, align 4", arg_val, elem_ptr));
+                // 如果参数是 double 类型，需要转换为 float
+                if arg_type == "double" {
+                    let converted = self.new_temp();
+                    self.emit_line(&format!("  {} = fptrunc double {} to float", converted, arg_val));
+                    self.emit_line(&format!("  store float {}, float* {}, align 4", converted, elem_ptr));
+                } else {
+                    self.emit_line(&format!("  store float {}, float* {}, align 4", arg_val, elem_ptr));
+                }
             }
             "double" => {
                 let elem_ptr = self.new_temp();
@@ -543,5 +562,87 @@ impl IRGenerator {
                 self.emit_line(&format!("  store i32 {}, i32* {}, align 4", arg_val, elem_ptr));
             }
         }
+    }
+
+    /// 获取方法的参数类型列表
+    fn get_method_param_types(&self, class_name: &str, method_name: &str, processed_args: &[String], has_varargs_array: bool) -> Vec<crate::types::Type> {
+        if let Some(ref registry) = self.type_registry {
+            // 在类及其父类中查找方法
+            let mut current_class_name = class_name.to_string();
+            loop {
+                if let Some(class_info) = registry.get_class(&current_class_name) {
+                    if let Some(methods) = class_info.methods.get(method_name) {
+                        let arg_count = processed_args.len();
+                        
+                        for method in methods {
+                            let param_count = method.params.len();
+                            let is_varargs = method.params.last().map(|p| p.is_varargs).unwrap_or(false);
+                            
+                            if is_varargs {
+                                let fixed_count = param_count.saturating_sub(1);
+                                if arg_count >= fixed_count {
+                                    // 返回固定参数类型（不包括可变参数数组）
+                                    return method.params.iter()
+                                        .take(fixed_count)
+                                        .map(|p| p.param_type.clone())
+                                        .collect();
+                                }
+                            } else if param_count == arg_count {
+                                return method.params.iter()
+                                    .map(|p| p.param_type.clone())
+                                    .collect();
+                            }
+                        }
+                    }
+                    
+                    // 在父类中查找
+                    if let Some(parent) = &class_info.parent {
+                        current_class_name = parent.clone();
+                        continue;
+                    }
+                }
+                break;
+            }
+        }
+        Vec::new()
+    }
+
+    /// 转换参数类型以匹配形参类型
+    fn convert_arg_type(&mut self, arg_type: &str, arg_val: &str, param_llvm_type: &str) -> String {
+        // 如果类型已经匹配，直接返回
+        if arg_type == param_llvm_type {
+            return format!("{} {}", arg_type, arg_val);
+        }
+        
+        // double -> float 转换
+        if arg_type == "double" && param_llvm_type == "float" {
+            let converted = self.new_temp();
+            self.emit_line(&format!("  {} = fptrunc double {} to float", converted, arg_val));
+            return format!("float {}", converted);
+        }
+        
+        // float -> double 转换
+        if arg_type == "float" && param_llvm_type == "double" {
+            let converted = self.new_temp();
+            self.emit_line(&format!("  {} = fpext float {} to double", converted, arg_val));
+            return format!("double {}", converted);
+        }
+        
+        // i32 -> i64 转换
+        if arg_type == "i32" && param_llvm_type == "i64" {
+            let converted = self.new_temp();
+            self.emit_line(&format!("  {} = sext i32 {} to i64", converted, arg_val));
+            return format!("i64 {}", converted);
+        }
+        
+        // i64 -> i32 截断
+        if arg_type == "i64" && param_llvm_type == "i32" {
+            let converted = self.new_temp();
+            self.emit_line(&format!("  {} = trunc i64 {} to i32", converted, arg_val));
+            return format!("i32 {}", converted);
+        }
+        
+        // 默认：不进行转换
+        format!("{} {}", arg_type, arg_val)
     }
 }

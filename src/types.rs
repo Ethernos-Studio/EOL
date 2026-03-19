@@ -135,12 +135,14 @@ impl ClassInfo {
             return true;
         }
         // 允许 int -> long, int -> float, int -> double 等隐式转换
+        // 也允许 double -> float 的显式转换（用于字面量）
         match (param_type, arg_type) {
             (Type::Int64, Type::Int32) => true,
             (Type::Float32, Type::Int32) => true,
             (Type::Float64, Type::Int32) => true,
             (Type::Float64, Type::Int64) => true,
             (Type::Float64, Type::Float32) => true,
+            (Type::Float32, Type::Float64) => true,  // double -> float 截断转换
             _ => false,
         }
     }

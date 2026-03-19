@@ -1,0 +1,64 @@
+/**
+ * IOPlus 库测试
+ * 测试类似 Python 的 prints 函数功能
+ */
+#include <IOPlus.cay>
+
+public class TestIOPlus {
+    public static void main() {
+        // 测试 1: 基本 prints 功能（类似 Python print）
+        IOPlus.prints("Hello", "World");
+        IOPlus.prints("Cavvy", "Language");
+
+        IOPlus.divider(30);
+
+        // 测试 2: 打印多个整数
+        IOPlus.printi(1, 2, 3, 4, 5);
+        IOPlus.printi(10, 20, 30);
+
+        IOPlus.divider(30);
+
+        // 测试 3: 打印多个浮点数（float）
+        IOPlus.printfl(3.14f, 2.71f, 1.41f);
+
+        IOPlus.divider(30);
+
+        // 测试 4: 不换行打印
+        IOPlus.printsNoLn("Loading");
+        IOPlus.printsNoLn("...");
+        IOPlus.prints("Done!");
+
+        IOPlus.divider(30);
+
+        // 测试 5: 自定义分隔符
+        IOPlus.printsSep(", ", "apple", "banana", "cherry");
+        IOPlus.printsSep(" | ", "A", "B", "C", "D");
+        IOPlus.printsSep("", "H", "e", "l", "l", "o");
+
+        IOPlus.divider(30);
+
+        // 测试 6: 重复打印
+        IOPlus.repeatLn("*", 20);
+        IOPlus.divider(10, "=");
+
+        // 测试 7: 空行
+        IOPlus.println();
+        IOPlus.prints("Above is an empty line");
+
+        IOPlus.divider(30);
+
+        // 测试 8: 混合类型打印
+        IOPlus.printsi("The answer is", 42);
+        IOPlus.printsf("Pi =", 3.14159f);
+        IOPlus.printsis("Count:", 100, "items");
+        IOPlus.printssi("Hello", "World", 2024);
+
+        IOPlus.divider(30);
+
+        // 测试 9: 输入功能（可选，需要用户交互）
+        // String name = IOPlus.input("Enter your name: ");
+        // IOPlus.prints("Hello,", name);
+
+        IOPlus.prints("All tests completed!");
+    }
+}
