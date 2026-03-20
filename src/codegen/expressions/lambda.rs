@@ -105,7 +105,7 @@ impl IRGenerator {
         }
     }
 
-    /// 推断表达式类型（简化版，用于 Lambda 返回类型推断）
+    /// 推断表达式类型（用于 Lambda 返回类型推断）
     fn infer_expr_type(&self, expr: &Expr) -> cayResult<Type> {
         match expr {
             Expr::Literal(lit) => match lit {
