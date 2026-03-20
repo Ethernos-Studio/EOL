@@ -136,7 +136,31 @@ impl IRGenerator {
                 result, i64_val));
             return Ok(format!("{} {}", to_type, result));
         }
-        
+
+        // 字符串到整数（String -> int）- 使用 atoi
+        if from_type == "i8*" && to_type.starts_with("i") && !to_type.ends_with("*") {
+            // 调用 atoi 函数将字符串转换为整数
+            let atoi_result = self.new_temp();
+            self.emit_line(&format!("  {} = call i32 @atoi(i8* {})", atoi_result, val));
+
+            // 如果目标类型不是 i32，需要转换
+            if to_type == "i32" {
+                return Ok(format!("i32 {}", atoi_result));
+            } else {
+                // 转换到目标整数类型
+                let final_result = self.new_temp();
+                let to_bits: u32 = to_type.trim_start_matches('i').parse().unwrap_or(32);
+                if to_bits > 32 {
+                    self.emit_line(&format!("  {} = sext i32 {} to {}", final_result, atoi_result, to_type));
+                } else if to_bits < 32 {
+                    self.emit_line(&format!("  {} = trunc i32 {} to {}", final_result, atoi_result, to_type));
+                } else {
+                    return Ok(format!("i32 {}", atoi_result));
+                }
+                return Ok(format!("{} {}", to_type, final_result));
+            }
+        }
+
         Err(codegen_error(format!("Unsupported cast from {} to {}", from_type, to_type)))
     }
 }

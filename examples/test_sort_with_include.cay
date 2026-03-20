@@ -1,0 +1,31 @@
+/**
+ * 测试使用include的排序程序
+ * 读取一行输入，分割成数字，排序后输出
+ */
+#include <IOPlus.cay>
+#include <StringPlus.cay>
+
+
+@main
+public class Sort {
+    public static void main() {
+        string a = readLine();
+        string[] b = StringPlus.split(a);
+        int[] c = new int[b.length()]();
+        for(int i = 0; i < b.length(); i++) {
+            c[i] = (int)b[i];
+        }
+        for(int i = 0; i < c.length(); i++) {
+            for(int j = 0; j < c.length() - 1; j++) {
+                if(c[j] > c[j + 1]) {
+                    int temp = c[j];
+                    c[j] = c[j + 1];
+                    c[j + 1] = temp;
+                }
+            }
+        }
+        for(int i = 0; i < c.length(); i++) {
+            print(c[i] + " ");
+        }
+    }
+}

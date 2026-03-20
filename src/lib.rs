@@ -57,17 +57,17 @@ impl Compiler {
     }
 
     /// 编译源代码为 LLVM IR
-    /// 
+    ///
     /// # Arguments
     /// * `source` - 原始源代码（已预处理）
     /// * `output_path` - 输出文件路径
-    /// 
+    ///
     /// # Returns
     /// 编译成功返回 Ok(())
     pub fn compile(&self, source: &str, output_path: &str) -> cayResult<()> {
         // 1. 词法分析
         let tokens = lexer::lex(source)?;
-        
+
         // 调试：打印所有token
         #[cfg(debug_assertions)]
         {
@@ -77,10 +77,10 @@ impl Compiler {
             }
             println!();
         }
-        
+
         // 2. 语法分析
         let ast = parser::parse(tokens)?;
-        
+
         // 3. 语义分析
         let mut analyzer = semantic::SemanticAnalyzer::new();
         analyzer.analyze(&ast)?;
@@ -92,27 +92,83 @@ impl Compiler {
         // 传递类型注册表以支持正确的方法名生成
         ir_gen.set_type_registry(analyzer.get_type_registry().clone());
         let mut ir = ir_gen.generate(&ast)?;
-        
+
         // 5. 如果启用了混淆，应用IR混淆
         if self.options.obfuscate {
             use codegen::obfuscator::IRObfuscator;
             let mut obfuscator = IRObfuscator::new();
             ir = obfuscator.obfuscate_ir(&ir);
         }
-        
+
         // 输出到文件
         std::fs::write(output_path, ir)
             .map_err(|e| error::cayError::Io(e.to_string()))?;
-        
+
+        Ok(())
+    }
+
+    /// 编译源代码为 LLVM IR（带源映射）
+    ///
+    /// # Arguments
+    /// * `source` - 原始源代码（已预处理）
+    /// * `source_map` - 源映射表
+    /// * `output_path` - 输出文件路径
+    ///
+    /// # Returns
+    /// 编译成功返回 Ok(())
+    pub fn compile_with_source_map(&self, source: &str, source_map: std::collections::HashMap<usize, (String, usize)>, output_path: &str) -> cayResult<()> {
+        // 1. 词法分析（带源映射）
+        let tokens = lexer::lex_with_source_map(source, source_map)?;
+
+        // 调试：打印所有token
+        #[cfg(debug_assertions)]
+        {
+            println!("Tokens:");
+            for (i, t) in tokens.iter().enumerate() {
+                if let Some(ref file) = t.source_file {
+                    println!("  {}: {:?} at {}:{} (original: {})", i, t.token, file, t.source_line.unwrap_or(t.loc.line), t.loc);
+                } else {
+                    println!("  {}: {:?} at {}", i, t.token, t.loc);
+                }
+            }
+            println!();
+        }
+
+        // 2. 语法分析
+        let ast = parser::parse(tokens)?;
+
+        // 3. 语义分析
+        let mut analyzer = semantic::SemanticAnalyzer::new();
+        analyzer.analyze(&ast)?;
+
+        // 4. 代码生成 - 生成LLVM IR（字符串常量已在生成器内处理）
+        let mut ir_gen = codegen::IRGenerator::new();
+        // 传递多平台配置
+        ir_gen.set_platform_config(&self.options);
+        // 传递类型注册表以支持正确的方法名生成
+        ir_gen.set_type_registry(analyzer.get_type_registry().clone());
+        let mut ir = ir_gen.generate(&ast)?;
+
+        // 5. 如果启用了混淆，应用IR混淆
+        if self.options.obfuscate {
+            use codegen::obfuscator::IRObfuscator;
+            let mut obfuscator = IRObfuscator::new();
+            ir = obfuscator.obfuscate_ir(&ir);
+        }
+
+        // 输出到文件
+        std::fs::write(output_path, ir)
+            .map_err(|e| error::cayError::Io(e.to_string()))?;
+
         Ok(())
     }
 
     /// 从文件编译，自动执行预处理
-    /// 
+    ///
     /// # Arguments
     /// * `input_path` - 输入源文件路径
     /// * `output_path` - 输出 LLVM IR 文件路径
-    /// 
+    ///
     /// # Returns
     /// 编译成功返回 Ok(())
     pub fn compile_file(&self, input_path: &str, output_path: &str) -> cayResult<()> {
@@ -121,16 +177,16 @@ impl Compiler {
             .map_err(|e| error::cayError::Io(
                 format!("无法读取源文件 '{}': {}", input_path, e)
             ))?;
-        
+
         // 获取基础目录（用于解析相对路径的 #include）
         let base_dir = Path::new(input_path)
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
-        
+
         // 构建系统包含路径列表（包含 caylibs 目录）
         let mut system_paths = Vec::new();
-        
+
         // 尝试获取可执行文件所在目录，并添加 caylibs 子目录
         if let Ok(exe_path) = std::env::current_exe() {
             if let Some(exe_dir) = exe_path.parent() {
@@ -140,23 +196,36 @@ impl Compiler {
                 }
             }
         }
-        
+
         // 也尝试从当前工作目录添加 caylibs
         let cwd_caylibs = PathBuf::from("caylibs");
         if cwd_caylibs.exists() && !system_paths.contains(&cwd_caylibs) {
             system_paths.push(cwd_caylibs);
         }
-        
-        // 使用带系统路径的预处理器
-        let preprocessed = if system_paths.is_empty() {
-            preprocessor::preprocess(&source, input_path, base_dir)?
+
+        // 使用带系统路径的预处理器（带源映射）
+        let (preprocessed_code, source_map) = if system_paths.is_empty() {
+            let result = preprocessor::preprocess_with_source_map(&source, input_path, base_dir)?;
+            let map = Self::convert_source_map(&result.source_map);
+            (result.code, map)
         } else {
             let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
-            pp.process(&source, input_path)?
+            let result = pp.process_with_source_map(&source, input_path)?;
+            let map = Self::convert_source_map(&result.source_map);
+            (result.code, map)
         };
-        
-        // 编译预处理后的代码
-        self.compile(&preprocessed, output_path)
+
+        // 编译预处理后的代码（带源映射）
+        self.compile_with_source_map(&preprocessed_code, source_map, output_path)
+    }
+
+    /// 将预处理器源映射转换为HashMap格式
+    fn convert_source_map(source_map: &preprocessor::SourceMap) -> std::collections::HashMap<usize, (String, usize)> {
+        let mut map = std::collections::HashMap::new();
+        for (idx, pos) in source_map.mappings.iter().enumerate() {
+            map.insert(idx + 1, (pos.file.clone(), pos.line)); // 1-based line numbers
+        }
+        map
     }
 }
 

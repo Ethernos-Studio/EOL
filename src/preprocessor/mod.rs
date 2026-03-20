@@ -1,20 +1,73 @@
 //! Cavvy 预处理器模块
-//! 
+//!
 //! 实现 0.3.5.0 版本的预处理指令系统：
 //! - #include "path"  - 文件包含（隐式 #pragma once）
 //! - #define NAME value  - 常量定义（无参数宏）
 //! - #ifdef / #ifndef / #else / #elif / #endif  - 条件编译
 //! - #error "message"  - 编译期错误
 //! - #warning "message"  - 编译期警告
-//! 
+//!
 //! 设计约束：
 //! - 仅支持简单常量定义，禁止宏函数
 //! - 隐式 #pragma once 基于绝对路径哈希
 //! - 预处理在词法分析之前执行，生成纯源代码
+//! - 生成 #source <file> <line> 标记以支持源映射
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use crate::error::{cayResult, cayError};
+
+/// 源位置信息
+#[derive(Debug, Clone)]
+pub struct SourcePosition {
+    pub file: String,
+    pub line: usize,
+}
+
+/// 源映射表：将输出行号映射到原始源位置
+#[derive(Debug, Clone, Default)]
+pub struct SourceMap {
+    pub mappings: Vec<SourcePosition>,
+}
+
+impl SourceMap {
+    pub fn new() -> Self {
+        Self {
+            mappings: Vec::new(),
+        }
+    }
+
+    /// 添加一个源位置映射
+    pub fn add_mapping(&mut self, file: String, line: usize) {
+        self.mappings.push(SourcePosition { file, line });
+    }
+
+    /// 获取指定输出行号对应的源位置
+    pub fn get_source_position(&self, output_line: usize) -> Option<&SourcePosition> {
+        // output_line 是1-based的
+        self.mappings.get(output_line.saturating_sub(1))
+    }
+
+    /// 获取映射数量
+    pub fn len(&self) -> usize {
+        self.mappings.len()
+    }
+
+    /// 序列化为字符串（用于嵌入到预处理后的代码中）
+    pub fn serialize(&self) -> String {
+        self.mappings.iter()
+            .map(|pos| format!("#source {} {}", pos.file, pos.line))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+/// 预处理结果，包含处理后的代码和源映射
+#[derive(Debug, Clone)]
+pub struct PreprocessResult {
+    pub code: String,
+    pub source_map: SourceMap,
+}
 
 /// 预处理器状态
 pub struct Preprocessor {
@@ -111,60 +164,71 @@ impl Preprocessor {
         }
     }
 
-    /// 预处理源文件，返回处理后的源代码
-    /// 
+    /// 预处理源文件，返回处理后的源代码（带源映射）
+    ///
     /// # Arguments
     /// * `source` - 原始源代码
     /// * `file_path` - 源文件路径（用于错误报告）
-    /// 
+    ///
     /// # Returns
-    /// 预处理后的源代码字符串
-    /// 
+    /// 预处理后的结果，包含代码和源映射
+    ///
     /// # Errors
     /// 当遇到无效指令或文件无法读取时返回错误
-    pub fn process(&mut self, source: &str, file_path: &str) -> cayResult<String> {
+    pub fn process_with_source_map(&mut self, source: &str, file_path: &str) -> cayResult<PreprocessResult> {
         // 将当前文件压入包含栈
         self.include_stack.push(file_path.to_string());
-        
-        let result = self.process_internal(source, file_path);
-        
+
+        let result = self.process_internal_with_source_map(source, file_path);
+
         // 弹出当前文件
         self.include_stack.pop();
-        
+
         result
     }
 
-    /// 内部处理函数
-    fn process_internal(&mut self, source: &str, file_path: &str) -> cayResult<String> {
+    /// 预处理源文件，返回处理后的源代码（向后兼容）
+    pub fn process(&mut self, source: &str, file_path: &str) -> cayResult<String> {
+        let result = self.process_with_source_map(source, file_path)?;
+        Ok(result.code)
+    }
+
+    /// 内部处理函数（带源映射）
+    fn process_internal_with_source_map(&mut self, source: &str, file_path: &str) -> cayResult<PreprocessResult> {
         let lines: Vec<&str> = source.lines().collect();
         let mut output_lines = Vec::new();
-        
+        let mut source_map = SourceMap::new();
+
         for (line_num, line) in lines.iter().enumerate() {
             let line_number = line_num + 1;
-            
+
             // 检查是否是预处理指令行
             let trimmed = line.trim_start();
             if trimmed.starts_with('#') {
                 match self.parse_directive(trimmed, line_number, file_path) {
                     Ok(Some(directive)) => {
-                        self.process_directive(directive, &mut output_lines, file_path)?;
+                        self.process_directive_with_source_map(directive, &mut output_lines, &mut source_map, file_path)?;
                     }
                     Ok(None) => {
-                        // 跳过空指令（如纯注释）
+                        // 跳过空指令（如纯注释），但仍添加源映射
+                        source_map.add_mapping(file_path.to_string(), line_number);
+                        output_lines.push("".to_string());
                     }
                     Err(e) => return Err(e),
                 }
             } else if self.skipping {
                 // 处于条件编译跳过状态，不输出代码行
-                // 但仍需跟踪行号以保持行号映射（用于调试信息）
+                // 但仍需跟踪行号以保持行号映射
+                source_map.add_mapping(file_path.to_string(), line_number);
                 output_lines.push("".to_string());
             } else {
                 // 普通代码行，进行宏替换后输出
                 let processed = self.expand_macros(line);
+                source_map.add_mapping(file_path.to_string(), line_number);
                 output_lines.push(processed);
             }
         }
-        
+
         // 检查条件编译栈是否为空
         if !self.conditional_stack.is_empty() {
             return Err(cayError::Preprocessor {
@@ -174,8 +238,11 @@ impl Preprocessor {
                 suggestion: "请为每个 #ifdef 或 #ifndef 添加对应的 #endif".to_string(),
             });
         }
-        
-        Ok(output_lines.join("\n"))
+
+        Ok(PreprocessResult {
+            code: output_lines.join("\n"),
+            source_map,
+        })
     }
 
     /// 解析单行预处理指令
@@ -394,17 +461,18 @@ impl Preprocessor {
         Ok((name, value))
     }
 
-    /// 处理预处理指令
-    fn process_directive(
+    /// 处理预处理指令（带源映射）
+    fn process_directive_with_source_map(
         &mut self,
         directive: Directive,
         output_lines: &mut Vec<String>,
+        source_map: &mut SourceMap,
         file_path: &str,
     ) -> cayResult<()> {
         match directive {
             Directive::Include(path, is_system) => {
                 if !self.skipping {
-                    self.handle_include(&path, is_system, output_lines, file_path)?;
+                    self.handle_include_with_source_map(&path, is_system, output_lines, source_map, file_path)?;
                 }
             }
             Directive::Define(name, value) => {
@@ -570,25 +638,26 @@ impl Preprocessor {
             .any(|state| *state != ConditionalState::Active);
     }
 
-    /// 处理 #include 指令
-    fn handle_include(
+    /// 处理 #include 指令（带源映射）
+    fn handle_include_with_source_map(
         &mut self,
         path: &str,
         is_system: bool,
         output_lines: &mut Vec<String>,
+        source_map: &mut SourceMap,
         current_file: &str,
     ) -> cayResult<()> {
         // 解析完整路径
         let include_path = self.resolve_include_path(path, is_system, current_file)?;
-        
+
         // 标准化路径用于去重检查
         let canonical_path = include_path.canonicalize()
             .map_err(|e| cayError::Io(
                 format!("无法解析包含路径 '{}': {}", path, e)
             ))?;
-        
+
         let path_key = canonical_path.to_string_lossy().to_string();
-        
+
         // 检查循环包含
         if self.include_stack.contains(&path_key) {
             let chain = self.include_stack.join(" -> ");
@@ -599,30 +668,38 @@ impl Preprocessor {
                 suggestion: format!("包含链: {} -> {}", chain, path_key),
             });
         }
-        
+
         // 隐式 #pragma once: 检查是否已包含
         if self.included_files.contains(&path_key) {
             return Ok(());
         }
-        
+
         // 读取文件内容
         let content = std::fs::read_to_string(&canonical_path)
             .map_err(|e| cayError::Io(
                 format!("无法读取包含文件 '{}': {}", path, e)
             ))?;
-        
+
         // 标记为已包含
         self.included_files.insert(path_key.clone());
-        
-        // 递归处理被包含的文件
+
+        // 递归处理被包含的文件（带源映射）
         let sub_path = canonical_path.to_string_lossy();
-        let processed = self.process(&content, &sub_path)?;
-        
-        // 添加行标记（用于调试信息映射）
-        output_lines.push(format!("// #line 1 {:?}", sub_path));
-        output_lines.push(processed);
-        output_lines.push(format!("// #line end {:?}", sub_path));
-        
+        let result = self.process_with_source_map(&content, &sub_path)?;
+
+        // 添加被包含文件的源映射和代码
+        // 为每一行添加对应的源映射
+        for mapping in &result.source_map.mappings {
+            source_map.add_mapping(mapping.file.clone(), mapping.line);
+        }
+
+        // 将被包含文件的代码按行分割并逐行添加
+        // 这样可以确保源映射和代码行一一对应
+        let included_lines: Vec<&str> = result.code.lines().collect();
+        for line in included_lines {
+            output_lines.push(line.to_string());
+        }
+
         Ok(())
     }
 
@@ -742,7 +819,23 @@ impl Preprocessor {
     }
 }
 
-/// 便捷的预处理函数
+/// 便捷的预处理函数（带源映射）
+///
+/// 创建一个临时预处理器实例并处理源代码
+///
+/// # Arguments
+/// * `source` - 原始源代码
+/// * `file_path` - 源文件路径（用于错误报告）
+/// * `base_dir` - 源代码基础目录，用于解析相对路径
+///
+/// # Returns
+/// 预处理后的结果，包含代码和源映射
+pub fn preprocess_with_source_map(source: &str, file_path: &str, base_dir: impl AsRef<Path>) -> cayResult<PreprocessResult> {
+    let mut preprocessor = Preprocessor::new(base_dir);
+    preprocessor.process_with_source_map(source, file_path)
+}
+
+/// 便捷的预处理函数（向后兼容）
 ///
 /// 创建一个临时预处理器实例并处理源代码
 ///

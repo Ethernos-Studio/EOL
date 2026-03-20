@@ -33,6 +33,17 @@ impl IRGenerator {
             if let Some(method_result) = self.try_generate_string_method_call(member, &call.args)? {
                 return Ok(method_result);
             }
+
+            // 处理数组的 length() 方法调用（作为 length 属性的语法糖）
+            if member.member == "length" && call.args.is_empty() {
+                // 检查对象是否是数组类型
+                if let Some(var_type) = self.get_expression_type(&member.object) {
+                    if matches!(var_type, crate::types::Type::Array(_)) {
+                        // 将 length() 转换为 length 属性访问
+                        return self.generate_array_length_access(&member.object);
+                    }
+                }
+            }
         }
 
         // 处理普通函数调用（支持方法重载和可变参数）

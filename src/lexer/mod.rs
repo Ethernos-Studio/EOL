@@ -306,6 +306,32 @@ pub enum Token {
 pub struct TokenWithLocation {
     pub token: Token,
     pub loc: SourceLocation,
+    /// 原始源文件路径（用于支持#include后的错误定位）
+    pub source_file: Option<String>,
+    /// 原始源文件行号
+    pub source_line: Option<usize>,
+}
+
+impl TokenWithLocation {
+    /// 创建带源映射的token
+    pub fn with_source(token: Token, loc: SourceLocation, file: Option<String>, line: Option<usize>) -> Self {
+        Self {
+            token,
+            loc,
+            source_file: file,
+            source_line: line,
+        }
+    }
+
+    /// 获取用于错误报告的文件路径
+    pub fn get_file(&self) -> Option<&str> {
+        self.source_file.as_deref()
+    }
+
+    /// 获取用于错误报告的行号
+    pub fn get_line(&self) -> usize {
+        self.source_line.unwrap_or(self.loc.line)
+    }
 }
 
 /// 词法分析错误类型
@@ -319,7 +345,7 @@ pub enum LexerErrorType {
     InvalidIdentifier,
 }
 
-/// 增强的词法分析器，支持诊断收集
+/// 增强的词法分析器，支持诊断收集和源映射
 pub struct Lexer<'a> {
     source: &'a str,
     inner: logos::Lexer<'a, Token>,
@@ -327,6 +353,10 @@ pub struct Lexer<'a> {
     column: usize,
     diagnostics: DiagnosticCollector,
     collect_all_errors: bool,
+    /// 当前源文件路径（用于#include后的错误定位）
+    current_source_file: Option<String>,
+    /// 源映射表：输出行号 -> (原始文件, 原始行号)
+    source_map: std::collections::HashMap<usize, (String, usize)>,
 }
 
 impl<'a> Lexer<'a> {
@@ -338,6 +368,22 @@ impl<'a> Lexer<'a> {
             column: 1,
             diagnostics: DiagnosticCollector::new(),
             collect_all_errors: false,
+            current_source_file: None,
+            source_map: std::collections::HashMap::new(),
+        }
+    }
+
+    /// 创建带源映射的词法分析器
+    pub fn with_source_map(source: &'a str, source_map: std::collections::HashMap<usize, (String, usize)>) -> Self {
+        Self {
+            source,
+            inner: Token::lexer(source),
+            line: 1,
+            column: 1,
+            diagnostics: DiagnosticCollector::new(),
+            collect_all_errors: false,
+            current_source_file: None,
+            source_map,
         }
     }
 
@@ -426,7 +472,7 @@ impl<'a> Lexer<'a> {
 
     pub fn tokenize(&mut self) -> cayResult<Vec<TokenWithLocation>> {
         let mut tokens = Vec::new();
-        
+
         while let Some(token_result) = self.inner.next() {
             match token_result {
                 Ok(token) => {
@@ -435,7 +481,7 @@ impl<'a> Lexer<'a> {
                         line: self.line,
                         column: self.column,
                     };
-                    
+
                     // 更新行号和列号
                     if token == Token::Newline {
                         self.line += 1;
@@ -444,13 +490,32 @@ impl<'a> Lexer<'a> {
                     } else {
                         self.column += span.end - span.start;
                     }
-                    
-                    tokens.push(TokenWithLocation { token, loc });
+
+                    // 检查源映射
+                    let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
+                        (Some(file.clone()), Some(*line))
+                    } else {
+                        (self.current_source_file.clone(), Some(self.line))
+                    };
+
+                    tokens.push(TokenWithLocation {
+                        token,
+                        loc,
+                        source_file,
+                        source_line,
+                    });
                 }
                 Err(_) => {
                     let span = self.inner.span();
                     let error_char = &self.source[span.clone()];
-                    
+
+                    // 检查源映射以获取正确的错误位置
+                    let (error_line, error_file) = if let Some((file, line)) = self.source_map.get(&self.line) {
+                        (*line, Some(file.clone()))
+                    } else {
+                        (self.line, self.current_source_file.clone())
+                    };
+
                     if self.collect_all_errors {
                         // 收集错误但继续分析
                         let diagnostic = self.create_lexer_diagnostic(
@@ -458,21 +523,26 @@ impl<'a> Lexer<'a> {
                             span.clone()
                         );
                         self.diagnostics.add(diagnostic);
-                        
+
                         // 跳过这个字符继续
                         self.column += span.end - span.start;
                     } else {
                         // 立即返回错误（保持向后兼容）
+                        let error_msg = if let Some(ref file) = error_file {
+                            format!("Unexpected character: '{}' in {}:{}", error_char, file, error_line)
+                        } else {
+                            format!("Unexpected character: '{}' at line {}", error_char, error_line)
+                        };
                         return Err(lexer_error(
-                            self.line,
+                            error_line,
                             self.column,
-                            format!("Unexpected character: '{}'", error_char)
+                            error_msg
                         ));
                     }
                 }
             }
         }
-        
+
         // 检查是否有收集到的错误
         if self.diagnostics.has_errors() {
             return Err(lexer_error(
@@ -481,16 +551,24 @@ impl<'a> Lexer<'a> {
                 format!("词法分析发现 {} 个错误", self.diagnostics.error_count())
             ));
         }
-        
+
         // 添加EOF标记 - 使用Identifier作为哨兵值
+        let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
+            (Some(file.clone()), Some(*line))
+        } else {
+            (self.current_source_file.clone(), Some(self.line))
+        };
+
         tokens.push(TokenWithLocation {
             token: Token::Identifier(String::new()), // 用作EOF标记
             loc: SourceLocation {
                 line: self.line,
                 column: self.column,
             },
+            source_file,
+            source_line,
         });
-        
+
         Ok(tokens)
     }
 
@@ -569,21 +647,46 @@ impl<'a> Lexer<'a> {
     }
 }
 
+/// 从预处理器结果中提取源映射
+/// 预处理器生成的格式是每行代码对应一个源位置
+fn extract_source_map_from_preprocessed(source: &str) -> std::collections::HashMap<usize, (String, usize)> {
+    let mut source_map = std::collections::HashMap::new();
+    let lines: Vec<&str> = source.lines().collect();
+
+    for (output_line, line_content) in lines.iter().enumerate() {
+        let output_line_num = output_line + 1; // 1-based
+
+        // 查找源映射信息
+        // 格式：我们需要根据预处理器的SourceMap来重建映射
+        // 由于预处理器现在直接将源映射信息嵌入到行中，我们需要解析它
+        // 但更简单的方法是使用预处理器返回的SourceMap
+        // 这里我们暂时不解析，而是在lib.rs中直接使用预处理器返回的SourceMap
+    }
+
+    source_map
+}
+
 pub fn lex(source: &str) -> cayResult<Vec<TokenWithLocation>> {
     let mut lexer = Lexer::new(source);
+    lexer.tokenize()
+}
+
+/// 使用源映射进行词法分析
+pub fn lex_with_source_map(source: &str, source_map: std::collections::HashMap<usize, (String, usize)>) -> cayResult<Vec<TokenWithLocation>> {
+    let mut lexer = Lexer::with_source_map(source, source_map);
     lexer.tokenize()
 }
 
 /// 使用诊断收集的词法分析
 pub fn lex_with_diagnostics(source: &str) -> (cayResult<Vec<TokenWithLocation>>, DiagnosticCollector) {
     let mut lexer = Lexer::new(source).with_collect_all_errors();
-    
+
     // 首先检查未闭合的字符串
     let string_diagnostics = lexer.check_unterminated_strings();
     for diag in string_diagnostics {
         lexer.diagnostics.add(diag);
     }
-    
+
     let result = lexer.tokenize();
     (result, lexer.diagnostics)
 }

@@ -159,6 +159,7 @@ pub struct IRGenerator {
     pub current_class: String,
     pub current_return_type: String,
     pub var_types: HashMap<String, String>,
+    pub var_cay_types: HashMap<String, crate::types::Type>,  // 变量名到Cavvy类型的映射
     pub var_class_map: HashMap<String, String>,
     pub loop_stack: Vec<LoopContext>,
     pub target_triple: String,
@@ -172,7 +173,7 @@ pub struct IRGenerator {
     pub type_id_map: HashMap<String, TypeIdInfo>,
     pub type_id_counter: usize,
     pub class_layouts: HashMap<String, ClassLayoutInfo>,  // 类实例布局信息
-    pub platform_config: Option<PlatformConfig>, 
+    pub platform_config: Option<PlatformConfig>,
 }
 
 impl IRGenerator {
@@ -192,6 +193,7 @@ impl IRGenerator {
             current_class: String::new(),
             current_return_type: String::new(),
             var_types: HashMap::new(),
+            var_cay_types: HashMap::new(),
             var_class_map: HashMap::new(),
             loop_stack: Vec::new(),
             target_triple,
@@ -288,6 +290,81 @@ impl IRGenerator {
     /// 获取当前循环上下文（用于 break/continue）
     pub fn current_loop(&self) -> Option<&LoopContext> {
         self.loop_stack.last()
+    }
+
+    /// 获取表达式的类型
+    /// 用于在代码生成期间推断表达式类型
+    pub fn get_expression_type(&self, expr: &crate::ast::Expr) -> Option<crate::types::Type> {
+        use crate::ast::*;
+        use crate::types::Type;
+
+        match expr {
+            Expr::Literal(lit) => match lit {
+                LiteralValue::Int32(_) => Some(Type::Int32),
+                LiteralValue::Int64(_) => Some(Type::Int64),
+                LiteralValue::Float32(_) => Some(Type::Float32),
+                LiteralValue::Float64(_) => Some(Type::Float64),
+                LiteralValue::String(_) => Some(Type::String),
+                LiteralValue::Bool(_) => Some(Type::Bool),
+                LiteralValue::Char(_) => Some(Type::Char),
+                LiteralValue::Null => Some(Type::Object("Object".to_string())),
+            },
+            Expr::Identifier(name) => {
+                // 首先从Cavvy类型映射中查找（更准确）
+                if let Some(cay_type) = self.var_cay_types.get(name.as_ref()) {
+                    return Some(cay_type.clone());
+                }
+                // 回退到LLVM类型映射
+                if let Some(llvm_type) = self.var_types.get(name.as_ref()) {
+                    Self::map_llvm_type_to_cay(llvm_type)
+                } else {
+                    None
+                }
+            },
+            Expr::MemberAccess(member) => {
+                // 对于成员访问，尝试获取对象的类型
+                self.get_expression_type(&member.object).and_then(|obj_type| {
+                    match obj_type {
+                        Type::Array(_) if member.member == "length" => Some(Type::Int32),
+                        Type::String if member.member == "length" => Some(Type::Int32),
+                        _ => None,
+                    }
+                })
+            },
+            Expr::ArrayAccess(arr) => {
+                // 数组访问返回元素类型
+                self.get_expression_type(&arr.array).map(|arr_type| {
+                    match arr_type {
+                        Type::Array(elem) => (*elem).clone(),
+                        _ => Type::Int32,
+                    }
+                })
+            },
+            _ => None,
+        }
+    }
+
+    /// 将 LLVM 类型字符串映射到 Cavvy 类型
+    fn map_llvm_type_to_cay(llvm_type: &str) -> Option<crate::types::Type> {
+        use crate::types::Type;
+        match llvm_type {
+            "i32" => Some(Type::Int32),
+            "i64" => Some(Type::Int64),
+            "float" => Some(Type::Float32),
+            "double" => Some(Type::Float64),
+            "i1" => Some(Type::Bool),
+            "i8" => Some(Type::Char),
+            t if t == "i8*" || t == "%String*" => Some(Type::String),
+            t if t.ends_with("*") => {
+                // 可能是数组或对象指针
+                if t.contains("[") {
+                    Some(Type::Array(Box::new(Type::Int32)))
+                } else {
+                    Some(Type::Object(t.trim_end_matches('*').to_string()))
+                }
+            },
+            _ => None,
+        }
     }
 
     /// 获取或创建字符串常量

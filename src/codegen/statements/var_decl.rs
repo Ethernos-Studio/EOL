@@ -153,6 +153,8 @@ impl IRGenerator {
         self.emit_line(&format!("  %{} = alloca {}, align {}", llvm_name, var_type, align));
         // 同时存储到旧系统以保持兼容性
         self.var_types.insert(var.name.clone(), var_type.clone());
+        // 存储Cavvy类型信息，用于准确的类型推断
+        self.var_cay_types.insert(var.name.clone(), actual_type.clone());
         // 如果变量类型是对象，记录其类名以便后续方法调用解析
         if let Type::Object(class_name) = &actual_type {
             self.var_class_map.insert(var.name.clone(), class_name.clone());

@@ -277,6 +277,13 @@ impl SemanticAnalyzer {
                 }
             }
 
+            // 处理数组类型的 length() 方法调用（作为 .length 属性的语法糖）
+            if let Type::Array(_) = &obj_type {
+                if member.member == "length" && call.args.is_empty() {
+                    return Ok(Type::Int32);
+                }
+            }
+
             // 处理类实例方法调用 - 支持方法重载
             if let Type::Object(class_name) = obj_type {
                 // 先推断所有参数类型
