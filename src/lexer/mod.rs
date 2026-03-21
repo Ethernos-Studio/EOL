@@ -102,12 +102,18 @@ pub enum Token {
     // FFI 类型关键字
     #[token("c_int")]
     CInt,
+    #[token("c_uint")]
+    CUInt,
     #[token("c_long")]
     CLong,
     #[token("c_short")]
     CShort,
+    #[token("c_ushort")]
+    CUShort,
     #[token("c_char")]
     CChar,
+    #[token("c_uchar")]
+    CUChar,
     #[token("c_float")]
     CFloat,
     #[token("c_double")]

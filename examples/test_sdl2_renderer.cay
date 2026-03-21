@@ -1,0 +1,90 @@
+// SDL2 渲染器示例 - 绘制简单的图形
+// 运行: ./target/release/cay-run -lSDL2 examples/test_sdl2_renderer.cay
+
+extern cdecl {
+    c_int SDL_Init(c_uint flags);
+    c_int SDL_Quit();
+    c_void* SDL_CreateWindow(
+        c_char* title,
+        c_int x,
+        c_int y,
+        c_int w,
+        c_int h,
+        c_uint flags
+    );
+    c_int SDL_DestroyWindow(c_void* window);
+    c_void* SDL_CreateRenderer(
+        c_void* window,
+        c_int index,
+        c_uint flags
+    );
+    c_int SDL_DestroyRenderer(c_void* renderer);
+    c_int SDL_Delay(c_uint ms);
+    c_int SDL_SetRenderDrawColor(
+        c_void* renderer,
+        c_uchar r,
+        c_uchar g,
+        c_uchar b,
+        c_uchar a
+    );
+    c_int SDL_RenderClear(c_void* renderer);
+    c_int SDL_RenderPresent(c_void* renderer);
+}
+
+public class TestSDL2Renderer {
+    public static void main() {
+        println("Initializing SDL2 with renderer...");
+
+        // 初始化 SDL2
+        c_int init_result = SDL_Init(0x00000020);  // SDL_INIT_VIDEO
+        if (init_result != 0) {
+            println("Failed to initialize SDL2");
+            return;
+        }
+
+        // 创建窗口
+        c_void* window = SDL_CreateWindow(
+            null,  // title
+            200,   // x position
+            200,   // y position
+            800,   // width
+            600,   // height
+            0x00000002  // SDL_WINDOW_SHOWN
+        );
+
+        println("SDL2 window created");
+
+        // 创建渲染器 (SDL_RENDERER_ACCELERATED = 0x00000001)
+        c_void* renderer = SDL_CreateRenderer(
+            window,
+            -1,  // index (-1 = first supporting)
+            0x00000001  // SDL_RENDERER_ACCELERATED
+        );
+
+        println("SDL2 renderer created");
+        println("Drawing... (blue background)");
+
+        // 设置绘制颜色 (蓝色: 0, 0, 255, 255)
+        SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+
+        // 清空渲染器（填充蓝色）
+        SDL_RenderClear(renderer);
+
+        // 呈现渲染内容
+        SDL_RenderPresent(renderer);
+
+        println("Blue window displayed!");
+        println("Window will close in 3 seconds...");
+
+        // 等待 3 秒
+        SDL_Delay(3000);
+
+        // 清理资源
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+
+        println("SDL2 renderer cleanup completed");
+        println("Program exited.");
+    }
+}

@@ -1,0 +1,49 @@
+// SDL2 窗口显示示例
+
+extern cdecl {
+    c_int SDL_Init(c_uint flags);
+    c_int SDL_Quit();
+    c_void* SDL_CreateWindow(
+        c_char* title,
+        c_int x,
+        c_int y,
+        c_int w,
+        c_int h,
+        c_uint flags
+    );
+    c_int SDL_DestroyWindow(c_void* window);
+    c_int SDL_Delay(c_uint ms);
+}
+
+public class TestSDL2Window {
+    public static void main() {
+        // 初始化 SDL2
+        c_int init_result = SDL_Init(0x00000020);  // SDL_INIT_VIDEO = 0x00000020
+        if (init_result != 0) {
+            println("Failed to initialize SDL2");
+            return;
+        }
+
+        // 创建窗口
+        c_void* window = SDL_CreateWindow(
+            null,  // title (使用 null 避免字符串转换问题)
+            100,   // x
+            100,   // y
+            640,   // width
+            480,   // height
+            0x00000002  // SDL_WINDOW_SHOWN = 0x00000002
+        );
+
+        println("SDL2 window created (may be visible)!");
+        println("Window will close in 3 seconds...");
+
+        // 等待 3 秒
+        SDL_Delay(3000);
+
+        // 清理资源
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+
+        println("SDL2 window closed.");
+    }
+}

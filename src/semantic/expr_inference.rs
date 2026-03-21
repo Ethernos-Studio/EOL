@@ -219,6 +219,40 @@ impl SemanticAnalyzer {
                 _ => {}
             }
 
+            // 检查是否是 extern 函数（全局函数）
+            if let Some(ref prog) = self.program {
+                for extern_decl in &prog.extern_declarations {
+                    for extern_func in &extern_decl.functions {
+                        if extern_func.name == name.as_ref() {
+                            // 检查参数数量（不包括可变参数）
+                            let fixed_param_count = extern_func.params.iter()
+                                .filter(|p| !p.is_varargs)
+                                .count();
+                            let has_varargs = extern_func.params.iter().any(|p| p.is_varargs);
+                            
+                            if has_varargs {
+                                // 可变参数函数：参数数量 >= 固定参数数量
+                                if call.args.len() < fixed_param_count {
+                                    return Err(semantic_error(call.loc.line, call.loc.column,
+                                        format!("Function '{}' requires at least {} arguments, but got {}",
+                                            name, fixed_param_count, call.args.len())));
+                                }
+                            } else {
+                                // 非可变参数函数：参数数量必须匹配
+                                if call.args.len() != extern_func.params.len() {
+                                    return Err(semantic_error(call.loc.line, call.loc.column,
+                                        format!("Function '{}' requires {} arguments, but got {}",
+                                            name, extern_func.params.len(), call.args.len())));
+                                }
+                            }
+                            
+                            // 返回 extern 函数的返回类型
+                            return Ok(extern_func.return_type.clone());
+                        }
+                    }
+                }
+            }
+
             // 尝试查找当前类的方法（无对象调用）- 支持方法重载
             if let Some(ref current_class) = self.current_class.clone() {
                 // 先推断所有参数类型

@@ -1,0 +1,268 @@
+// SDL2 窗口示例 - 使用 FFI 调用 SDL2
+// 这个示例展示了如何使用 Cavvy 的 FFI 功能调用 SDL2 创建窗口
+
+// SDL2 常量定义
+public class SDL2Constants {
+    // SDL 初始化标志
+    public static c_int SDL_INIT_TIMER = 0x00000001;
+    public static c_int SDL_INIT_AUDIO = 0x00000010;
+    public static c_int SDL_INIT_VIDEO = 0x00000020;
+    public static c_int SDL_INIT_JOYSTICK = 0x00000200;
+    public static c_int SDL_INIT_HAPTIC = 0x00001000;
+    public static c_int SDL_INIT_GAMECONTROLLER = 0x00002000;
+    public static c_int SDL_INIT_EVENTS = 0x00004000;
+    public static c_int SDL_INIT_EVERYTHING = 0x0000FFFF;
+
+    // 窗口位置
+    public static c_int SDL_WINDOWPOS_UNDEFINED = 0x1FFF0000;
+    public static c_int SDL_WINDOWPOS_CENTERED = 0x2FFF0000;
+
+    // 窗口标志
+    public static c_int SDL_WINDOW_FULLSCREEN = 0x00000001;
+    public static c_int SDL_WINDOW_OPENGL = 0x00000002;
+    public static c_int SDL_WINDOW_SHOWN = 0x00000004;
+    public static c_int SDL_WINDOW_HIDDEN = 0x00000008;
+    public static c_int SDL_WINDOW_BORDERLESS = 0x00000010;
+    public static c_int SDL_WINDOW_RESIZABLE = 0x00000020;
+    public static c_int SDL_WINDOW_MINIMIZED = 0x00000040;
+    public static c_int SDL_WINDOW_MAXIMIZED = 0x00000080;
+    public static c_int SDL_WINDOW_INPUT_GRABBED = 0x00000100;
+    public static c_int SDL_WINDOW_INPUT_FOCUS = 0x00000200;
+    public static c_int SDL_WINDOW_MOUSE_FOCUS = 0x00000400;
+    public static c_int SDL_WINDOW_FULLSCREEN_DESKTOP = 0x00001000;
+    public static c_int SDL_WINDOW_FOREIGN = 0x00000800;
+    public static c_int SDL_WINDOW_ALLOW_HIGHDPI = 0x00002000;
+    public static c_int SDL_WINDOW_MOUSE_CAPTURE = 0x00004000;
+    public static c_int SDL_WINDOW_ALWAYS_ON_TOP = 0x00008000;
+    public static c_int SDL_WINDOW_SKIP_TASKBAR = 0x00010000;
+    public static c_int SDL_WINDOW_UTILITY = 0x00020000;
+    public static c_int SDL_WINDOW_TOOLTIP = 0x00040000;
+    public static c_int SDL_WINDOW_POPUP_MENU = 0x00080000;
+    public static c_int SDL_WINDOW_KEYBOARD_GRABBED = 0x00100000;
+    public static c_int SDL_WINDOW_VULKAN = 0x10000000;
+    public static c_int SDL_WINDOW_METAL = 0x20000000;
+
+    // 渲染器标志
+    public static c_int SDL_RENDERER_SOFTWARE = 0x00000001;
+    public static c_int SDL_RENDERER_ACCELERATED = 0x00000002;
+    public static c_int SDL_RENDERER_PRESENTVSYNC = 0x00000004;
+    public static c_int SDL_RENDERER_TARGETTEXTURE = 0x00000008;
+}
+
+// SDL2 外部函数声明
+extern {
+    // 初始化和退出
+    c_int SDL_Init(c_int flags);
+    c_int SDL_InitSubSystem(c_int flags);
+    c_void SDL_QuitSubSystem(c_int flags);
+    c_void SDL_Quit();
+
+    // 错误处理
+    c_char* SDL_GetError();
+    c_void SDL_ClearError();
+    c_int SDL_SetError(c_char* fmt, ...);
+
+    // 窗口管理
+    c_void* SDL_CreateWindow(
+        c_char* title,
+        c_int x,
+        c_int y,
+        c_int w,
+        c_int h,
+        c_int flags
+    );
+
+    c_void SDL_DestroyWindow(c_void* window);
+
+    c_int SDL_GetWindowDisplayIndex(c_void* window);
+
+    c_int SDL_GetWindowFlags(c_void* window);
+
+    c_void SDL_SetWindowTitle(c_void* window, c_char* title);
+
+    c_char* SDL_GetWindowTitle(c_void* window);
+
+    c_void SDL_SetWindowIcon(c_void* window, c_void* icon);
+
+    c_void SDL_SetWindowPosition(c_void* window, c_int x, c_int y);
+
+    c_void SDL_GetWindowPosition(c_void* window, c_int* x, c_int* y);
+
+    c_void SDL_SetWindowSize(c_void* window, c_int w, c_int h);
+
+    c_void SDL_GetWindowSize(c_void* window, c_int* w, c_int* h);
+
+    c_void SDL_SetWindowMinimumSize(c_void* window, c_int min_w, c_int min_h);
+
+    c_void SDL_GetWindowMinimumSize(c_void* window, c_int* w, c_int* h);
+
+    c_void SDL_SetWindowMaximumSize(c_void* window, c_int max_w, c_int max_h);
+
+    c_void SDL_GetWindowMaximumSize(c_void* window, c_int* w, c_int* h);
+
+    c_void SDL_SetWindowBordered(c_void* window, c_int bordered);
+
+    c_void SDL_SetWindowResizable(c_void* window, c_int resizable);
+
+    c_void SDL_ShowWindow(c_void* window);
+
+    c_void SDL_HideWindow(c_void* window);
+
+    c_void SDL_RaiseWindow(c_void* window);
+
+    c_void SDL_MaximizeWindow(c_void* window);
+
+    c_void SDL_MinimizeWindow(c_void* window);
+
+    c_void SDL_RestoreWindow(c_void* window);
+
+    c_int SDL_SetWindowFullscreen(c_void* window, c_int flags);
+
+    c_void SDL_GetWindowSurface(c_void* window);
+
+    c_int SDL_UpdateWindowSurface(c_void* window);
+
+    c_int SDL_UpdateWindowSurfaceRects(c_void* window, c_void* rects, c_int numrects);
+
+    // 渲染器管理
+    c_void* SDL_CreateRenderer(c_void* window, c_int index, c_int flags);
+
+    c_int SDL_GetRendererInfo(c_void* renderer, c_void* info);
+
+    c_int SDL_GetRendererOutputSize(c_void* renderer, c_int* w, c_int* h);
+
+    c_void SDL_DestroyRenderer(c_void* renderer);
+
+    c_void SDL_RenderPresent(c_void* renderer);
+
+    c_int SDL_RenderClear(c_void* renderer);
+
+    c_int SDL_SetRenderDrawColor(
+        c_void* renderer,
+        c_char r,
+        c_char g,
+        c_char b,
+        c_char a
+    );
+
+    c_int SDL_GetRenderDrawColor(
+        c_void* renderer,
+        c_char* r,
+        c_char* g,
+        c_char* b,
+        c_char* a
+    );
+
+    c_int SDL_RenderDrawPoint(c_void* renderer, c_int x, c_int y);
+
+    c_int SDL_RenderDrawPoints(c_void* renderer, c_void* points, c_int count);
+
+    c_int SDL_RenderDrawLine(c_void* renderer, c_int x1, c_int y1, c_int x2, c_int y2);
+
+    c_int SDL_RenderDrawLines(c_void* renderer, c_void* points, c_int count);
+
+    c_int SDL_RenderDrawRect(c_void* renderer, c_void* rect);
+
+    c_int SDL_RenderDrawRects(c_void* renderer, c_void* rects, c_int count);
+
+    c_int SDL_RenderFillRect(c_void* renderer, c_void* rect);
+
+    c_int SDL_RenderFillRects(c_void* renderer, c_void* rects, c_int count);
+
+    // 时间延迟
+    c_void SDL_Delay(c_uint ms);
+
+    c_uint SDL_GetTicks();
+
+    // 事件
+    c_int SDL_PollEvent(c_void* event);
+}
+
+// 主程序
+public int main() {
+    println("SDL2 FFI Test");
+    println("==============");
+
+    // 初始化 SDL2
+    if (SDL_Init(SDL2Constants.SDL_INIT_VIDEO) != 0) {
+        c_char* error = SDL_GetError();
+        println("SDL_Init failed!");
+        return 1;
+    }
+
+    // 创建窗口
+    c_void* window = SDL_CreateWindow(
+        "Cavvy SDL2 Window",
+        SDL2Constants.SDL_WINDOWPOS_CENTERED,
+        SDL2Constants.SDL_WINDOWPOS_CENTERED,
+        800,
+        600,
+        SDL2Constants.SDL_WINDOW_SHOWN | SDL2Constants.SDL_WINDOW_RESIZABLE
+    );
+
+    if (window == null) {
+        println("SDL_CreateWindow failed!");
+        SDL_Quit();
+        return 1;
+    }
+
+    // 创建渲染器
+    c_void* renderer = SDL_CreateRenderer(
+        window,
+        -1,
+        SDL2Constants.SDL_RENDERER_ACCELERATED | SDL2Constants.SDL_RENDERER_PRESENTVSYNC
+    );
+
+    if (renderer == null) {
+        println("SDL_CreateRenderer failed!");
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+
+    // 设置背景颜色为深蓝色
+    SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255);
+
+    // 主循环
+    c_uint start_time = SDL_GetTicks();
+    c_bool running = true;
+    c_int frame_count = 0;
+
+    while (running) {
+        // 清屏
+        SDL_RenderClear(renderer);
+
+        // 绘制一个简单的矩形（红色）
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        // 注意：这里简化了，实际应该创建 SDL_Rect 结构体
+        // SDL_RenderFillRect(renderer, &rect);
+
+        // 更新屏幕
+        SDL_RenderPresent(renderer);
+
+        // 重置背景颜色
+        SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255);
+
+        // 延迟 16ms（约 60 FPS）
+        SDL_Delay(16);
+
+        // 统计帧数
+        frame_count++;
+
+        // 运行 5 秒后退出
+        if (SDL_GetTicks() - start_time > 5000) {
+            running = false;
+        }
+    }
+
+    // 清理资源
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    println("SDL2 test completed!");
+    println("Total frames: {}", frame_count);
+    println("Average FPS: {}", frame_count * 1000 / 5000);
+
+    return 0;
+}

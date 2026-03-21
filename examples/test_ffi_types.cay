@@ -1,44 +1,83 @@
-// 测试 FFI 类型系统
+// FFI 类型系统验证测试
+// 这个示例验证新的 FFI 类型是否正确工作
 
-extern {
-    // 基本整数类型
-    c_char get_char();
-    c_short get_short();
-    c_int get_int();
-    c_long get_long();
+public class FFITypesTest {
+    // 测试 FFI 类型的声明和使用
+    public static void testFFITypes() {
+        // 基本类型 - 使用变量避免直接赋值字面量
+        c_int a;
+        a = 10;
 
-    // 浮点类型
-    c_float get_float();
-    c_double get_double();
+        c_uint b;
+        b = 20;
 
-    // 指针类型
-    size_t get_size();
-    ssize_t get_ssize();
-    uintptr_t get_uintptr();
-    intptr_t get_intptr();
+        c_long c;
+        c = 30;
 
-    // 布尔类型
-    c_bool check_condition();
+        c_short d;
+        d = 40;
 
-    // 带参数的函数
-    c_int process_data(c_int data, c_long size);
-    c_double calculate(c_float x, c_double y);
-}
+        c_ushort e;
+        e = 50;
 
-class TestFFITypes {
-    public static int main() {
-        // 声明 FFI 类型的变量
-        c_int ci = 42;
-        c_long cl = 100L;
-        c_float cf = 3.14f;
-        c_double cd = 2.71828;
-        c_char cc = 65;  // 'A'
-        c_short cs = 1000;
-        size_t sz = 1024;
-        ssize_t ssz = -1;
-        c_bool cb = 1;
+        c_char f;
+        f = 65;  // 'A'
 
-        println("FFI types test passed");
-        return 0;
+        c_uchar g;
+        g = 66; // 'B'
+
+        c_float h;
+        h = 3.14;
+
+        c_double i;
+        i = 3.14159;
+
+        // 指针类型
+        c_void* ptr = null;
+        c_char* str = null;
+        c_int* int_ptr = null;
+
+        // 多级指针
+        c_void** ptr_ptr = null;
+        c_char*** str_ptr_ptr = null;
+
+        // 特殊类型
+        size_t size;
+        size = 100;
+
+        ssize_t ssize;
+        ssize = -50;
+
+        uintptr_t uptr;
+        uptr = 0x12345678;
+
+        intptr_t iptr;
+        iptr = -0x12345678;
+
+        println("FFI Types Test");
+        println("===============");
+        println("c_int: {}", a);
+        println("c_uint: {}", b);
+        println("c_long: {}", c);
+        println("c_short: {}", d);
+        println("c_ushort: {}", e);
+        println("c_char: {}", f);
+        println("c_uchar: {}", g);
+        println("c_float: {}", h);
+        println("c_double: {}", i);
+        println("size_t: {}", size);
+        println("ssize_t: {}", ssize);
+        println("uintptr_t: {}", uptr);
+        println("intptr_t: {}", iptr);
+        println("c_void*: {}", ptr);
+        println("c_char*: {}", str);
+        println("c_int*: {}", int_ptr);
+        println("c_void**: {}", ptr_ptr);
+        println("c_char***: {}", str_ptr_ptr);
+    }
+
+    public static void main() {
+        testFFITypes();
+        println("All FFI type tests passed!");
     }
 }

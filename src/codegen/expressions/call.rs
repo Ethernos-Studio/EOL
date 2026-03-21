@@ -46,12 +46,24 @@ impl IRGenerator {
             }
         }
 
+        // 处理 extern 函数调用
+        if let Expr::Identifier(name) = call.callee.as_ref() {
+            let func_name = name.as_ref();
+            if self.is_extern_function(func_name) {
+                return self.generate_extern_function_call(func_name, &call.args);
+            }
+        }
+
         // 处理普通函数调用（支持方法重载和可变参数）
         // 先确定方法信息（类名和方法名）
         // 对于实例方法调用，还需要保存对象表达式以获取 this 指针
         let (class_name, method_name, obj_expr) = match call.callee.as_ref() {
             Expr::Identifier(name) => {
                 let name_str = name.as_ref();
+                // 检查是否是全局 extern 函数
+                if let Some(_extern_func) = self.get_extern_function(name_str) {
+                    return self.generate_extern_function_call(name_str, &call.args);
+                }
                 if !self.current_class.is_empty() {
                     (self.current_class.clone(), name_str.to_string(), None)
                 } else {
@@ -667,5 +679,61 @@ impl IRGenerator {
         
         // 默认：不进行转换
         format!("{} {}", arg_type, arg_val)
+    }
+
+    /// 生成 extern 函数调用
+    ///
+    /// # Arguments
+    /// * `func_name` - extern 函数名称
+    /// * `args` - 函数参数
+    fn generate_extern_function_call(&mut self, func_name: &str, args: &[Expr]) -> cayResult<String> {
+        // 获取 extern 函数信息（克隆以避免借用问题）
+        let extern_func = {
+            let found = self.get_extern_function(func_name);
+            match found {
+                Some(f) => f.clone(),
+                None => return Err(codegen_error(format!("Extern function '{}' not found", func_name))),
+            }
+        };
+
+        // 生成参数
+        let mut arg_results = Vec::new();
+        for arg in args {
+            arg_results.push(self.generate_expression(arg)?);
+        }
+
+        // 获取参数类型和值
+        let mut processed_args = Vec::new();
+        for (idx, arg_str) in arg_results.iter().enumerate() {
+            let (arg_type, arg_val) = self.parse_typed_value(arg_str);
+            
+            // 获取参数的期望类型（从 extern 函数声明中）
+            if idx < extern_func.params.len() {
+                let param_type = &extern_func.params[idx].param_type;
+                let llvm_param_type = self.type_to_llvm(param_type);
+                
+                // 进行类型转换
+                let converted_arg = self.convert_arg_type(&arg_type, &arg_val, &llvm_param_type);
+                processed_args.push(converted_arg);
+            } else {
+                // 如果参数数量超过声明中的数量，直接传递
+                processed_args.push(arg_str.clone());
+            }
+        }
+
+        // 获取返回类型
+        let llvm_ret_type = self.type_to_llvm(&extern_func.return_type);
+
+        // 直接调用 extern 函数（不创建包装函数）
+        if llvm_ret_type == "void" {
+            self.emit_line(&format!("  call void @{}({})",
+                func_name, processed_args.join(", ")));
+            Ok("void %dummy".to_string())
+        } else {
+            let temp = self.new_temp();
+            self.emit_line(&format!("  {} = call {} @{}({})",
+                temp, llvm_ret_type, func_name, processed_args.join(", ")));
+            Ok(format!("{} {}", llvm_ret_type, temp))
+        }
     }
 }

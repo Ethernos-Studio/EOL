@@ -1,0 +1,29 @@
+// 测试 extern 函数调用 - 数学函数
+
+extern {
+    c_double sqrt(c_double x);
+    c_double pow(c_double x, c_double y);
+    c_double sin(c_double x);
+    c_double cos(c_double x);
+}
+
+public class TestFFIMath {
+    public static void main() {
+        c_double x = 4.0;
+        c_double sqrt_result = sqrt(x);
+        print("sqrt(4.0) = ");
+        println(sqrt_result);
+
+        c_double pow_result = pow(2.0, 10.0);
+        print("pow(2.0, 10.0) = ");
+        println(pow_result);
+
+        c_double sin_result = sin(3.14159 / 2.0);
+        print("sin(pi/2) = ");
+        println(sin_result);
+
+        c_double cos_result = cos(0.0);
+        print("cos(0.0) = ");
+        println(cos_result);
+    }
+}

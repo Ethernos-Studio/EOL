@@ -1,0 +1,12 @@
+// 测试 extern 函数调用 - strlen
+
+extern {
+    size_t strlen(c_char* str);
+}
+
+public class TestFFIStrlen {
+    public static void main() {
+        size_t len = strlen((c_char*)"Hello, Cavvy FFI!");
+        println("String length: {}", len);
+    }
+}

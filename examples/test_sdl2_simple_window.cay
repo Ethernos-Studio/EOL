@@ -1,0 +1,59 @@
+// 简化的 SDL2 窗口示例 - 不带标题
+// 运行: ./target/release/cay-run -lSDL2 examples/test_sdl2_simple_window.cay
+
+extern cdecl {
+    c_int SDL_Init(c_uint flags);
+    c_int SDL_Quit();
+    c_void* SDL_CreateWindow(
+        c_char* title,
+        c_int x,
+        c_int y,
+        c_int w,
+        c_int h,
+        c_uint flags
+    );
+    c_int SDL_DestroyWindow(c_void* window);
+    c_int SDL_Delay(c_uint ms);
+}
+
+public class TestSDL2SimpleWindow {
+    public static void main() {
+        println("Initializing SDL2...");
+
+        // 初始化 SDL2 (SDL_INIT_VIDEO = 0x00000020)
+        c_int init_result = SDL_Init(0x00000020);
+        if (init_result != 0) {
+            println("Failed to initialize SDL2");
+            println("Please install SDL2: sudo apt-get install libsdl2-dev");
+            return;
+        }
+
+        println("SDL2 initialized successfully!");
+
+        // 创建窗口
+        // SDL_WINDOW_SHOWN = 0x00000002
+        c_void* window = SDL_CreateWindow(
+            null,  // title (null 表示无标题)
+            100,   // x position
+            100,   // y position
+            800,   // width
+            600,   // height
+            0x00000002  // SDL_WINDOW_SHOWN
+        );
+
+        println("SDL2 window created!");
+        println("Window size: 800x600");
+        println("Window position: (100, 100)");
+        println("Window will be visible for 5 seconds...");
+
+        // 等待 5 秒
+        SDL_Delay(5000);
+
+        // 清理资源
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+
+        println("SDL2 window closed successfully!");
+        println("Program exited.");
+    }
+}

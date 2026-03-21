@@ -1,0 +1,140 @@
+// SDL2 简单窗口示例
+// 这个示例展示了如何使用 FFI 调用 SDL2 创建一个简单的窗口
+
+// 声明 SDL2 常量
+public class SDL2Constants {
+    public static c_int SDL_INIT_VIDEO = 0x00000020;
+    public static c_int SDL_WINDOWPOS_CENTERED = 0x2FFF0000;
+    public static c_int SDL_WINDOW_SHOWN = 0x00000004;
+    public static c_int SDL_RENDERER_ACCELERATED = 0x00000001;
+    public static c_int SDL_RENDERER_PRESENTVSYNC = 0x00000002;
+}
+
+// 声明 SDL2 外部函数
+extern {
+    // 初始化 SDL
+    c_int SDL_Init(c_int flags);
+
+    // 退出 SDL
+    void SDL_Quit();
+
+    // 获取错误信息
+    c_char* SDL_GetError();
+
+    // 创建窗口
+    c_void* SDL_CreateWindow(
+        c_char* title,
+        c_int x,
+        c_int y,
+        c_int w,
+        c_int h,
+        c_int flags
+    );
+
+    // 销毁窗口
+    void SDL_DestroyWindow(c_void* window);
+
+    // 创建渲染器
+    c_void* SDL_CreateRenderer(
+        c_void* window,
+        c_int index,
+        c_int flags
+    );
+
+    // 销毁渲染器
+    void SDL_DestroyRenderer(c_void* renderer);
+
+    // 清屏
+    c_int SDL_RenderClear(c_void* renderer);
+
+    // 设置渲染颜色
+    c_int SDL_SetRenderDrawColor(
+        c_void* renderer,
+        c_char r,
+        c_char g,
+        c_char b,
+        c_char a
+    );
+
+    // 更新屏幕
+    void SDL_RenderPresent(c_void* renderer);
+
+    // 延迟
+    void SDL_Delay(c_uint ms);
+
+    // 获取 ticks
+    c_uint SDL_GetTicks();
+
+    // 事件相关
+    c_int SDL_PollEvent(c_void* event);
+}
+
+// 主程序
+public int main() {
+    // 初始化 SDL
+    if (SDL_Init(SDL2Constants.SDL_INIT_VIDEO) != 0) {
+        println("SDL_Init failed!");
+        return 1;
+    }
+
+    // 创建窗口
+    c_void* window = SDL_CreateWindow(
+        "Cavvy SDL2 Demo",
+        SDL2Constants.SDL_WINDOWPOS_CENTERED,
+        SDL2Constants.SDL_WINDOWPOS_CENTERED,
+        800,
+        600,
+        SDL2Constants.SDL_WINDOW_SHOWN
+    );
+
+    if (window == null) {
+        println("SDL_CreateWindow failed!");
+        SDL_Quit();
+        return 1;
+    }
+
+    // 创建渲染器
+    c_void* renderer = SDL_CreateRenderer(
+        window,
+        -1,
+        SDL2Constants.SDL_RENDERER_ACCELERATED | SDL2Constants.SDL_RENDERER_PRESENTVSYNC
+    );
+
+    if (renderer == null) {
+        println("SDL_CreateRenderer failed!");
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+
+    // 主循环
+    c_uint start_time = SDL_GetTicks();
+    c_bool running = true;
+
+    while (running) {
+        // 设置背景颜色为蓝色
+        SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+
+        // 清屏
+        SDL_RenderClear(renderer);
+
+        // 更新屏幕
+        SDL_RenderPresent(renderer);
+
+        // 延迟 16ms（约 60 FPS）
+        SDL_Delay(16);
+
+        // 运行 5 秒后退出
+        if (SDL_GetTicks() - start_time > 5000) {
+            running = false;
+        }
+    }
+
+    // 清理资源
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    println("SDL2 demo completed successfully!");
+    return 0;
+}

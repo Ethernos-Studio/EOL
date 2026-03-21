@@ -174,6 +174,7 @@ pub struct IRGenerator {
     pub type_id_counter: usize,
     pub class_layouts: HashMap<String, ClassLayoutInfo>,  // 类实例布局信息
     pub platform_config: Option<PlatformConfig>,
+    pub extern_declarations: Vec<crate::ast::ExternDecl>,  // FFI extern 声明
 }
 
 impl IRGenerator {
@@ -208,12 +209,42 @@ impl IRGenerator {
             type_id_counter: 0,
             class_layouts: HashMap::new(),
             platform_config: None,
+            extern_declarations: Vec::new(),
         }
     }
 
     /// 设置类型注册表
     pub fn set_type_registry(&mut self, registry: TypeRegistry) {
         self.type_registry = Some(registry);
+    }
+
+    /// 设置 extern 声明
+    pub fn set_extern_declarations(&mut self, extern_declarations: Vec<crate::ast::ExternDecl>) {
+        self.extern_declarations = extern_declarations;
+    }
+
+    /// 检查函数是否是 extern 声明的
+    pub fn is_extern_function(&self, func_name: &str) -> bool {
+        for extern_decl in &self.extern_declarations {
+            for func in &extern_decl.functions {
+                if func.name == func_name {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// 获取 extern 函数的信息
+    pub fn get_extern_function(&self, func_name: &str) -> Option<&crate::ast::ExternFunction> {
+        for extern_decl in &self.extern_declarations {
+            for func in &extern_decl.functions {
+                if func.name == func_name {
+                    return Some(func);
+                }
+            }
+        }
+        None
     }
 
     /// 检查是否是 Windows 目标平台
@@ -484,9 +515,12 @@ impl IRGenerator {
             Type::Auto => panic!("Type::Auto should have been resolved before code generation"),
             // FFI 类型签名
             Type::CInt => "ci".to_string(),
+            Type::CUInt => "cui".to_string(),
             Type::CLong => "cl".to_string(),
             Type::CShort => "cs".to_string(),
+            Type::CUShort => "cus".to_string(),
             Type::CChar => "cc".to_string(),
+            Type::CUChar => "cuc".to_string(),
             Type::CFloat => "cf".to_string(),
             Type::CDouble => "cd".to_string(),
             Type::SizeT => "sz".to_string(),
@@ -495,6 +529,9 @@ impl IRGenerator {
             Type::IntPtr => "ip".to_string(),
             Type::CVoid => "cv".to_string(),
             Type::CBool => "cb".to_string(),
+            // FFI 指针和结构体
+            Type::Pointer(inner) => format!("p{}", self.type_to_signature(inner)),
+            Type::Struct(name) => format!("st{}", name),
         }
     }
 

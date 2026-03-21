@@ -1,0 +1,14 @@
+// 测试 extern 函数调用 - abs
+
+extern {
+    c_int abs(c_int x);
+}
+
+public class TestFFIAbs {
+    public static void main() {
+        c_int x = -10;
+        c_int result = abs(x);
+        print("abs(-10) = ");
+        println(result);
+    }
+}

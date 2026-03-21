@@ -82,6 +82,9 @@ impl IRGenerator {
     pub fn generate(&mut self, program: &Program) -> cayResult<String> {
         self.emit_header();
 
+        // 设置 extern 声明
+        self.extern_declarations = program.extern_declarations.clone();
+
         let mut main_class = None;
         let mut main_method = None;
         let mut fallback_main_class = None;
@@ -821,7 +824,12 @@ impl IRGenerator {
             }
         };
 
-        self.emit_raw(&decl);
+        // 检查是否已经声明过该函数，避免重复声明
+        let decl_without_newline = decl.trim();
+        if !self.output.contains(&format!("declare {} @{}", ret_type, func.name)) {
+            self.emit_raw(&decl);
+        }
+
         Ok(())
     }
 

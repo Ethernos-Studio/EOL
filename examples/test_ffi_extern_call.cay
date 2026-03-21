@@ -1,0 +1,12 @@
+// 测试 extern 函数调用
+
+extern {
+    c_int puts(c_char* str);
+}
+
+public class TestFFICall {
+    public static void main() {
+        c_char* msg = "Hello from extern function!";
+        puts(msg);
+    }
+}

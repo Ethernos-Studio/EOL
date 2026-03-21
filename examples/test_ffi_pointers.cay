@@ -1,0 +1,22 @@
+// 简单的 FFI 指针类型测试
+
+public class PointerTest {
+    public static void main() {
+        // 测试指针类型声明
+        c_void* ptr = null;
+        c_char* str = null;
+        c_int* int_ptr = null;
+
+        // 测试多级指针
+        c_void** ptr_ptr = null;
+        c_char*** str_ptr_ptr = null;
+
+        println("Pointer type test");
+        println("ptr: {}", ptr);
+        println("str: {}", str);
+        println("int_ptr: {}", int_ptr);
+        println("ptr_ptr: {}", ptr_ptr);
+        println("str_ptr_ptr: {}", str_ptr_ptr);
+        println("All pointer types work correctly!");
+    }
+}

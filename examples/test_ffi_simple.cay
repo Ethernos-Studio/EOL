@@ -1,0 +1,20 @@
+// 简单的 FFI 测试示例
+// 测试调用 C 标准库函数
+
+// 声明 C 标准库函数
+extern {
+    size_t strlen(c_char* str);
+}
+
+public int main() {
+    // 使用内置的 println
+    println("Hello from Cavvy FFI!");
+    println("This is a test of the FFI system.");
+
+    // 测试 strlen
+    c_char* str = "Hello, Cavvy!";
+    size_t len = strlen(str);
+    println("String length: {}", len);
+
+    return 0;
+}

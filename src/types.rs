@@ -17,9 +17,12 @@ pub enum Type {
     Auto,  // 自动类型推断占位符
     // FFI 类型
     CInt,       // C int (通常为 i32)
+    CUInt,      // C unsigned int (通常为 u32)
     CLong,      // C long (平台相关: Windows i32, Linux/macOS i64)
     CShort,     // C short (i16)
+    CUShort,    // C unsigned short (u16)
     CChar,      // C char (i8)
+    CUChar,     // C unsigned char (u8)
     CFloat,     // C float (f32)
     CDouble,    // C double (f64)
     SizeT,      // size_t (usize, 平台相关)
@@ -28,6 +31,10 @@ pub enum Type {
     IntPtr,     // intptr_t (isize)
     CVoid,      // C void (用于指针)
     CBool,      // C bool (i8, 0 或 1)
+    // FFI 指针类型
+    Pointer(Box<Type>),  // 通用指针类型: Pointer(CVoid) = void*
+    // FFI 结构体类型
+    Struct(String),      // 命名结构体: Struct("SDL_Window")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -227,9 +234,12 @@ impl Type {
             Type::Auto => panic!("Cannot get size of auto type - type inference not completed"),
             // FFI 类型大小 (平台相关，这里使用常见值)
             Type::CInt => 4,       // C int 通常为 4 字节
+            Type::CUInt => 4,      // C unsigned int 通常为 4 字节
             Type::CLong => 8,      // C long: Windows 4, Linux/macOS 8，使用 8 作为保守值
             Type::CShort => 2,     // C short 为 2 字节
+            Type::CUShort => 2,    // C unsigned short 为 2 字节
             Type::CChar => 1,      // C char 为 1 字节
+            Type::CUChar => 1,     // C unsigned char 为 1 字节
             Type::CFloat => 4,     // C float 为 4 字节
             Type::CDouble => 8,    // C double 为 8 字节
             Type::SizeT => 8,      // size_t 为指针大小 (64位系统)
@@ -238,6 +248,9 @@ impl Type {
             Type::IntPtr => 8,     // intptr_t 为指针大小
             Type::CVoid => 0,      // void 无大小
             Type::CBool => 1,      // C bool 通常为 1 字节
+            // FFI 指针和结构体
+            Type::Pointer(_) => 8, // 指针大小 (64位系统)
+            Type::Struct(_) => 8,  // 结构体作为指针传递，实际大小由编译器决定
         }
     }
 
@@ -287,9 +300,12 @@ impl fmt::Display for Type {
             Type::Auto => write!(f, "auto"),
             // FFI 类型显示
             Type::CInt => write!(f, "c_int"),
+            Type::CUInt => write!(f, "c_uint"),
             Type::CLong => write!(f, "c_long"),
             Type::CShort => write!(f, "c_short"),
+            Type::CUShort => write!(f, "c_ushort"),
             Type::CChar => write!(f, "c_char"),
+            Type::CUChar => write!(f, "c_uchar"),
             Type::CFloat => write!(f, "c_float"),
             Type::CDouble => write!(f, "c_double"),
             Type::SizeT => write!(f, "size_t"),
@@ -298,6 +314,9 @@ impl fmt::Display for Type {
             Type::IntPtr => write!(f, "intptr_t"),
             Type::CVoid => write!(f, "c_void"),
             Type::CBool => write!(f, "c_bool"),
+            // FFI 指针和结构体
+            Type::Pointer(inner) => write!(f, "{}*", inner),
+            Type::Struct(name) => write!(f, "struct {}", name),
         }
     }
 }

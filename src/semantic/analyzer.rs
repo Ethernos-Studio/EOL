@@ -7,6 +7,7 @@ use super::symbol_table::{SemanticSymbolTable, SemanticSymbolInfo};
 
 /// 语义分析器
 pub struct SemanticAnalyzer {
+    pub(super) program: Option<std::rc::Rc<Program>>,  // 保存 AST 以供类型推断使用
     pub(super) type_registry: TypeRegistry,
     pub(super) symbol_table: SemanticSymbolTable,
     pub(super) current_class: Option<String>,
@@ -19,6 +20,7 @@ pub struct SemanticAnalyzer {
 impl SemanticAnalyzer {
     pub fn new() -> Self {
         let mut analyzer = Self {
+            program: None,
             type_registry: TypeRegistry::new(),
             symbol_table: SemanticSymbolTable::new(),
             current_class: None,
@@ -40,6 +42,9 @@ impl SemanticAnalyzer {
     }
 
     pub fn analyze(&mut self, program: &Program) -> cayResult<()> {
+        // 保存 program 引用以供类型推断使用
+        self.program = Some(std::rc::Rc::new(program.clone()));
+
         // 第一遍：收集所有类定义
         self.collect_classes(program)?;
 
