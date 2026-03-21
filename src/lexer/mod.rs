@@ -142,7 +142,7 @@ pub enum Token {
     Identifier(String),
     
     // 字面量
-    #[regex(r"-?(?:0[xX][0-9a-fA-F][0-9a-fA-F_]*|0[bB][01][01_]*|0[oO]?[0-7][0-7_]*|[0-9][0-9_]*)[Ll]?", |lex| {
+    #[regex(r"(?:0[xX][0-9a-fA-F][0-9a-fA-F_]*|0[bB][01][01_]*|0[oO]?[0-7][0-7_]*|[0-9][0-9_]*)[Ll]?", |lex| {
         let slice = lex.slice();
         // 分离后缀
         let (num_str, suffix) = if slice.ends_with('L') || slice.ends_with('l') {
@@ -174,7 +174,7 @@ pub enum Token {
     })]
     IntegerLiteral(Option<(i64, Option<char>)>),
     
-    #[regex(r"-?(?:[0-9][0-9_]*\.[0-9][0-9_]*|\.[0-9][0-9_]*|[0-9][0-9_]*\.)(?:[eE][+-]?[0-9][0-9_]*)?[FfDd]?", |lex| {
+    #[regex(r"(?:[0-9][0-9_]*\.[0-9][0-9_]*|\.[0-9][0-9_]*|[0-9][0-9_]*\.)(?:[eE][+-]?[0-9][0-9_]*)?[FfDd]?", |lex| {
         let slice = lex.slice();
         let (num_str, suffix) = if slice.ends_with('F') || slice.ends_with('f') {
             (&slice[..slice.len()-1], Some('f'))

@@ -742,7 +742,8 @@ impl SemanticAnalyzer {
                     format!("Array size at dimension {} must be integer, got {}", i + 1, size_type)
                 ));
             }
-            // 检查负数数组大小（仅当大小是字面量时）
+            // 检查负数数组大小（仅当大小是字面量或一元负号表达式时）
+            // 支持直接负数字面量如 -5（被解析为 Unary(Neg, Literal(5))）
             if let Expr::Literal(LiteralValue::Int32(n)) = size {
                 if *n < 0 {
                     return Err(semantic_error(
@@ -759,6 +760,25 @@ impl SemanticAnalyzer {
                         arr.loc.column,
                         format!("Array size cannot be negative: {}", n)
                     ));
+                }
+            }
+            // 检查一元负号表达式如 -5
+            if let Expr::Unary(unary) = size {
+                if let UnaryOp::Neg = unary.op {
+                    if let Expr::Literal(LiteralValue::Int32(n)) = unary.operand.as_ref() {
+                        return Err(semantic_error(
+                            arr.loc.line,
+                            arr.loc.column,
+                            format!("Array size cannot be negative: -{}", n)
+                        ));
+                    }
+                    if let Expr::Literal(LiteralValue::Int64(n)) = unary.operand.as_ref() {
+                        return Err(semantic_error(
+                            arr.loc.line,
+                            arr.loc.column,
+                            format!("Array size cannot be negative: -{}", n)
+                        ));
+                    }
                 }
             }
         }

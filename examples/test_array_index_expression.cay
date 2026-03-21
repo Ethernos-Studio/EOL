@@ -1,0 +1,39 @@
+// 测试数组索引中使用表达式的功能
+// 修复了词法分析器错误地将负数识别为整数字面量的问题
+
+public class TestArrayIndexExpression {
+    public static void main() {
+        int[] stack = new int[10]();
+        int sp = 5;
+        
+        // 测试数组索引中使用减法表达式
+        stack[sp-1] = 100;
+        println("stack[sp-1] = " + stack[sp-1]);
+        
+        // 测试数组索引中使用加法表达式  
+        stack[sp+1] = 200;
+        println("stack[sp+1] = " + stack[sp+1]);
+        
+        // 测试复杂表达式
+        stack[sp-1+2] = 300;
+        println("stack[sp-1+2] = " + stack[sp-1+2]);
+        
+        // 测试前置递增在数组索引中
+        int idx = 2;
+        stack[++idx] = 400;
+        println("After ++idx, stack[3] = " + stack[3]);
+        
+        // 验证所有值
+        boolean allPassed = 
+            stack[4] == 100 &&    // sp-1 = 4
+            stack[6] == 200 &&    // sp+1 = 6  
+            stack[6] == 300 &&    // sp-1+2 = 6
+            stack[3] == 400;      // ++idx = 3
+            
+        if (allPassed) {
+            println("All array index expression tests passed!");
+        } else {
+            println("Some tests failed!");
+        }
+    }
+}
