@@ -15,10 +15,17 @@ impl SemanticAnalyzer {
             return true;
         }
 
-        // null 可以赋值给任何引用类型（包括 string）
+        // null 可以赋值给任何引用类型（包括 string 和指针）
         if let Type::Object(obj_name) = from {
             if obj_name == "Object" {
                 // null 是 Object 类型，可以赋值给 String 或其他引用类型
+                return true;
+            }
+        }
+
+        // null (Object 类型) 可以赋值给任何指针类型
+        if let Type::Object(obj_name) = from {
+            if obj_name == "Object" && matches!(to, Type::Pointer(_)) {
                 return true;
             }
         }

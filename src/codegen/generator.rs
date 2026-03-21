@@ -82,8 +82,8 @@ impl IRGenerator {
     pub fn generate(&mut self, program: &Program) -> cayResult<String> {
         self.emit_header();
 
-        // 设置 extern 声明
-        self.extern_declarations = program.extern_declarations.clone();
+        // 设置 extern 声明并构建索引
+        self.set_extern_declarations(program.extern_declarations.clone());
 
         let mut main_class = None;
         let mut main_method = None;
@@ -831,9 +831,15 @@ impl IRGenerator {
     fn generate_extern_function(&mut self, calling_conv: crate::ast::CallingConvention, func: &crate::ast::ExternFunction) -> cayResult<()> {
         let ret_type = self.type_to_llvm(&func.return_type);
 
-        // 构建参数列表
+        // 构建参数列表，支持可变参数
         let params: Vec<String> = func.params.iter()
-            .map(|p| self.type_to_llvm(&p.param_type))
+            .map(|p| {
+                if p.is_varargs {
+                    "...".to_string()
+                } else {
+                    self.type_to_llvm(&p.param_type)
+                }
+            })
             .collect();
 
         // 获取调用约定属性

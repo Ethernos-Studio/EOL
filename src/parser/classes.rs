@@ -438,15 +438,27 @@ pub fn parse_parameters(parser: &mut Parser) -> cayResult<Vec<ParameterInfo>> {
 
     if !parser.check(&Token::RParen) {
         loop {
+            // 检查是否是裸可变参数 ...（C 风格 extern 函数声明，如 int printf(const char* fmt, ...);）
+            if parser.check(&Token::DotDotDot) {
+                parser.advance(); // 消费 ...
+                // 为可变参数创建一个特殊参数名
+                params.push(ParameterInfo::new_varargs("...".to_string(), Type::CVoid));
+                // 可变参数必须是最后一个参数
+                if parser.check(&Token::Comma) {
+                    return Err(parser.error("Varargs parameter must be the last parameter"));
+                }
+                break;
+            }
+
             // 检查是否是可变参数类型（type...）
             let param_type = parse_type(parser)?;
 
             // 检查是否有 ... 标记
             let is_varargs = parser.match_token(&Token::DotDotDot);
 
-            let name = parser.consume_identifier("Expected parameter name")?;
-
             if is_varargs {
+                // type... 形式的可变参数，需要一个名称
+                let name = parser.consume_identifier("Expected parameter name")?;
                 params.push(ParameterInfo::new_varargs(name, param_type));
                 // 可变参数必须是最后一个参数
                 if parser.match_token(&Token::Comma) {
@@ -454,6 +466,7 @@ pub fn parse_parameters(parser: &mut Parser) -> cayResult<Vec<ParameterInfo>> {
                 }
                 break;
             } else {
+                let name = parser.consume_identifier("Expected parameter name")?;
                 params.push(ParameterInfo::new(name, param_type));
             }
 

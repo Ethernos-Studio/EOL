@@ -14,6 +14,7 @@ pub fn parse_type(parser: &mut Parser) -> cayResult<Type> {
         crate::lexer::Token::Bool => { parser.advance(); Type::Bool }
         crate::lexer::Token::String => { parser.advance(); Type::String }
         crate::lexer::Token::Char => { parser.advance(); Type::Char }
+        crate::lexer::Token::Void => { parser.advance(); Type::Void }
         // FFI 类型
         crate::lexer::Token::CInt => { parser.advance(); Type::CInt }
         crate::lexer::Token::CUInt => { parser.advance(); Type::CUInt }
@@ -58,9 +59,9 @@ pub fn is_type_token(parser: &Parser) -> bool {
     matches!(parser.current_token(),
         crate::lexer::Token::Int | crate::lexer::Token::Long | crate::lexer::Token::Float |
         crate::lexer::Token::Double | crate::lexer::Token::Bool | crate::lexer::Token::String |
-        crate::lexer::Token::Char | crate::lexer::Token::Identifier(_) |
+        crate::lexer::Token::Char | crate::lexer::Token::Void | crate::lexer::Token::Identifier(_) |
         // FFI 类型
-        crate::lexer::Token::CInt | crate::lexer::Token::CUInt | crate::lexer::Token::CLong | 
+        crate::lexer::Token::CInt | crate::lexer::Token::CUInt | crate::lexer::Token::CLong |
         crate::lexer::Token::CShort | crate::lexer::Token::CUShort |
         crate::lexer::Token::CChar | crate::lexer::Token::CUChar |
         crate::lexer::Token::CFloat | crate::lexer::Token::CDouble |

@@ -174,8 +174,13 @@ impl IRGenerator {
                 if value_type != var_type {
                     let temp = self.new_temp();
 
+                    // null 赋值给指针类型（int 0 转换为指针）- 必须最先检查
+                    if (val == "0" || val == "null") && var_type.ends_with("*") {
+                        // null 可以直接存储到指针类型
+                        self.emit_line(&format!("  store {} null, {}* %{}, align {}", var_type, var_type, llvm_name, align));
+                    }
                     // 浮点类型转换
-                    if value_type == "double" && var_type == "float" {
+                    else if value_type == "double" && var_type == "float" {
                         // double -> float 转换
                         self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
                         let align = self.get_type_align("float");
@@ -191,11 +196,6 @@ impl IRGenerator {
                         self.emit_line(&format!("  {} = bitcast {} {} to {}",
                             temp, value_type, val, var_type));
                         self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
-                    }
-                    // null 赋值给指针类型（int 0 转换为指针）
-                    else if (val == "0" || val == "null") && var_type.ends_with("*") {
-                        // null 可以直接存储到指针类型
-                        self.emit_line(&format!("  store {} null, {}* %{}, align {}", var_type, var_type, llvm_name, align));
                     }
                     // 整数类型转换
                     else if value_type.starts_with("i") && var_type.starts_with("i") && !value_type.ends_with("*") && !var_type.ends_with("*") {
