@@ -232,9 +232,17 @@ impl IRGenerator {
 
     /// 生成等于比较表达式
     fn generate_eq(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type == "i8*" && right_type == "i8*" {
-            // 字符串比较
-            self.emit_line(&format!("  {} = icmp eq i8* {}, {}", temp, left_val, right_val));
+        // 处理任意指针类型的比较（包括 i8*, i64*, i32* 等）
+        if left_type.ends_with("*") && right_type.ends_with("*") {
+            self.emit_line(&format!("  {} = icmp eq {} {}, {}", temp, left_type, left_val, right_val));
+            return Ok(format!("i1 {}", temp));
+        } else if left_type.ends_with("*") && (right_val == "0" || right_val == "null") {
+            // 指针与 null/0 比较
+            self.emit_line(&format!("  {} = icmp eq {} {}, null", temp, left_type, left_val));
+            return Ok(format!("i1 {}", temp));
+        } else if right_type.ends_with("*") && (left_val == "0" || left_val == "null") {
+            // null/0 与指针比较
+            self.emit_line(&format!("  {} = icmp eq {} {}, null", temp, right_type, right_val));
             return Ok(format!("i1 {}", temp));
         } else if left_type.starts_with("i") && right_type.starts_with("i") {
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
@@ -255,8 +263,17 @@ impl IRGenerator {
 
     /// 生成不等于比较表达式
     fn generate_ne(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type == "i8*" && right_type == "i8*" {
-            self.emit_line(&format!("  {} = icmp ne i8* {}, {}", temp, left_val, right_val));
+        // 处理任意指针类型的比较（包括 i8*, i64*, i32* 等）
+        if left_type.ends_with("*") && right_type.ends_with("*") {
+            self.emit_line(&format!("  {} = icmp ne {} {}, {}", temp, left_type, left_val, right_val));
+            return Ok(format!("i1 {}", temp));
+        } else if left_type.ends_with("*") && (right_val == "0" || right_val == "null") {
+            // 指针与 null/0 比较
+            self.emit_line(&format!("  {} = icmp ne {} {}, null", temp, left_type, left_val));
+            return Ok(format!("i1 {}", temp));
+        } else if right_type.ends_with("*") && (left_val == "0" || left_val == "null") {
+            // null/0 与指针比较
+            self.emit_line(&format!("  {} = icmp ne {} {}, null", temp, right_type, right_val));
             return Ok(format!("i1 {}", temp));
         } else if left_type.starts_with("i") && right_type.starts_with("i") {
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);

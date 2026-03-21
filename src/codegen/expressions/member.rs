@@ -44,12 +44,26 @@ impl IRGenerator {
         if let Expr::Identifier(class_name) = &*member.object {
             let static_key = format!("{}.{}", class_name, member.member);
             if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
-                // 静态字段访问 - 返回全局变量的指针
-                let temp = self.new_temp();
-                self.emit_line(&format!("  {} = load {}, {}* {}, align {}",
-                    temp, field_info.llvm_type, field_info.llvm_type, field_info.name,
-                    self.get_type_align(&field_info.llvm_type)));
-                return Ok(format!("{} {}", field_info.llvm_type, temp));
+                // 检查是否是数组类型
+                let is_array = matches!(field_info.field_type, crate::types::Type::Array(_));
+                
+                if is_array {
+                    // 静态数组字段 - 直接从全局变量加载数组指针
+                    // field_info.llvm_type 是元素类型指针（如 i32*）
+                    // 静态字段存储这个指针值
+                    let arr_ptr = self.new_temp();
+                    self.emit_line(&format!("  {} = load {}, {}* {}, align {}",
+                        arr_ptr, field_info.llvm_type, field_info.llvm_type, field_info.name,
+                        self.get_type_align(&field_info.llvm_type)));
+                    return Ok(format!("{} {}", field_info.llvm_type, arr_ptr));
+                } else {
+                    // 普通静态字段访问 - 返回全局变量的值
+                    let temp = self.new_temp();
+                    self.emit_line(&format!("  {} = load {}, {}* {}, align {}",
+                        temp, field_info.llvm_type, field_info.llvm_type, field_info.name,
+                        self.get_type_align(&field_info.llvm_type)));
+                    return Ok(format!("{} {}", field_info.llvm_type, temp));
+                }
             }
         }
 

@@ -38,6 +38,17 @@ impl IRGenerator {
                 // 静态字段赋值
                 let align = self.get_type_align(&field_info.llvm_type);
                 
+                // 检查是否是数组类型
+                let is_array = matches!(field_info.field_type, crate::types::Type::Array(_));
+                
+                // 对于数组类型，值类型应该是元素类型指针（如 i32*）
+                // 静态字段类型也是元素类型指针（如 i32*），应该直接匹配
+                if is_array && value_type == field_info.llvm_type {
+                    self.emit_line(&format!("  store {} {}, {}* {}, align {}",
+                        value_type, val, field_info.llvm_type, field_info.name, align));
+                    return Ok(value.to_string());
+                }
+                
                 // 如果值类型与字段类型不匹配，需要转换
                 if value_type != field_info.llvm_type {
                     let temp = self.new_temp();
@@ -89,10 +100,18 @@ impl IRGenerator {
                             field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
                         return Ok(format!("{} {}", field_info.llvm_type, temp));
                     }
+                    // 指针类型转换（bitcast）
+                    else if value_type.ends_with("*") && field_info.llvm_type.ends_with("*") {
+                        self.emit_line(&format!("  {} = bitcast {} {} to {}",
+                            temp, value_type, val, field_info.llvm_type));
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}",
+                            field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
+                        return Ok(format!("{} {}", field_info.llvm_type, temp));
+                    }
                 }
                 
                 // 类型匹配，直接存储
-                self.emit_line(&format!("  store {} {}, {}* {}, align {}", 
+                self.emit_line(&format!("  store {} {}, {}* {}, align {}",
                     value_type, val, field_info.llvm_type, field_info.name, align));
                 return Ok(value.to_string());
             }

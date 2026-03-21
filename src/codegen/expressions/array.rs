@@ -492,8 +492,23 @@ impl IRGenerator {
         if let Expr::Identifier(class_name) = member.object.as_ref() {
             let static_key = format!("{}.{}", class_name, member.member);
             if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
-                // 静态字段 - 直接返回全局变量指针
-                return Ok((format!("{}*", field_info.llvm_type), field_info.name));
+                // 静态数组字段 - 需要从全局变量加载得到数组指针
+                // field_info.llvm_type 已经是 i64**（数组指针的指针）
+                // 加载后得到 i64*（数组指针）
+                let is_array = matches!(field_info.field_type, crate::types::Type::Array(_));
+                if is_array {
+                    // 从静态字段加载数组指针
+                    let arr_ptr = self.new_temp();
+                    let elem_ptr_type = field_info.llvm_type.trim_end_matches('*').to_string();
+                    self.emit_line(&format!("  {} = load {}, {}* {}, align {}",
+                        arr_ptr, field_info.llvm_type, field_info.llvm_type, field_info.name,
+                        self.get_type_align(&field_info.llvm_type)));
+                    // 返回元素类型指针（如 i64*）和加载的数组指针
+                    return Ok((elem_ptr_type, arr_ptr));
+                } else {
+                    // 非数组静态字段 - 直接返回全局变量指针
+                    return Ok((format!("{}*", field_info.llvm_type), field_info.name));
+                }
             }
         }
 

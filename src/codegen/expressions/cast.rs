@@ -23,15 +23,77 @@ impl IRGenerator {
             return Ok(format!("{} {}", to_type, val));
         }
         
-        // 指针类型转换 (bitcast)
+        // 布尔到字符串（bool -> String）- 必须在整数到字符串之前处理
+        // 因为 i1 也匹配 starts_with("i")
+        if (from_type == "i1" || from_type == "i8") && to_type == "i8*" {
+            let result = self.new_temp();
+            let bool_val = if from_type == "i1" {
+                val.to_string()
+            } else {
+                // 将 i8 截断为 i1
+                let temp = self.new_temp();
+                self.emit_line(&format!("  {} = trunc i8 {} to i1", temp, val));
+                temp
+            };
+            self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})",
+                result, bool_val));
+            return Ok(format!("{} {}", to_type, result));
+        }
+        
+        // 整数到字符串的转换（int -> String）- 必须在整数到指针之前处理
+        // 因为 i8* 也是指针类型
+        // 排除 i1（布尔）和 i8（字符），它们已单独处理
+        if from_type.starts_with("i") && !from_type.ends_with("*") && to_type == "i8*"
+            && from_type != "i1" && from_type != "i8" {
+            // 先将整数扩展到 i64（如果还不是的话），然后调用运行时函数
+            let result = self.new_temp();
+            let i64_val = if from_type == "i64" {
+                val.to_string()
+            } else {
+                let temp = self.new_temp();
+                self.emit_line(&format!("  {} = sext {} {} to i64", temp, from_type, val));
+                temp
+            };
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
+                result, i64_val));
+            return Ok(format!("{} {}", to_type, result));
+        }
+        
+        // 指针类型转换 (bitcast) - 优先检查
         if from_type.ends_with("*") && to_type.ends_with("*") {
             self.emit_line(&format!("  {} = bitcast {} {} to {}",
                 temp, from_type, val, to_type));
             return Ok(format!("{} {}", to_type, temp));
         }
         
+        // 指针到整数的转换（ptrtoint）- 优先检查
+        if from_type.ends_with("*") && to_type.starts_with("i") && !to_type.ends_with("*") {
+            self.emit_line(&format!("  {} = ptrtoint {} {} to {}",
+                temp, from_type, val, to_type));
+            return Ok(format!("{} {}", to_type, temp));
+        }
+        
+        // 整数到指针的转换（inttoptr）- 优先检查（排除 i8* 因为已处理）
+        // 使用 i64 作为中间类型（指针大小）
+        if from_type.starts_with("i") && !from_type.ends_with("*") && to_type.ends_with("*") && to_type != "i8*" {
+            if from_type != "i64" {
+                let i64_temp = self.new_temp();
+                self.emit_line(&format!("  {} = sext {} {} to i64", i64_temp, from_type, val));
+                self.emit_line(&format!("  {} = inttoptr i64 {} to {}", temp, i64_temp, to_type));
+            } else {
+                self.emit_line(&format!("  {} = inttoptr {} {} to {}", temp, from_type, val, to_type));
+            }
+            return Ok(format!("{} {}", to_type, temp));
+        }
+        
+        // 严格检查整数类型（排除指针）
+        let is_from_ptr = from_type.ends_with("*");
+        let is_to_ptr = to_type.ends_with("*");
+        let is_from_int = from_type.starts_with("i") && !is_from_ptr;
+        let is_to_int = to_type.starts_with("i") && !is_to_ptr;
+        
         // 整数到整数
-        if from_type.starts_with("i") && to_type.starts_with("i") && !from_type.ends_with("*") && !to_type.ends_with("*") {
+        if is_from_int && is_to_int {
             let from_bits: u32 = from_type.trim_start_matches('i').parse().unwrap_or(64);
             let to_bits: u32 = to_type.trim_start_matches('i').parse().unwrap_or(64);
             
@@ -48,16 +110,14 @@ impl IRGenerator {
         }
         
         // 整数到浮点
-        if from_type.starts_with("i") && !from_type.ends_with("*") && 
-           (to_type == "float" || to_type == "double") {
+        if is_from_int && (to_type == "float" || to_type == "double") {
             self.emit_line(&format!("  {} = sitofp {} {} to {}",
                 temp, from_type, val, to_type));
             return Ok(format!("{} {}", to_type, temp));
         }
         
         // 浮点到整数
-        if (from_type == "float" || from_type == "double") && 
-           to_type.starts_with("i") && !to_type.ends_with("*") {
+        if (from_type == "float" || from_type == "double") && is_to_int {
             self.emit_line(&format!("  {} = fptosi {} {} to {}",
                 temp, from_type, val, to_type));
             return Ok(format!("{} {}", to_type, temp));
@@ -121,22 +181,6 @@ impl IRGenerator {
             return Ok(format!("{} {}", to_type, result));
         }
         
-        // 整数到字符串（int -> String）- 放在字符和布尔之后
-        if from_type.starts_with("i") && !from_type.ends_with("*") && to_type == "i8*" {
-            // 先将整数扩展到 i64（如果还不是的话），然后调用运行时函数
-            let result = self.new_temp();
-            let i64_val = if from_type == "i64" {
-                val.to_string()
-            } else {
-                let temp = self.new_temp();
-                self.emit_line(&format!("  {} = sext {} {} to i64", temp, from_type, val));
-                temp
-            };
-            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
-                result, i64_val));
-            return Ok(format!("{} {}", to_type, result));
-        }
-
         // 字符串到整数（String -> int）- 使用 atoi
         if from_type == "i8*" && to_type.starts_with("i") && !to_type.ends_with("*") {
             // 调用 atoi 函数将字符串转换为整数

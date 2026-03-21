@@ -1,0 +1,952 @@
+   Compiling cavvy v0.4.8 (E:\spj\EOL)
+warning: cavvy@0.4.8: Copied Windows toolchain (LLVM + MinGW) to E:\spj\EOL\target\release
+warning: cavvy@0.4.8: Copied examples and caylibs directories to E:\spj\EOL\target\release
+warning: unused imports: `Diagnostic` and `NamedSource`
+ --> src\error.rs:3:14
+  |
+3 | use miette::{Diagnostic, NamedSource, SourceSpan};
+  |              ^^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::sync::Arc`
+ --> src\error.rs:4:5
+  |
+4 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+warning: type `cayError` should have an upper camel case name
+ --> src\error.rs:7:10
+  |
+7 | pub enum cayError {
+  |          ^^^^^^^^ help: convert the identifier to upper camel case (notice the capitalization): `CayError`
+  |
+  = note: `#[warn(non_camel_case_types)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: type `cayResult` should have an upper camel case name
+  --> src\error.rs:86:10
+   |
+86 | pub type cayResult<T> = Result<T, cayError>;
+   |          ^^^^^^^^^ help: convert the identifier to upper camel case (notice the capitalization): `CayResult`
+
+warning: unused import: `std::collections::HashMap`
+ --> src\diagnostic.rs:7:5
+  |
+7 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ClassInfo` and `MethodInfo`
+ --> src\ast.rs:1:41
+  |
+1 | use crate::types::{Type, ParameterInfo, ClassInfo, MethodInfo};
+  |                                         ^^^^^^^^^  ^^^^^^^^^^
+
+warning: unused import: `SourceSpan`
+ --> src\lexer\mod.rs:4:88
+  |
+4 | use crate::diagnostic::{Diagnostic, DiagnosticCollector, ErrorCodes, CompilationPhase, SourceSpan, FixSuggestion};
+  |                                                                                        ^^^^^^^^^^
+
+warning: unused import: `InterfaceInfo`
+ --> src\parser\classes.rs:4:41
+  |
+4 | use crate::types::{Type, ParameterInfo, InterfaceInfo};
+  |                                         ^^^^^^^^^^^^^
+
+warning: unused import: `crate::error::SourceLocation`
+ --> src\parser\classes.rs:7:5
+  |
+7 | use crate::error::SourceLocation;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `is_primitive_type_token`
+ --> src\parser\statements.rs:6:32
+  |
+6 | use super::types::{parse_type, is_primitive_type_token};
+  |                                ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `lambda::*`
+  --> src\parser\expressions\mod.rs:16:9
+   |
+16 | pub use lambda::*;
+   |         ^^^^^^^^^
+
+warning: unused import: `TokenWithLocation`
+ --> src\parser\utils.rs:5:27
+  |
+5 | use crate::lexer::{Token, TokenWithLocation};
+  |                           ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DiagnosticCollector`
+ --> src\parser\utils.rs:7:37
+  |
+7 | use crate::diagnostic::{Diagnostic, DiagnosticCollector, ErrorCodes, CompilationPhase, FixSuggestion};
+  |                                     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ClassInfo`, `FieldInfo`, `MethodInfo`, `ParameterInfo`, and `Type`
+ --> src\semantic\analyzer.rs:4:20
+  |
+4 | use crate::types::{Type, ParameterInfo, ClassInfo, MethodInfo, FieldInfo, TypeRegistry};
+  |                    ^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `SemanticSymbolInfo`
+ --> src\semantic\analyzer.rs:6:48
+  |
+6 | use super::symbol_table::{SemanticSymbolTable, SemanticSymbolInfo};
+  |                                                ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `MethodDecl`
+ --> src\semantic\class_analysis.rs:3:50
+  |
+3 | use crate::ast::{Program, ClassMember, Modifier, MethodDecl};
+  |                                                  ^^^^^^^^^^
+
+warning: unused import: `ParameterInfo`
+ --> src\semantic\type_check.rs:4:26
+  |
+4 | use crate::types::{Type, ParameterInfo};
+  |                          ^^^^^^^^^^^^^
+
+warning: unused import: `semantic_error`
+ --> src\semantic\type_check.rs:5:31
+  |
+5 | use crate::error::{cayResult, semantic_error};
+  |                               ^^^^^^^^^^^^^^
+
+warning: unused import: `block::*`
+  --> src\codegen\statements\mod.rs:14:9
+   |
+14 | pub use block::*;
+   |         ^^^^^^^^
+
+warning: unused import: `var_decl::*`
+  --> src\codegen\statements\mod.rs:15:9
+   |
+15 | pub use var_decl::*;
+   |         ^^^^^^^^^^^
+
+warning: unused import: `return_stmt::*`
+  --> src\codegen\statements\mod.rs:16:9
+   |
+16 | pub use return_stmt::*;
+   |         ^^^^^^^^^^^^^^
+
+warning: unused import: `if_stmt::*`
+  --> src\codegen\statements\mod.rs:17:9
+   |
+17 | pub use if_stmt::*;
+   |         ^^^^^^^^^^
+
+warning: unused import: `loops::*`
+  --> src\codegen\statements\mod.rs:18:9
+   |
+18 | pub use loops::*;
+   |         ^^^^^^^^
+
+warning: unused import: `switch_stmt::*`
+  --> src\codegen\statements\mod.rs:19:9
+   |
+19 | pub use switch_stmt::*;
+   |         ^^^^^^^^^^^^^^
+
+warning: unused import: `jump_stmt::*`
+  --> src\codegen\statements\mod.rs:20:9
+   |
+20 | pub use jump_stmt::*;
+   |         ^^^^^^^^^^^^
+
+warning: unused import: `statement::*`
+  --> src\codegen\statements\mod.rs:21:9
+   |
+21 | pub use statement::*;
+   |         ^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> src\rcpl\mod.rs:6:5
+  |
+6 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::constant_pool::Constant`
+   --> src\bytecode\jit.rs:298:13
+    |
+298 |         use super::constant_pool::Constant;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> src\idle\editor.rs:4:5
+  |
+4 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Hasher`
+ --> src\ast.rs:4:23
+  |
+4 | use std::hash::{Hash, Hasher};
+  |                       ^^^^^^
+
+warning: unused variable: `line_content`
+   --> src\lexer\mod.rs:662:23
+    |
+662 |     for (output_line, line_content) in lines.iter().enumerate() {
+    |                       ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_line_content`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `output_line_num`
+   --> src\lexer\mod.rs:663:13
+    |
+663 |         let output_line_num = output_line + 1; // 1-based
+    |             ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_output_line_num`
+
+warning: variable does not need to be mutable
+   --> src\lexer\mod.rs:659:9
+    |
+659 |     let mut source_map = std::collections::HashMap::new();
+    |         ----^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `member_type`
+   --> src\parser\classes.rs:158:13
+    |
+158 |         let member_type = parse_type(parser)?;
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_member_type`
+
+warning: unused variable: `member_name`
+   --> src\parser\classes.rs:159:13
+    |
+159 |         let member_name = parser.consume_identifier("Expected member name")?;
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_member_name`
+
+warning: unreachable pattern
+   --> src\semantic\expr_inference.rs:180:13
+    |
+180 |             _ => Ok(left_type),
+    |             ^ no value can reach this
+    |
+note: multiple earlier patterns match some of the same values
+   --> src\semantic\expr_inference.rs:180:13
+    |
+ 87 |             BinaryOp::Add => {
+    |             ------------- matches some of the same values
+...
+112 |             BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+    |             ------------------------------------------------------------- matches some of the same values
+...
+141 |             BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
+    |             --------------------------------------------------------------------------------------- matches some of the same values
+...
+144 |             BinaryOp::And | BinaryOp::Or => {
+    |             ---------------------------- matches some of the same values
+...
+180 |             _ => Ok(left_type),
+    |             ^ ...and 2 other patterns collectively make this unreachable
+    = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+   --> src\semantic\expr_inference.rs:694:13
+    |
+683 |             (Type::Object(from_name), Type::Object(to_name)) => {
+    |             ------------------------------------------------ matches all the relevant values
+...
+694 |             (Type::Object(obj_name), Type::Object(_)) if obj_name == "Object" => true,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no value can reach this
+
+warning: unused variable: `expr_type`
+    --> src\semantic\expr_inference.rs:1020:13
+     |
+1020 |         let expr_type = self.infer_expr_type(&instanceof.expr)?;
+     |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_expr_type`
+
+warning: unused variable: `escaped`
+   --> src\codegen\context.rs:421:13
+    |
+421 |         let escaped = s.replace("\\", "\\\\")
+    |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_escaped`
+
+warning: unused variable: `right_type`
+   --> src\codegen\expressions\binary.rs:376:65
+    |
+376 |     fn generate_and(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
+    |                                                                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_right_type`
+
+warning: unused variable: `right_type`
+   --> src\codegen\expressions\binary.rs:383:64
+    |
+383 |     fn generate_or(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
+    |                                                                ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_right_type`
+
+warning: unused variable: `has_varargs_array`
+   --> src\codegen\expressions\call.rs:603:102
+    |
+603 | ..._args: &[String], has_varargs_array: bool) -> Vec<crate::types::Type> {
+    |                      ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_has_varargs_array`
+
+warning: unused variable: `obj_val`
+  --> src\codegen\expressions\member.rs:74:28
+   |
+74 |             let (obj_type, obj_val) = self.parse_typed_value(&obj);
+   |                            ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_obj_val`
+
+warning: unused variable: `align`
+  --> src\codegen\statements\return_stmt.rs:28:25
+   |
+28 |                     let align = self.get_type_align("float");
+   |                         ^^^^^ help: if this is intentional, prefix it with an underscore: `_align`
+
+warning: unused variable: `align`
+  --> src\codegen\statements\return_stmt.rs:33:25
+   |
+33 |                     let align = self.get_type_align("double");
+   |                         ^^^^^ help: if this is intentional, prefix it with an underscore: `_align`
+
+warning: unused variable: `value`
+  --> src\codegen\statements\switch_stmt.rs:49:18
+   |
+49 |             let (value, label, case_idx) = &case_labels[i];
+   |                  ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `llvm_type`
+   --> src\codegen\generator.rs:319:55
+    |
+319 |     fn evaluate_const_initializer(&self, expr: &Expr, llvm_type: &str) -> Option<String> {
+    |                                                       ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_llvm_type`
+
+warning: unused variable: `constant_pool`
+   --> src\bytecode\obfuscator.rs:146:45
+    |
+146 |     fn update_names_in_constant_pool(&self, constant_pool: &mut ConstantPool) {
+    |                                             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_constant_pool`
+
+warning: unused variable: `offset`
+   --> src\bytecode\jit.rs:937:21
+    |
+937 |                 let offset = i16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+    |                     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_offset`
+
+warning: unused variable: `offset`
+   --> src\bytecode\jit.rs:948:21
+    |
+948 |                 let offset = i16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+    |                     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_offset`
+
+warning: unused variable: `offset`
+   --> src\bytecode\jit.rs:960:21
+    |
+960 |                 let offset = i16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+    |                     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_offset`
+
+warning: unused variable: `class_name`
+    --> src\bytecode\jit.rs:1100:29
+     |
+1100 |                 if let Some(class_name) = ctx.pool.get_utf8(index) {
+     |                             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_class_name`
+
+warning: unused variable: `config`
+  --> src\idle\mod.rs:72:58
+   |
+72 |     fn configure_fonts(cc: &eframe::CreationContext<'_>, config: &font_manager::FontConfig) {
+   |                                                          ^^^^^^ help: if this is intentional, prefix it with an underscore: `_config`
+
+warning: function `line_col_to_offset` is never used
+   --> src\error.rs:333:4
+    |
+333 | fn line_col_to_offset(source: &str, line: usize, column: usize) -> usize {
+    |    ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `get_error_span` is never used
+   --> src\error.rs:354:4
+    |
+354 | fn get_error_span(source: &str, line: usize, column: usize, error: &cayError) -> SourceSpan {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `extract_source_map_from_preprocessed` is never used
+   --> src\lexer\mod.rs:658:4
+    |
+658 | fn extract_source_map_from_preprocessed(source: &str) -> std::collections::HashMap<usize, (String, usize)> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple methods are never used
+   --> src\parser\mod.rs:87:8
+    |
+ 27 | impl Parser {
+    | ----------- methods in this implementation
+...
+ 87 |     fn parse_class_member(&mut self) -> cayResult<crate::ast::ClassMember> {
+    |        ^^^^^^^^^^^^^^^^^^
+...
+ 91 |     fn parse_field(&mut self) -> cayResult<crate::ast::FieldDecl> {
+    |        ^^^^^^^^^^^
+...
+ 95 |     fn parse_method(&mut self) -> cayResult<crate::ast::MethodDecl> {
+    |        ^^^^^^^^^^^^
+...
+ 99 |     fn parse_modifiers(&mut self) -> cayResult<Vec<crate::ast::Modifier>> {
+    |        ^^^^^^^^^^^^^^^
+...
+112 |     fn is_type_token(&self) -> bool {
+    |        ^^^^^^^^^^^^^
+...
+116 |     fn is_primitive_type_token(&self) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+...
+125 |     fn parse_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^
+...
+129 |     fn parse_var_decl(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^
+...
+133 |     fn parse_if_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^
+...
+137 |     fn parse_while_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+...
+141 |     fn parse_for_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^^
+...
+145 |     fn parse_do_while_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+149 |     fn parse_switch_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+...
+153 |     fn parse_return_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+...
+157 |     fn parse_expression_statement(&mut self) -> cayResult<crate::ast::Stmt> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+162 |     fn parse_expression(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^^^
+...
+166 |     fn parse_assignment(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^^^
+...
+170 |     fn parse_or(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^
+...
+174 |     fn parse_and(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^
+...
+178 |     fn parse_bitwise_or(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^^^
+...
+182 |     fn parse_bitwise_xor(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^^^^
+...
+186 |     fn parse_bitwise_and(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^^^^
+...
+190 |     fn parse_equality(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^
+...
+194 |     fn parse_comparison(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^^^^
+...
+198 |     fn parse_shift(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^
+...
+202 |     fn parse_term(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^
+...
+206 |     fn parse_factor(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^
+...
+210 |     fn parse_unary(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^
+...
+214 |     fn parse_postfix(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^
+...
+218 |     fn parse_primary(&mut self) -> cayResult<crate::ast::Expr> {
+    |        ^^^^^^^^^^^^^
+...
+222 |     fn parse_arguments(&mut self) -> cayResult<Vec<crate::ast::Expr>> {
+    |        ^^^^^^^^^^^^^^^
+...
+226 |     fn match_assignment_op(&mut self) -> Option<crate::ast::AssignOp> {
+    |        ^^^^^^^^^^^^^^^^^^^
+...
+243 |     fn previous_loc(&self) -> crate::error::SourceLocation {
+    |        ^^^^^^^^^^^^
+
+warning: function `parse_constructor` is never used
+   --> src\parser\classes.rs:281:8
+    |
+281 | pub fn parse_constructor(parser: &mut Parser) -> cayResult<ConstructorDecl> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: function `is_primitive_type_token` is never used
+  --> src\parser\types.rs:73:8
+   |
+73 | pub fn is_primitive_type_token(parser: &Parser) -> bool {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `previous_loc` is never used
+  --> src\parser\utils.rs:40:8
+   |
+40 | pub fn previous_loc(parser: &Parser) -> crate::error::SourceLocation {
+   |        ^^^^^^^^^^^^
+
+warning: function `create_parser_error` is never used
+   --> src\parser\utils.rs:168:8
+    |
+168 | pub fn create_parser_error(parser: &mut Parser, error_code: &'static str, message: impl Into<String>) -> cayError {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_type_token` is never used
+   --> src\parser\utils.rs:311:8
+    |
+311 | pub fn is_type_token(parser: &Parser) -> bool {
+    |        ^^^^^^^^^^^^^
+
+warning: function `synchronize` is never used
+   --> src\parser\utils.rs:324:8
+    |
+324 | pub fn synchronize(parser: &mut Parser) {
+    |        ^^^^^^^^^^^
+
+warning: struct `PlatformAbstraction` is never constructed
+ --> src\codegen\generator.rs:8:12
+  |
+8 | pub struct PlatformAbstraction {
+  |            ^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `with_feature`, `with_define`, `with_undefine`, `generate_platform_init`, and `generate_platform_declarations` are never used
+  --> src\codegen\generator.rs:16:12
+   |
+15 | impl PlatformAbstraction {
+   | ------------------------ associated items in this implementation
+16 |     pub fn new(target_os: &str) -> Self {
+   |            ^^^
+...
+26 |     pub fn with_feature(mut self, feature: &str) -> Self {
+   |            ^^^^^^^^^^^^
+...
+32 |     pub fn with_define(mut self, define: &str) -> Self {
+   |            ^^^^^^^^^^^
+...
+38 |     pub fn with_undefine(mut self, undefine: &str) -> Self {
+   |            ^^^^^^^^^^^^^
+...
+44 |     pub fn generate_platform_init(&self) -> String {
+   |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+63 |     pub fn generate_platform_declarations(&self) -> String {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `generate_class_declarations` and `generate_method_declaration` are never used
+   --> src\codegen\generator.rs:433:8
+    |
+ 81 | impl IRGenerator {
+    | ---------------- methods in this implementation
+...
+433 |     fn generate_class_declarations(&mut self, class: &ClassDecl) -> cayResult<()> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+444 |     fn generate_method_declaration(&mut self, class_name: &str, method: &MethodDecl) -> cayResult<()> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `PlatformCodeGenerator` is never constructed
+  --> src\codegen\platform.rs:97:12
+   |
+97 | pub struct PlatformCodeGenerator {
+   |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `generate_platform_init`, `generate_platform_declarations`, and `generate_dynamic_library_loading` are never used
+   --> src\codegen\platform.rs:102:12
+    |
+101 | impl PlatformCodeGenerator {
+    | -------------------------- associated items in this implementation
+102 |     pub fn new(config: PlatformConfig) -> Self {
+    |            ^^^
+...
+107 |     pub fn generate_platform_init(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+153 |     pub fn generate_platform_declarations(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+186 |     pub fn generate_dynamic_library_loading(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `current_block` is never read
+   --> src\bytecode\jit.rs:100:5
+    |
+ 90 | struct InstructionContext<'a> {
+    |        ------------------ field in this struct
+...
+100 |     current_block: &'a mut String,
+    |     ^^^^^^^^^^^^^
+
+warning: fields `selection` and `scroll_offset` are never read
+  --> src\idle\editor.rs:26:5
+   |
+16 | pub struct CodeEditor {
+   |            ---------- fields in this struct
+...
+26 |     selection: Option<(usize, usize)>,
+   |     ^^^^^^^^^
+27 |     /// 滚动位置
+28 |     scroll_offset: f32,
+   |     ^^^^^^^^^^^^^
+
+warning: `cavvy` (lib test) generated 70 warnings (61 duplicates)
+warning: `cavvy` (lib) generated 70 warnings (9 duplicates) (run `cargo fix --lib -p cavvy` to apply 28 suggestions)
+warning: function `compile_eol_expect_error` is never used
+  --> tests\common\mod.rs:81:8
+   |
+81 | pub fn compile_eol_expect_error(source_path: &str) -> Result<String, String> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `compile_and_run_expect_error` is never used
+   --> tests\common\mod.rs:121:8
+    |
+121 | pub fn compile_and_run_expect_error(source_path: &str) -> Result<String, String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `assert_output_contains` is never used
+   --> tests\common\mod.rs:166:8
+    |
+166 | pub fn assert_output_contains(output: &str, expected_substrings: &[&str], test_name: &str) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `assert_output_contains_any` is never used
+   --> tests\common\mod.rs:184:8
+    |
+184 | pub fn assert_output_contains_any(output: &str, expected_substrings: &[&str], test_name: &str) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `compile_and_run_expect_error` is never used
+   --> tests\common\mod.rs:121:8
+    |
+121 | pub fn compile_and_run_expect_error(source_path: &str) -> Result<String, String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `compile_and_run_eol` is never used
+  --> tests\common\mod.rs:29:8
+   |
+29 | pub fn compile_and_run_eol(source_path: &str) -> Result<String, String> {
+   |        ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `lex`
+ --> tests\diagnostic_tests.rs:6:20
+  |
+6 | use cavvy::lexer::{lex, lex_with_diagnostics};
+  |                    ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `cavvy::parser::parse`
+ --> tests\diagnostic_tests.rs:7:5
+  |
+7 | use cavvy::parser::parse;
+  |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Path`
+ --> src\bin\cay-ir.rs:4:17
+  |
+4 | use std::path::{Path, PathBuf};
+  |                 ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `print_tool_error`
+ --> src\bin\cay-ir.rs:6:66
+  |
+6 | use cavvy::error::{print_error_with_context, print_miette_error, print_tool_error, print_warning};
+  |                                                                  ^^^^^^^^^^^^^^^^
+
+warning: function `get_clang_exe_name` is never used
+  --> src\bin\ir2exe.rs:47:4
+   |
+47 | fn get_clang_exe_name() -> &'static str {
+   |    ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `result`
+   --> tests\diagnostic_tests.rs:193:10
+    |
+193 |     let (result, diagnostics) = lex_with_diagnostics(source);
+    |          ^^^^^^ help: if this is intentional, prefix it with an underscore: `_result`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `cavvy` (test "string_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (test "static_field_tests") generated 4 warnings
+warning: `cavvy` (test "preprocessor_tests") generated 3 warnings (2 duplicates)
+warning: unused import: `print_warning`
+ --> src\bin\cay-run.rs:8:84
+  |
+8 | use cavvy::error::{print_error_with_context, print_miette_error, print_tool_error, print_warning};
+  |                                                                                    ^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `cavvy` (test "type_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (test "inheritance_tests") generated 3 warnings (3 duplicates)
+warning: `cavvy` (bin "ir2exe" test) generated 1 warning
+warning: `cavvy` (test "operator_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (bin "cay-ir" test) generated 2 warnings (2 duplicates)
+warning: use of deprecated field `tower_lsp::lsp_types::DocumentSymbol::deprecated`: Use tags instead
+   --> src\bin\cay-lsp.rs:461:17
+    |
+461 |                 deprecated: None,
+    |                 ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: `cavvy` (test "control_flow_tests") generated 4 warnings (4 duplicates)
+warning: use of deprecated field `tower_lsp::lsp_types::DocumentSymbol::deprecated`: Use tags instead
+   --> src\bin\cay-lsp.rs:567:21
+    |
+567 |                     deprecated: None,
+    |                     ^^^^^^^^^^^^^^^^
+
+warning: use of deprecated field `tower_lsp::lsp_types::DocumentSymbol::deprecated`: Use tags instead
+   --> src\bin\cay-lsp.rs:587:21
+    |
+587 |                     deprecated: None,
+    |                     ^^^^^^^^^^^^^^^^
+
+warning: use of deprecated field `tower_lsp::lsp_types::DocumentSymbol::deprecated`: Use tags instead
+   --> src\bin\cay-lsp.rs:606:21
+    |
+606 |                     deprecated: None,
+    |                     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `Opcode`
+ --> src\bin\cay-bcgen.rs:6:50
+  |
+6 | use cavvy::bytecode::instructions::{Instruction, Opcode};
+  |                                                  ^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `print_warning`
+ --> src\bin\cay-bcgen.rs:8:58
+  |
+8 | use cavvy::error::{print_miette_error, print_tool_error, print_warning};
+  |                                                          ^^^^^^^^^^^^^
+
+warning: unused variable: `type_registry`
+   --> src\bin\cay-bcgen.rs:146:5
+    |
+146 |     type_registry: &cavvy::types::TypeRegistry
+    |     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_type_registry`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `uri` is never read
+  --> src\bin\cay-lsp.rs:21:5
+   |
+20 | struct DocumentState {
+   |        ------------- field in this struct
+21 |     uri: Url,
+   |     ^^^
+   |
+   = note: `DocumentState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `ServerConfig` is never constructed
+  --> src\bin\cay-lsp.rs:35:8
+   |
+35 | struct ServerConfig {
+   |        ^^^^^^^^^^^^
+
+warning: unused variable: `stderr`
+   --> tests\bytecode_tests.rs:114:9
+    |
+114 |     let stderr = String::from_utf8_lossy(&output.stderr);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_stderr`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `stdout`
+   --> tests\bytecode_tests.rs:115:9
+    |
+115 |     let stdout = String::from_utf8_lossy(&output.stdout);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_stdout`
+
+warning: unused variable: `stderr`
+   --> tests\bytecode_tests.rs:155:9
+    |
+155 |     let stderr = String::from_utf8_lossy(&output.stderr);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_stderr`
+
+warning: unused variable: `stderr`
+   --> tests\bytecode_tests.rs:199:9
+    |
+199 |     let stderr = String::from_utf8_lossy(&output.stderr);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_stderr`
+
+warning: unused variable: `result`
+   --> tests\bytecode_tests.rs:516:9
+    |
+516 |     let result = deserialize(&valid_magic);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_result`
+
+warning: function `compile_eol_expect_error` is never used
+  --> tests\common\mod.rs:81:8
+   |
+81 | pub fn compile_eol_expect_error(source_path: &str) -> Result<String, String> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `cavvy` (test "diagnostic_tests") generated 3 warnings (run `cargo fix --test "diagnostic_tests"` to apply 2 suggestions)
+warning: `cavvy` (bin "cay-run" test) generated 1 warning (1 duplicate)
+warning: `cavvy` (bin "cay-bcgen" test) generated 3 warnings (run `cargo fix --bin "cay-bcgen" --tests` to apply 2 suggestions)
+warning: `cavvy` (test "function_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (bin "cay-ir") generated 2 warnings (run `cargo fix --bin "cay-ir"` to apply 2 suggestions)
+warning: `cavvy` (bin "cay-lsp" test) generated 6 warnings (6 duplicates)
+warning: `cavvy` (test "error_tests") generated 3 warnings (2 duplicates)
+warning: `cavvy` (test "var_let_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (test "basic_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (test "advanced_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (test "array_tests") generated 4 warnings (4 duplicates)
+warning: `cavvy` (bin "ir2exe") generated 1 warning (1 duplicate)
+warning: `cavvy` (bin "cay-bcgen") generated 3 warnings (3 duplicates)
+warning: `cavvy` (bin "cay-run") generated 1 warning (run `cargo fix --bin "cay-run"` to apply 1 suggestion)
+warning: `cavvy` (test "bytecode_tests") generated 10 warnings (4 duplicates)
+warning: `cavvy` (bin "cay-lsp") generated 6 warnings
+    Finished `release` profile [optimized] target(s) in 34.28s
+     Running unittests src\lib.rs (target\release\deps\cavvy-238914d978416ce3.exe)
+
+running 17 tests
+test diagnostic::tests::test_diagnostic_collector ... ok
+test miette_diagnostic::tests::test_lexer_error_display ... ok
+test miette_diagnostic::tests::test_line_col_to_offset ... ok
+test idle::font_manager::tests::test_font_size_limits ... ok
+test lexer::tests::test_lexer_basic ... ok
+test lexer::tests::test_lexer_invalid_character ... ok
+test rcpl::code_generator::tests::test_generate_with_expression ... ok
+test diagnostic::tests::test_error_codes ... ok
+test idle::font_manager::tests::test_font_config_default ... ok
+test tests::test_hello_lexer ... ok
+test rcpl::code_generator::tests::test_generate_with_statement ... ok
+test tests::test_hello_parser ... ok
+test tests::test_preprocessor_ifdef ... ok
+test lexer::tests::test_lexer_unterminated_string ... ok
+test rcpl::code_generator::tests::test_protect_restore_strings ... ok
+test tests::test_preprocessor_define ... ok
+test idle::font_manager::tests::test_font_config_with_detection ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\release\deps\cavvy-1a3751c2f5a22317.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-bcgen.rs (target\release\deps\cay_bcgen-3995d4a0c345b0a2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-check.rs (target\release\deps\cay_check-3f104e73ef375bc1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-idle.rs (target\release\deps\cay_idle-7cae85da35ac2b16.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-ir.rs (target\release\deps\cay_ir-e56dc4612363c981.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-lsp.rs (target\release\deps\cay_lsp-4ff8034d0ccc735c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-rcpl.rs (target\release\deps\cay_rcpl-e14c921f8a45312c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cay-run.rs (target\release\deps\cay_run-006b2a2b7da2901c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cayc.rs (target\release\deps\cayc-b5ca0a63ba7f8309.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\ir2exe.rs (target\release\deps\ir2exe-c721979cb79747b0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\advanced_tests.rs (target\release\deps\advanced_tests-1b833f7b5f33d082.exe)
+
+running 20 tests
+test test_data_structures ... FAILED
+test test_static_variables ... FAILED
+test test_memoization ... ok
+test test_matrix_determinant ... ok
+test test_class_naming ... ok
+test test_pointer_simulation ... ok
+test test_algorithm_search ... ok
+test test_number_theory ... ok
+test test_fibonacci_large ... ok
+test test_roman_numerals ... ok
+test test_combinations ... ok
+test test_histogram ... ok
+test test_permutations ... ok
+test test_floating_point_advanced ... ok
+test test_scope_isolation ... ok
+test test_game_of_life ... ok
+test test_math_operations ... ok
+test test_prime_sieve ... ok
+test test_base_conversion ... ok
+test test_algorithm_sorting ... ok
+
+failures:
+
+---- test_data_structures stdout ----
+
+thread 'test_data_structures' (138340) panicked at tests\advanced_tests.rs:34:75:
+data structures should compile and run: "Compilation failed: \n  × cavvy::semantic_error: 语义错误: Cannot convert i32* to i32 in variable initialization\n   ╭─[examples/test_data_structures.cay:14:1]\n 11 │     }\n 12 │     \n 13 │     public static int pop() {\n 14 │         int value = stack[stackTop];\n    │ ─ 错误在这里\n 15 │         stackTop = stackTop - 1;\n 16 │         return value;\n   ╰────\n  help: 请检查语义正确性\n\n"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- test_static_variables stdout ----
+
+thread 'test_static_variables' (121916) panicked at tests\advanced_tests.rs:28:76:
+static variables should compile and run: "Compilation failed: \n  × cavvy::tool_error: ir2exe 执行失败\n   │\n   │ IR→EXE编译失败\n   │\n  help: \n  × cavvy::tool_error: clang 执行失败\n   │\n   │ 编译失败 (exit code: 1)\n   │\n  help: E:\\spj\\EOL\\examples\\test_static_variables.ll:481:16: error: invalid cast opcode for cast from 'i32' to 'ptr'\r\n  481 |     %t5 = sext i32 %t0 to i32*\r\n      |                ^\r\n1 error generated.\r\n\n\n\n\n"
+
+
+failures:
+    test_data_structures
+    test_static_variables
+
+test result: FAILED. 18 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.38s
+
+error: test failed, to rerun pass `--test advanced_tests`

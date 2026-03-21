@@ -1,5 +1,5 @@
 //! IR生成上下文和状态管理
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::types::TypeRegistry;
 use crate::codegen::platform::PlatformConfig;
 
@@ -175,6 +175,8 @@ pub struct IRGenerator {
     pub class_layouts: HashMap<String, ClassLayoutInfo>,  // 类实例布局信息
     pub platform_config: Option<PlatformConfig>,
     pub extern_declarations: Vec<crate::ast::ExternDecl>,  // FFI extern 声明
+    pub extern_function_map: HashMap<String, usize>,  // 函数名 -> extern_declarations索引
+    pub emitted_externs: HashSet<String>,  // 已生成的extern声明（函数名 -> 签名）
 }
 
 impl IRGenerator {
@@ -210,6 +212,8 @@ impl IRGenerator {
             class_layouts: HashMap::new(),
             platform_config: None,
             extern_declarations: Vec::new(),
+            extern_function_map: HashMap::new(),
+            emitted_externs: HashSet::new(),
         }
     }
 
@@ -218,33 +222,39 @@ impl IRGenerator {
         self.type_registry = Some(registry);
     }
 
-    /// 设置 extern 声明
+    /// 设置 extern 声明并构建索引
     pub fn set_extern_declarations(&mut self, extern_declarations: Vec<crate::ast::ExternDecl>) {
+        self.extern_function_map.clear();
+        for (decl_idx, extern_decl) in extern_declarations.iter().enumerate() {
+            for func in &extern_decl.functions {
+                self.extern_function_map.insert(func.name.clone(), decl_idx);
+            }
+        }
         self.extern_declarations = extern_declarations;
     }
 
-    /// 检查函数是否是 extern 声明的
+    /// 检查函数是否是 extern 声明的（使用HashMap O(1)查找）
     pub fn is_extern_function(&self, func_name: &str) -> bool {
-        for extern_decl in &self.extern_declarations {
-            for func in &extern_decl.functions {
-                if func.name == func_name {
-                    return true;
-                }
-            }
-        }
-        false
+        self.extern_function_map.contains_key(func_name)
     }
 
-    /// 获取 extern 函数的信息
+    /// 获取 extern 函数的信息（使用HashMap O(1)查找）
     pub fn get_extern_function(&self, func_name: &str) -> Option<&crate::ast::ExternFunction> {
-        for extern_decl in &self.extern_declarations {
-            for func in &extern_decl.functions {
-                if func.name == func_name {
-                    return Some(func);
-                }
-            }
-        }
-        None
+        self.extern_function_map.get(func_name).and_then(|&decl_idx| {
+            self.extern_declarations.get(decl_idx).and_then(|decl| {
+                decl.functions.iter().find(|f| f.name == func_name)
+            })
+        })
+    }
+
+    /// 检查extern声明是否已生成（基于函数签名）
+    pub fn is_extern_emitted(&self, func_signature: &str) -> bool {
+        self.emitted_externs.contains(func_signature)
+    }
+
+    /// 标记extern声明已生成
+    pub fn mark_extern_emitted(&mut self, func_signature: String) {
+        self.emitted_externs.insert(func_signature);
     }
 
     /// 检查是否是 Windows 目标平台

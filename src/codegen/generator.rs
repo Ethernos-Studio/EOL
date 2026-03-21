@@ -69,7 +69,7 @@ impl PlatformAbstraction {
             }
             "linux" | "macos" => {
                 declarations.push_str("declare i8* @setlocale(i32, i8*)\n");
-                declarations.push_str("@.str.locale = private unnamed_addr constant [6 x i8] c\\\"C.UTF-8\\\"\\00\n");
+                declarations.push_str("@.str.locale = private unnamed_addr constant [6 x i8] c\"C.UTF-8\"\\00\n");
             }
             _ => {}
         }
@@ -162,8 +162,7 @@ impl IRGenerator {
             // 使用顶层 main 函数
             let func = top_level_main.unwrap();
             self.output.push_str("; Cross-platform C entry point\n");
-            self.output.push_str(&format!("define i32 @main() {{
-"));
+            self.output.push_str(&format!("define i32 @main() {{\n"));
             self.output.push_str("entry:\n");
             
             // 使用平台配置生成初始化代码
@@ -246,7 +245,17 @@ impl IRGenerator {
 
     fn register_static_field(&mut self, class_name: &str, field: &FieldDecl) -> cayResult<()> {
         let full_name = format!("@{}.{}_s", class_name, field.name);
-        let llvm_type = self.type_to_llvm(&field.field_type);
+        // 对于数组类型，静态字段存储的是数组指针（指向元素数据）
+        // 例如 int[] 存储为 i32*，指向 int 数组的数据
+        let base_llvm_type = self.type_to_llvm(&field.field_type);
+        let is_array = matches!(field.field_type, crate::types::Type::Array(_));
+        // 数组类型的静态字段本身就是指针类型（如 i32*），不需要额外指针层
+        // 静态字段声明为指针类型，存储数组数据地址
+        let llvm_type = if is_array {
+            base_llvm_type
+        } else {
+            base_llvm_type
+        };
         let size = field.field_type.size_in_bytes();
 
         let field_info = crate::codegen::context::StaticFieldInfo {
@@ -365,7 +374,8 @@ impl IRGenerator {
                             if let Some(size_val) = self.evaluate_const_int(&array_creation.sizes[0]) {
                                 let elem_llvm_type = self.type_to_llvm(elem_type);
                                 let elem_size = self.get_type_size(&elem_llvm_type);
-                                let total_size = size_val as i64 * elem_size;
+                                // 包含8字节头部（长度+填充）+ 数据
+                                let total_size = 8 + size_val as i64 * elem_size;
 
                                 let calloc_temp = self.new_temp();
                                 self.output.push_str(&format!(
@@ -373,15 +383,35 @@ impl IRGenerator {
                                     calloc_temp, total_size
                                 ));
 
+                                // 存储长度（前4字节）
+                                let len_ptr = self.new_temp();
+                                self.output.push_str(&format!(
+                                    "  {} = bitcast i8* {} to i32*\n",
+                                    len_ptr, calloc_temp
+                                ));
+                                self.output.push_str(&format!(
+                                    "  store i32 {}, i32* {}, align 4\n",
+                                    size_val, len_ptr
+                                ));
+
+                                // 计算数据起始地址（跳过8字节长度头）
+                                let data_ptr = self.new_temp();
+                                self.output.push_str(&format!(
+                                    "  {} = getelementptr i8, i8* {}, i64 8\n",
+                                    data_ptr, calloc_temp
+                                ));
+
+                                // 将 i8* 转换为元素类型指针
                                 let cast_temp = self.new_temp();
                                 self.output.push_str(&format!(
                                     "  {} = bitcast i8* {} to {}*\n",
-                                    cast_temp, calloc_temp, elem_llvm_type
+                                    cast_temp, data_ptr, elem_llvm_type
                                 ));
 
+                                // 存储到静态字段
                                 self.output.push_str(&format!(
-                                    "  store {}* {}, {}** {}, align 8\n",
-                                    elem_llvm_type, cast_temp, elem_llvm_type, field.name
+                                    "  store {}* {}, {}* {}, align 8\n",
+                                    elem_llvm_type, cast_temp, field.llvm_type, field.name
                                 ));
                             }
                         }
@@ -824,10 +854,17 @@ impl IRGenerator {
             }
         };
 
-        // 检查是否已经声明过该函数，避免重复声明
-        let decl_without_newline = decl.trim();
-        if !self.output.contains(&format!("declare {} @{}", ret_type, func.name)) {
+        // 检查是否已经声明过该函数，避免重复声明（使用HashSet进行O(1)查找）
+        // 构建函数签名键："函数名@返回类型@参数1@参数2@..."
+        let func_signature = if params.is_empty() {
+            format!("{}@{}@void", func.name, ret_type)
+        } else {
+            format!("{}@{}@{}", func.name, ret_type, params.join("@"))
+        };
+        
+        if !self.is_extern_emitted(&func_signature) {
             self.emit_raw(&decl);
+            self.mark_extern_emitted(func_signature);
         }
 
         Ok(())

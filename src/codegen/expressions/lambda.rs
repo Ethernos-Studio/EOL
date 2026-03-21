@@ -231,9 +231,39 @@ impl IRGenerator {
 
         let temp = self.new_temp();
 
-        // 整数类型之间的转换
-        if from_type.starts_with("i") && to_type.starts_with("i")
-            && !from_type.ends_with("*") && !to_type.ends_with("*") {
+        // 指针到整数的转换（ptrtoint）- 必须优先于整数检查
+        if from_type.ends_with("*") && to_type.starts_with("i") && !to_type.ends_with("*") {
+            self.emit_line(&format!("  {} = ptrtoint {} {} to {}", temp, from_type, val, to_type));
+            return Ok(temp);
+        }
+
+        // 整数到指针的转换（inttoptr）- 必须优先于整数检查
+        // 只有当源类型是整数且目标是任意指针类型时才转换
+        if from_type.starts_with("i") && !from_type.ends_with("*") && to_type.ends_with("*") {
+            // 使用 i64 作为中间类型（指针大小）
+            if from_type != "i64" {
+                let i64_temp = self.new_temp();
+                self.emit_line(&format!("  {} = sext {} {} to i64", i64_temp, from_type, val));
+                self.emit_line(&format!("  {} = inttoptr i64 {} to {}", temp, i64_temp, to_type));
+            } else {
+                self.emit_line(&format!("  {} = inttoptr {} {} to {}", temp, from_type, val, to_type));
+            }
+            return Ok(temp);
+        }
+
+        // 指针类型转换（bitcast）- 必须优先于其他检查
+        if from_type.ends_with("*") && to_type.ends_with("*") {
+            self.emit_line(&format!("  {} = bitcast {} {} to {}", temp, from_type, val, to_type));
+            return Ok(temp);
+        }
+
+        // 整数类型之间的转换（严格排除指针）
+        let is_from_ptr = from_type.ends_with("*");
+        let is_to_ptr = to_type.ends_with("*");
+        let is_from_int = from_type.starts_with("i") && !is_from_ptr;
+        let is_to_int = to_type.starts_with("i") && !is_to_ptr;
+        
+        if is_from_int && is_to_int {
             let from_bits: u32 = from_type.trim_start_matches('i').parse().unwrap_or(64);
             let to_bits: u32 = to_type.trim_start_matches('i').parse().unwrap_or(64);
             
@@ -245,16 +275,14 @@ impl IRGenerator {
             return Ok(temp);
         }
 
-        // 整数到浮点数转换
-        if from_type.starts_with("i") && !from_type.ends_with("*") &&
-           (to_type == "float" || to_type == "double") {
+        // 整数到浮点数转换（严格排除指针）
+        if is_from_int && (to_type == "float" || to_type == "double") {
             self.emit_line(&format!("  {} = sitofp {} {} to {}", temp, from_type, val, to_type));
             return Ok(temp);
         }
 
-        // 浮点数到整数转换
-        if (from_type == "float" || from_type == "double") &&
-           to_type.starts_with("i") && !to_type.ends_with("*") {
+        // 浮点数到整数转换（严格排除指针）
+        if (from_type == "float" || from_type == "double") && is_to_int {
             self.emit_line(&format!("  {} = fptosi {} {} to {}", temp, from_type, val, to_type));
             return Ok(temp);
         }
@@ -266,12 +294,6 @@ impl IRGenerator {
         }
         if from_type == "float" && to_type == "double" {
             self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
-            return Ok(temp);
-        }
-
-        // 指针类型转换
-        if from_type.ends_with("*") && to_type.ends_with("*") {
-            self.emit_line(&format!("  {} = bitcast {} {} to {}", temp, from_type, val, to_type));
             return Ok(temp);
         }
 

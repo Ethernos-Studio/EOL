@@ -1,0 +1,27 @@
+refactor(linker, codegen): 优化 SDL2 链接和 extern 函数管理
+
+根据 PR Review Bot 建议进行以下优化：
+
+1. SDL2 链接逻辑简化 (src/bytecode/linker.rs):
+   - 移除 230+ 行硬编码的 SDL2 函数列表
+   - 统一使用函数名前缀推断（starts_with SDL_）
+   - 减少维护负担和潜在不一致性
+
+2. 重复 extern 声明检测优化 (src/codegen/context.rs, generator.rs):
+   - 添加 emitted_externs: HashSet<String> 字段
+   - 使用函数签名作为键（函数名@返回类型@参数）
+   - 替换 output.contains() 字符串匹配，实现 O(1) 查找
+
+3. extern 函数索引优化 (src/codegen/context.rs):
+   - 添加 extern_function_map: HashMap<String, usize>
+   - 构建函数名到声明索引的映射
+   - is_extern_function 和 get_extern_function 从 O(n) 优化到 O(1)
+
+4. 类型转换修复 (src/codegen/expressions/cast.rs, lambda.rs):
+   - 修复指针与整数之间的类型转换
+   - 优先检查指针类型转换（ptrtoint/inttoptr）
+   - 添加显式的 i64 中间转换步骤
+
+5. 静态数组字段支持 (src/codegen/generator.rs, array.rs, member.rs):
+   - 修复静态数组字段的类型声明（i64* -> i64**）
+   - 正确处理数组指针的加载和存储
