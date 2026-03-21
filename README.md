@@ -5,49 +5,50 @@
 <h1 align="center">Cavvy 编程语言</h1>
 
 <p align="center">
-  [English](README_EN.md) | 简体中文
+  <a href="README_EN.md">English</a> | 简体中文
 </p>
 
-![License](https://img.shields.io/badge/license-GPL3-blue.svg)
-![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/license-GPL3-blue.svg" alt="License">
+  <img src="https://img.shields.io/badge/rust-2024%20edition-orange.svg" alt="Rust">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/build-passing-brightgreen.svg" alt="Build Status">
+  <img src="https://img.shields.io/badge/version-0.4.8-blue.svg" alt="Version">
+</p>
 
-Cavvy (Cay) 是一个简单的面向对象编程语言，支持编译为~~原生 Windows 可执行文件~~原生 Windows 可执行文件和 Linux 可执行文件。
+<p align="center">
+  <img src="https://img.shields.io/badge/features-compiler%20%7C%20runtime%20%7C%20FFI-success.svg" alt="Features">
+  <img src="https://img.shields.io/badge/tools-6%20binaries-blue.svg" alt="Tools">
+</p>
 
-Cavvy 是整个 Ethernos 编程语言工具链中的里程碑，它是 Ethernos 发布的所有编程语言中，第一个编译型编程语言。
+---
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
-![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)
+Cavvy (Cay) 是一个静态类型的面向对象编程语言，编译为原生机器码，无运行时依赖，无 VM，无 GC。
 
-> ~~**注意**: 当前版本主要针对 Windows 平台。如果您熟悉 Linux 开发环境，欢迎帮助我们移植到 Linux 平台！~~
+**核心特性：**
+- 🚀 **原生性能**：编译为 Windows EXE / Linux ELF，零开销抽象
+- 🛡️ **内存安全**：显式内存管理，RAII 模式支持
+- ☕ **Java 风格语法**：熟悉的面向对象编程体验
+- 🔧 **完整工具链**：从源码到可执行文件的一站式编译
+- 🌉 **FFI 支持**：无缝调用 C 函数和系统库
+- 📦 **字节码系统**：支持 `.caybc` 格式和代码混淆
 
-## 特性
+---
 
-![Features](https://img.shields.io/badge/features-compiler%20%7C%20runtime-success.svg)
+## 目录
 
-- **完整的编译链**: Cavvy 源代码 -> LLVM IR -> Windows EXE
-- **面向对象**: 支持类、方法、静态成员、方法重载、可变参数
-- **类型系统**: 支持 int、long、float、double、boolean、char、String、void、数组等类型
-- **控制流**: 支持 if-else、while、for、do-while 循环、switch 语句
-- **运算符**: 支持算术、比较、逻辑、位运算符、自增自减、复合赋值运算符
-- **字符串操作**: 支持字符串字面量、字符串拼接、字符串方法（length, substring, indexOf, replace, charAt）
-- **类型转换**: 支持显式类型转换和字面量隐式类型转换
-- **Lambda 表达式**: 支持 `(params) -> { body }` 语法
-- **方法引用**: 支持静态/实例方法引用 `ClassName::methodName`
-- **MinGW-w64 支持**: 使用开源工具链，无 MSVC 版权依赖
+- [快速开始](#快速开始)
+- [安装](#安装)
+- [语言特性](#语言特性)
+- [工具链](#工具链)
+- [代码示例](#代码示例)
+- [项目结构](#项目结构)
+- [开发状态](#开发状态)
+- [许可证](#许可证)
+
+---
 
 ## 快速开始
-
-### 安装
-
-```bash
-# 克隆仓库
-git clone https://github.com/Ethernos-Studio/Cavvy.git
-cd eol
-
-# 构建编译器
-cargo build --release
-```
 
 ### 编写第一个程序
 
@@ -61,6 +62,15 @@ public class Hello {
 }
 ```
 
+或使用顶层 main 函数（0.4.3+）：
+
+```cay
+public int main() {
+    println("Hello from top-level main!");
+    return 0;
+}
+```
+
 ### 编译运行
 
 ```bash
@@ -71,47 +81,66 @@ public class Hello {
 ./hello.exe
 ```
 
-输出:
+---
+
+## 安装
+
+### 从源码构建
+
+```bash
+# 克隆仓库
+git clone https://github.com/Ethernos-Studio/Cavvy.git
+cd eol
+
+# 构建编译器（Release 模式）
+cargo build --release
+
+# 运行测试
+cargo test --release
 ```
-Hello, World!
-```
 
-## 工具链
+### 系统要求
 
-![Tools](https://img.shields.io/badge/tools-4%20binaries-blue.svg)
+- **Windows**: Windows 10/11 x64
+- **Linux**: x86_64 Linux 发行版
+- **依赖**: LLVM 17.0+, MinGW-w64 13.2+ (Windows)
 
-本项目提供四个可执行文件：
+---
 
-| 工具 | 功能 | 用法 |
-|------|------|------|
-| `cayc` | Cavvy -> EXE (一站式) | `cayc source.cay output.exe` |
-| `cay-ir` | Cavvy -> LLVM IR | `cay-ir source.cay output.ll` |
-| `ir2exe` | LLVM IR -> EXE | `ir2exe input.ll output.exe` |
-| `cay-check` | 检查代码语法 | `cay-check source.cay` |
+## 语言特性
 
-## 语言语法
-
-### 变量声明
+### 基础类型系统
 
 ```cay
+// 整数类型
 int a = 10;
 long b = 100L;
+
+// 浮点类型
 float f = 3.14f;
 double d = 3.14159;
+
+// 其他基础类型
 boolean flag = true;
 char c = 'A';
-String s = "Hello";
+String s = "Hello, Cavvy!";
+
+// 自动类型推断（0.4.3+）
+auto x = 42;        // int
+auto pi = 3.14;     // double
+auto msg = "hi";    // String
 ```
 
 ### 数组
 
 ```cay
-// 数组声明和初始化
+// 一维数组
 int[] arr = new int[5];
 int[] initArr = {1, 2, 3, 4, 5};
 
 // 多维数组
 int[][] matrix = new int[3][3];
+int[][] grid = {{1, 2}, {3, 4}, {5, 6}};
 
 // 数组长度
 int len = arr.length;
@@ -121,27 +150,10 @@ arr[0] = 100;
 int val = arr[0];
 ```
 
-### 算术运算
+### 控制流
 
 ```cay
-int sum = a + b;
-int diff = a - b;
-int prod = a * b;
-int quot = a / b;
-int rem = a % b;
-
-// 自增自减
-a++;
---b;
-
-// 复合赋值
-a += 5;
-b *= 2;
-```
-
-### 条件语句
-
-```cay
+// if-else
 if (a > b) {
     println("a is greater");
 } else if (a == b) {
@@ -162,66 +174,64 @@ switch (value) {
         println("other");
         break;
 }
-```
 
-### 循环
-
-```cay
-// while 循环
-long i = 0;
-while (i < 10) {
+// 循环
+for (int i = 0; i < 10; i++) {
     println(i);
-    i = i + 1;
 }
 
-// for 循环
-for (int j = 0; j < 10; j++) {
+long j = 0;
+while (j < 10) {
     println(j);
+    j++;
 }
 
-// do-while 循环
+// do-while
+int k = 0;
 do {
-    println(i);
-    i++;
-} while (i < 10);
-
-// break 和 continue
-for (int k = 0; k < 100; k++) {
-    if (k == 50) break;
-    if (k % 2 == 0) continue;
     println(k);
+    k++;
+} while (k < 5);
+```
+
+### 面向对象编程
+
+```cay
+// 类定义与继承
+public class Animal {
+    protected String name;
+    
+    public Animal(String name) {
+        this.name = name;
+    }
+    
+    public void speak() {
+        println("Some sound");
+    }
+}
+
+public class Dog extends Animal {
+    public Dog(String name) {
+        super(name);
+    }
+    
+    @Override
+    public void speak() {
+        println(name + " says: Woof!");
+    }
+}
+
+// 抽象类与接口
+public abstract class Shape {
+    public abstract double area();
+}
+
+public interface Drawable {
+    void draw();
 }
 ```
 
-### 字符串操作
-
-```cay
-String name = "Cavvy";
-String message = "Hello, " + name + "!";
-println(message);
-
-// 字符串方法
-String s = "Hello World";
-int len = s.length();
-String sub = s.substring(0, 5);
-int idx = s.indexOf("World");
-String replaced = s.replace("World", "Cavvy");
-char ch = s.charAt(0);
-```
-
-### 类型转换
-
-```cay
-// 显式类型转换
-int i = (int)3.14;
-double d = (double)10;
-
-// 字面量隐式转换
-float f = 3.14f;
-long l = 100L;
-```
-
-### 方法定义与重载
+### 方法重载与可变参数
 
 ```cay
 public class Calculator {
@@ -242,62 +252,191 @@ public class Calculator {
         }
         return total;
     }
-    
-    public static void main() {
-        println(add(1, 2));
-        println(add(1.5, 2.5));
-        println(sum(1, 2, 3, 4, 5));
-    }
 }
 ```
 
-### Lambda 表达式
+### Lambda 表达式与方法引用
 
 ```cay
 // Lambda 表达式
 var add = (int a, int b) -> { return a + b; };
 int result = add(3, 4);
 
+// 简写形式
+var multiply = (int a, int b) -> a * b;
+
 // 方法引用
 var ref = Calculator::add;
 ```
 
-## 示例
+### 字符串操作
+
+```cay
+String s = "Hello World";
+
+// 字符串方法
+int len = s.length();
+String sub = s.substring(0, 5);
+int idx = s.indexOf("World");
+String replaced = s.replace("World", "Cavvy");
+char ch = s.charAt(0);
+
+// 字符串拼接
+String msg = "Hello, " + name + "!";
+```
+
+### FFI - 调用 C 函数
+
+```cay
+// 声明外部 C 函数
+extern {
+    int abs(int x);
+    double sqrt(double x);
+    int strlen(String s);
+}
+
+public class MathExample {
+    public static void main() {
+        int result = abs(-42);
+        double root = sqrt(2.0);
+        println("Abs: " + result);
+        println("Sqrt: " + root);
+    }
+}
+```
+
+### Final 与静态成员
+
+```cay
+public class Constants {
+    // 编译期常量
+    public static final double PI = 3.14159;
+    
+    // 静态初始化块
+    static {
+        println("Class initialized");
+    }
+    
+    // Final 类/方法
+    public final class Immutable { }
+}
+```
+
+---
+
+## 工具链
+
+本项目提供六个可执行文件：
+
+| 工具 | 功能 | 用法 |
+|------|------|------|
+| `cayc` | Cavvy → EXE (一站式) | `cayc source.cay output.exe` |
+| `cay-ir` | Cavvy → LLVM IR | `cay-ir source.cay output.ll` |
+| `ir2exe` | LLVM IR → EXE | `ir2exe input.ll output.exe` |
+| `cay-check` | 语法检查 | `cay-check source.cay` |
+| `cay-run` | 直接运行 | `cay-run source.cay` |
+| `cay-bcgen` | 生成字节码 | `cay-bcgen source.cay output.caybc` |
+
+### 编译选项
+
+```bash
+# 基础编译
+cayc hello.cay hello.exe
+
+# 优化级别
+cayc -O3 hello.cay hello.exe        # 最高优化
+cayc -O0 hello.cay hello.exe        # 无优化（调试）
+
+# 字节码混淆
+cayc --obfuscate --obfuscate-level deep hello.cay hello.exe
+
+# 链接库
+cayc -lm hello.cay hello.exe        # 链接数学库
+
+# 跨平台目标
+cay-ir --target x86_64-linux-gnu hello.cay hello.ll
+```
+
+---
+
+## 代码示例
 
 ### 九九乘法表
 
 ```cay
 public class Multiplication {
     public static void main() {
-        long i = 1;
-        while (i <= 9) {
-            long j = 1;
-            while (j <= i) {
-                long product = i * j;
-                print(i);
-                print("x");
-                print(j);
-                print("=");
-                print(product);
-                if (product < 10) {
-                    print("  ");
-                } else {
-                    print(" ");
-                }
-                j = j + 1;
+        for (int i = 1; i <= 9; i++) {
+            for (int j = 1; j <= i; j++) {
+                print(j + "x" + i + "=" + (i*j) + "\t");
             }
             println("");
-            i = i + 1;
         }
     }
 }
 ```
 
-编译运行:
-```bash
-./target/release/cayc examples/multiplication.cay mult.exe
-./mult.exe
+### 斐波那契数列
+
+```cay
+public class Fibonacci {
+    // 递归实现
+    public static long fib(int n) {
+        if (n <= 1) return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+    
+    // 迭代实现
+    public static long fibIterative(int n) {
+        if (n <= 1) return n;
+        long a = 0, b = 1;
+        for (int i = 2; i <= n; i++) {
+            long temp = a + b;
+            a = b;
+            b = temp;
+        }
+        return b;
+    }
+    
+    public static void main() {
+        for (int i = 0; i < 20; i++) {
+            println("fib(" + i + ") = " + fibIterative(i));
+        }
+    }
+}
 ```
+
+### 冒泡排序
+
+```cay
+public class Sorting {
+    public static void bubbleSort(int[] arr) {
+        int n = arr.length;
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - i - 1; j++) {
+                if (arr[j] > arr[j + 1]) {
+                    int temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                }
+            }
+        }
+    }
+    
+    public static void main() {
+        int[] numbers = {64, 34, 25, 12, 22, 11, 90};
+        bubbleSort(numbers);
+        
+        print("Sorted: ");
+        for (int i = 0; i < numbers.length; i++) {
+            print(numbers[i] + " ");
+        }
+        println("");
+    }
+}
+```
+
+---
 
 ## 项目结构
 
@@ -306,9 +445,12 @@ cavvy/
 ├── src/                    # 源代码
 │   ├── bin/               # 可执行文件
 │   │   ├── cayc.rs        # 一站式编译器
-│   │   ├── cay-ir.rs      # Cavvy -> IR 编译器
-│   │   ├── ir2exe.rs      # IR -> EXE 编译器
-│   │   └── cay-check.rs   # 语法检查工具
+│   │   ├── cay-ir.rs      # Cavvy → IR 编译器
+│   │   ├── ir2exe.rs      # IR → EXE 编译器
+│   │   ├── cay-check.rs   # 语法检查工具
+│   │   ├── cay-run.rs     # 直接运行工具
+│   │   ├── cay-bcgen.rs   # 字节码生成器
+│   │   └── cay-lsp.rs     # LSP 语言服务器
 │   ├── lexer/             # 词法分析器
 │   ├── parser/            # 语法分析器
 │   ├── semantic/          # 语义分析器
@@ -317,66 +459,111 @@ cavvy/
 │   ├── types.rs           # 类型系统
 │   └── error.rs           # 错误处理
 ├── examples/              # 示例程序
-├── lib/mingw64/           # MinGW-w64 库
+├── caylibs/               # 标准库
+├── docs/                  # 文档
+│   └── README/images/     # README 图片资源
+├── tests/                 # 测试套件
 ├── llvm-minimal/          # LLVM 工具链
 ├── mingw-minimal/         # MinGW 链接器
 └── Cargo.toml             # Rust 项目配置
 ```
 
-## 技术栈
-
-![Tech Stack](https://img.shields.io/badge/tech%20stack-Rust%20%7C%20LLVM%20%7C%20MinGW-success.svg)
-
-- **前端**: Rust 实现的词法分析、语法分析、语义分析
-- **中端**: LLVM IR 代码生成
-- **后端**: MinGW-w64 工具链（lld 链接器）
+---
 
 ## 开发状态
 
-![Status](https://img.shields.io/badge/status-active%20development-green.svg)
+### 当前版本: 0.4.8
 
-### 已完成功能 (0.3.x)
+**已完成功能 (0.4.x):**
 
 - [x] 基础类型系统 (int, long, float, double, boolean, char, String, void)
-- [x] 变量声明和赋值
+- [x] 变量声明和赋值（支持 var/let/auto）
 - [x] 算术运算符 (+, -, *, /, %)
 - [x] 比较运算符 (==, !=, <, <=, >, >=)
-- [x] 逻辑运算符 (&&, ||)
+- [x] 逻辑运算符 (&&, ||, !)
 - [x] 位运算符 (&, |, ^, ~, <<, >>)
 - [x] 自增自减运算符 (++, --)
 - [x] 复合赋值运算符 (+=, -=, *=, /=, %=)
 - [x] 条件语句 (if-else, switch)
 - [x] 循环语句 (while, for, do-while)
 - [x] break/continue 支持
-- [x] 数组 (一维和多维)
-- [x] 数组初始化器
-- [x] 数组长度属性
-- [x] 字符串拼接
-- [x] 字符串方法 (length, substring, indexOf, replace, charAt)
-- [x] 类型转换 (显式和隐式)
+- [x] 数组（一维和多维）
+- [x] 数组初始化器和长度属性
+- [x] 字符串拼接和方法
+- [x] 类型转换（显式和隐式）
 - [x] 方法重载
 - [x] 可变参数
 - [x] Lambda 表达式
 - [x] 方法引用
-- [x] 内置函数 (print, println, readInt, readFloat, readLine)
-- [x] 完整的编译链
+- [x] 类和单继承
+- [x] 抽象类和接口
+- [x] 访问控制 (public/private/protected)
+- [x] 构造函数和析构函数
+- [x] Final 类和 Final 方法
+- [x] 静态成员和静态初始化
+- [x] @Override 注解
+- [x] 顶层 main 函数
+- [x] FFI 外部函数接口
+- [x] 自动链接器
+- [x] 字节码系统 (CayBC)
+- [x] 代码混淆
+- [x] LSP 语言服务器
+- [x] Windows / Linux 跨平台支持
 
 ### 开发路线图
 
 详见 [ROADMAP.md](ROADMAP.md)
 
+**即将推出 (0.5.x):**
+- 分配器接口和 Arena 分配器
+- 泛型集合 (ArrayList, HashMap)
+- 智能指针 (UniquePtr, ScopedPtr)
+- Result<T, E> 错误处理
+- 操作系统线程封装
+
+---
+
+## 技术栈
+
+<p align="center">
+  <img src="https://img.shields.io/badge/tech%20stack-Rust%20%7C%20LLVM%20%7C%20MinGW-success.svg" alt="Tech Stack">
+</p>
+
+- **前端**: Rust 实现的词法分析、语法分析、语义分析
+- **中端**: LLVM IR 代码生成
+- **后端**: MinGW-w64 / GCC 工具链
+- **字节码**: 自定义 CayBC 格式（基于栈的虚拟机）
+
+---
+
 ## 许可证
 
-![License](https://img.shields.io/badge/license-GPL3-blue.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/license-GPL3-blue.svg" alt="License">
+</p>
 
 本项目采用 GPL3 许可证。详见 [LICENSE](LICENSE) 文件。
+
+---
 
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request。
+
+- 🐛 **Bug 报告**: 使用 GitHub Issues
+- 💡 **功能建议**: 查看 ROADMAP.md 后提交 PR
+- 📖 **文档改进**: 直接编辑文档并提交
+
+---
 
 ## 致谢
 
 - [LLVM Project](https://llvm.org/)
 - [MinGW-w64](https://www.mingw-w64.org/)
 - [Rust Programming Language](https://www.rust-lang.org/)
+
+---
+
+<p align="center">
+  <strong>Cavvy - 编译未来</strong>
+</p>
