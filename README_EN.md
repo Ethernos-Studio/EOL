@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/README/images/Logo.svg" alt="Cavvy Logo" width="200">
+  <img src="docs/README/images/LogoFontFixed.svg" alt="Cavvy Logo" width="300">
 </p>
 
 <h1 align="center">Cavvy Programming Language</h1>
