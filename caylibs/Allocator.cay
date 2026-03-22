@@ -1,120 +1,71 @@
 /*
  * Cavvy 内存分配器标准库 - 0.5.0.0
- * 
- * 提供显式内存管理支持：
- * - Allocator 接口定义
- * - GlobalAlloc 全局堆分配器
- * - Arena 线性分配器
- * - scope 栈分配支持
  */
 
 #ifndef CAY_ALLOCATOR_H
 #define CAY_ALLOCATOR_H
 
-/*
- * Allocator 接口定义
- * 所有分配器必须实现 allocate 和 deallocate 方法
- */
 public interface Allocator {
-    /* 分配指定大小的内存，返回指针 */
-    public long allocate(long size);
-    
-    /* 分配指定大小和对齐要求的内存 */
-    public long allocateAligned(long size, long align);
-    
-    /* 释放指定指针的内存 */
-    public void deallocate(long ptr);
+    long allocate(long size);
+    long allocateAligned(long size, long alignBytes);
+    void deallocate(long ptr);
 }
 
-/*
- * GlobalAlloc - 全局堆分配器
- * 封装系统 malloc/free，作为默认分配器
- */
 public class GlobalAlloc implements Allocator {
-    /* 单例实例 */
-    private static GlobalAlloc instance = null;
+    private static bool initialized = false;
     
-    /* 私有构造函数 */
-    private GlobalAlloc() {}
-    
-    /* 获取单例实例 */
     public static GlobalAlloc getInstance() {
-        if (instance == null) {
-            instance = new GlobalAlloc();
+        if (!initialized) {
+            initialized = true;
         }
-        return instance;
+        return new GlobalAlloc();
     }
     
-    /* 使用 malloc 分配内存 */
     public long allocate(long size) {
-        // 调用底层 malloc
         return __cay_malloc(size);
     }
     
-    /* 分配对齐内存 */
-    public long allocateAligned(long size, long align) {
-        // 分配 size + align 的空间以保证对齐
-        long raw = __cay_malloc(size + align);
-        // 计算对齐地址
-        long mask = align - 1;
+    public long allocateAligned(long size, long alignBytes) {
+        long raw = __cay_malloc(size + alignBytes);
+        long mask = alignBytes - 1;
         long aligned = (raw + mask) & ~mask;
         return aligned;
     }
     
-    /* 使用 free 释放内存 */
     public void deallocate(long ptr) {
         __cay_free(ptr);
     }
     
-    /* 内部函数声明 - 由编译器提供 */
     private native static long __cay_malloc(long size);
     private native static void __cay_free(long ptr);
 }
 
-/*
- * Arena 线性分配器
- * 适合批量分配、批量释放的场景（如编译器、游戏帧分配）
- * 
- * 特点：
- * - 分配速度快（只需移动指针）
- * - 不支持单独释放，只能批量 reset
- * - 内存使用率低（可能产生内部碎片）
- */
 public class Arena implements Allocator {
-    /* 缓冲区起始地址 */
-    private long buffer;
-    /* 当前分配位置 */
-    private long current;
-    /* 缓冲区结束地址 */
-    private long end;
-    /* 总容量 */
-    private long capacity;
+    private static long buffer;
+    private static long current;
+    private static long end;
+    private static long capacity;
     
-    /* 构造函数 - 指定容量 */
-    public Arena(long capacity) {
-        this.capacity = capacity;
-        this.buffer = __cay_malloc(capacity);
-        this.current = this.buffer;
-        this.end = this.buffer + capacity;
+    public static Arena create(long cap) {
+        Arena arena = new Arena();
+        capacity = cap;
+        buffer = __cay_malloc(cap);
+        current = buffer;
+        end = buffer + cap;
+        return arena;
     }
     
-    /* 从 Arena 分配内存 */
     public long allocate(long size) {
-        // 8字节对齐
-        long align = 8;
-        return allocateAligned(size, align);
+        long alignment = 8;
+        return allocateAligned(size, alignment);
     }
     
-    /* 分配对齐内存 */
-    public long allocateAligned(long size, long align) {
-        // 计算对齐地址
-        long mask = align - 1;
+    public long allocateAligned(long size, long alignBytes) {
+        long mask = alignBytes - 1;
         long aligned = (current + mask) & ~mask;
         long next = aligned + size;
         
-        // 检查边界
         if (next > end) {
-            // 空间不足，返回 0（null）
             return 0;
         }
         
@@ -122,130 +73,63 @@ public class Arena implements Allocator {
         return aligned;
     }
     
-    /* Arena 不支持单独释放 */
     public void deallocate(long ptr) {
-        // Arena 分配器不支持单独释放
-        // 使用 reset() 批量释放
     }
     
-    /* 重置 Arena，批量释放所有内存 */
     public void reset() {
         current = buffer;
     }
     
-    /* 获取已使用字节数 */
     public long used() {
         return current - buffer;
     }
     
-    /* 获取剩余字节数 */
     public long remaining() {
         return end - current;
     }
     
-    /* 析构函数 - 释放底层缓冲区 */
     public void dispose() {
         __cay_free(buffer);
     }
     
-    /* 内部函数声明 */
     private native static long __cay_malloc(long size);
     private native static void __cay_free(long ptr);
 }
 
-/*
- * Scope 分配器
- * 用于栈作用域分配，支持 RAII 模式
- * 
- * 用法：
- *   scope {
- *       int[] arr = scope.new int[100];
- *       // arr 在 scope 结束时自动释放
- *   }
- */
-public class ScopeAllocator implements Allocator {
-    /* 作用域标记 - 用于记录分配位置 */
-    private long marker;
+public class ScopeAlloc implements Allocator {
+    private static long marker;
     
-    /* 构造函数 */
-    public ScopeAllocator() {
-        this.marker = 0;
+    public static ScopeAlloc create() {
+        ScopeAlloc alloc = new ScopeAlloc();
+        marker = 0;
+        return alloc;
     }
     
-    /* 设置标记点（进入 scope 时调用） */
-    public void setMarker(long marker) {
-        this.marker = marker;
+    public void setMarker(long m) {
+        marker = m;
     }
     
-    /* 获取当前标记 */
     public long getMarker() {
         return marker;
     }
     
-    /* 栈分配 - 实际使用 alloca */
     public long allocate(long size) {
         return __cay_stack_alloc(size);
     }
     
-    /* 栈分配对齐 */
-    public long allocateAligned(long size, long align) {
-        return __cay_stack_alloc_aligned(size, align);
+    public long allocateAligned(long size, long alignBytes) {
+        return __cay_stack_alloc_aligned(size, alignBytes);
     }
     
-    /* 栈内存自动释放，无需操作 */
     public void deallocate(long ptr) {
-        // 栈内存自动释放
     }
     
-    /* 内部函数声明 - 由编译器生成 alloca */
     private native static long __cay_stack_alloc(long size);
-    private native static long __cay_stack_alloc_aligned(long size, long align);
+    private native static long __cay_stack_alloc_aligned(long size, long alignBytes);
 }
 
-/*
- * 全局 Scope 分配器实例
- * 用于 scope 关键字分配的临时对象
- */
-public static ScopeAllocator __cay_scope_alloc = new ScopeAllocator();
-
-/*
- * 内存分配工具函数
- */
-
-/* 使用指定分配器创建数组 */
-public static long[] allocArray(Allocator alloc, long size) {
-    // 分配数组内存（头8字节存储长度）
-    long ptr = alloc.allocateAligned(8 + size * 8, 8);
-    // 存储长度
-    __cay_store_long(ptr, size);
-    return ptr;
-}
-
-/* 使用 GlobalAlloc 创建数组 */
-public static long[] newArray(long size) {
-    return allocArray(GlobalAlloc.getInstance(), size);
-}
-
-/* 使用 Arena 创建数组 */
-public static long[] newArrayInArena(Arena arena, long size) {
-    return allocArray(arena, size);
-}
-
-/* 内部存储函数 */
-native static void __cay_store_long(long ptr, long value);
-
-/*
- * 分配器选择宏
- * 简化分配器使用
- */
-
-/* 使用 GlobalAlloc 分配 */
 #define GLOBAL_ALLOC GlobalAlloc.getInstance()
+#define ARENA(capacity) Arena.create(capacity)
+#define SCOPE_ALLOC ScopeAlloc.create()
 
-/* 创建指定容量的 Arena */
-#define ARENA(capacity) new Arena(capacity)
-
-/* 使用 Scope 分配 */
-#define SCOPE_ALLOC __cay_scope_alloc
-
-#endif /* CAY_ALLOCATOR_H */
+#endif

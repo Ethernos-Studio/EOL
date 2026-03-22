@@ -204,19 +204,16 @@ impl Compiler {
         }
 
         // 使用带系统路径的预处理器（带源映射）
-        let (preprocessed_code, source_map) = if system_paths.is_empty() {
-            let result = preprocessor::preprocess_with_source_map(&source, input_path, base_dir)?;
-            let map = Self::convert_source_map(&result.source_map);
-            (result.code, map)
+        let mut pp = if system_paths.is_empty() {
+            preprocessor::Preprocessor::new(base_dir)
         } else {
-            let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
-            let result = pp.process_with_source_map(&source, input_path)?;
-            let map = Self::convert_source_map(&result.source_map);
-            (result.code, map)
+            preprocessor::Preprocessor::with_system_paths(base_dir, system_paths)
         };
+        let result = pp.process_with_source_map(&source, input_path)?;
+        let source_map = Self::convert_source_map(&result.source_map);
 
         // 编译预处理后的代码（带源映射）
-        self.compile_with_source_map(&preprocessed_code, source_map, output_path)
+        self.compile_with_source_map(&result.code, source_map, output_path)
     }
 
     /// 将预处理器源映射转换为HashMap格式

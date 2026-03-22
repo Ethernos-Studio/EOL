@@ -32,8 +32,10 @@ static TEST_LOCK: Mutex<()> = Mutex::new(());
 /// - 时间复杂度: O(编译时间 + 执行时间)
 /// - 会自动清理生成的 .exe 和 .ll 文件
 pub fn compile_and_run_eol(source_path: &str) -> Result<String, String> {
-    let exe_path = source_path.replace(".cay", ".exe");
-    let ir_path = source_path.replace(".cay", ".ll");
+    // 使用唯一ID生成输出文件名，避免测试冲突
+    let unique_id = format!("{}_{}", std::process::id(), std::thread::current().id().as_u64());
+    let exe_path = source_path.replace(".cay", &format!("_{}.exe", unique_id));
+    let ir_path = source_path.replace(".cay", &format!("_{}.ll", unique_id));
     
     // 1. 编译 EOL -> EXE (使用 release 版本)
     let output = Command::new("./target/release/cayc.exe")
@@ -84,8 +86,10 @@ pub fn compile_and_run_eol(source_path: &str) -> Result<String, String> {
 /// assert!(error.contains("type mismatch"));
 /// ```
 pub fn compile_eol_expect_error(source_path: &str) -> Result<String, String> {
-    let exe_path = source_path.replace(".cay", ".exe");
-    let ir_path = source_path.replace(".cay", ".ll");
+    // 使用唯一ID生成输出文件名，避免测试冲突
+    let unique_id = format!("{}_{}", std::process::id(), std::thread::current().id().as_u64());
+    let exe_path = source_path.replace(".cay", &format!("_{}.exe", unique_id));
+    let ir_path = source_path.replace(".cay", &format!("_{}.ll", unique_id));
     
     // 1. 编译 EOL -> EXE (使用 release 版本)
     let output = Command::new("./target/release/cayc.exe")
