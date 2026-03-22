@@ -1,6 +1,6 @@
 //! RCPL 上下文管理模块
 //!
-//! 管理持久化语句、静态字段、方法和类定义
+//! 管理持久化语句、静态字段、方法、类定义和预处理器指令
 
 /// 上下文数据结构
 #[derive(Debug, Clone)]
@@ -13,6 +13,8 @@ pub struct Context {
     methods: Vec<String>,
     /// 外部类/接口定义
     classes: Vec<String>,
+    /// 预处理器指令（#include, #define 等）
+    preprocessor_directives: Vec<String>,
 }
 
 impl Context {
@@ -23,6 +25,7 @@ impl Context {
             static_fields: Vec::new(),
             methods: Vec::new(),
             classes: Vec::new(),
+            preprocessor_directives: Vec::new(),
         }
     }
     
@@ -66,6 +69,16 @@ impl Context {
         self.static_fields.push(field);
     }
     
+    /// 添加预处理器指令
+    /// 如果指令已存在则不会重复添加
+    pub fn add_preprocessor_directive(&mut self, directive: String) {
+        let trimmed = directive.trim().to_string();
+        // 检查是否已存在相同的指令，避免重复
+        if !self.preprocessor_directives.contains(&trimmed) {
+            self.preprocessor_directives.push(trimmed);
+        }
+    }
+    
     /// 添加方法
     pub fn add_method(&mut self, method: String) {
         self.methods.push(method);
@@ -86,6 +99,11 @@ impl Context {
         self.static_fields.pop();
     }
     
+    /// 移除最后一个预处理器指令
+    pub fn remove_last_preprocessor_directive(&mut self) {
+        self.preprocessor_directives.pop();
+    }
+    
     /// 移除最后一个方法
     pub fn remove_last_method(&mut self) {
         self.methods.pop();
@@ -102,6 +120,7 @@ impl Context {
         self.static_fields.clear();
         self.methods.clear();
         self.classes.clear();
+        self.preprocessor_directives.clear();
     }
     
     /// 获取持久化语句列表
@@ -124,9 +143,21 @@ impl Context {
         &self.classes
     }
     
+    /// 获取预处理器指令列表
+    pub fn preprocessor_directives(&self) -> &[String] {
+        &self.preprocessor_directives
+    }
+    
     /// 显示当前上下文
     pub fn show(&self) {
         println!("=== 当前上下文 ===");
+        
+        if !self.preprocessor_directives.is_empty() {
+            println!("预处理器指令:");
+            for directive in &self.preprocessor_directives {
+                println!("  {}", directive);
+            }
+        }
         
         if !self.persistent_stmts.is_empty() {
             println!("持久化语句:");
@@ -160,8 +191,8 @@ impl Context {
             }
         }
         
-        let total = self.persistent_stmts.len() + self.static_fields.len() 
-            + self.methods.len() + self.classes.len();
+        let total = self.persistent_stmts.len() + self.static_fields.len()
+            + self.methods.len() + self.classes.len() + self.preprocessor_directives.len();
         if total == 0 {
             println!("(空)");
         }

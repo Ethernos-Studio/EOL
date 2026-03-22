@@ -210,6 +210,29 @@ fn generate_unique_filename(prefix: &str, ext: &str) -> PathBuf {
     get_temp_dir().join(format!("{}_{}_{}.{}", prefix, timestamp, pid, ext))
 }
 
+/// 获取系统包含路径（caylibs目录）
+fn get_system_include_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    
+    // 1. 从可执行文件所在目录查找 caylibs
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let exe_caylibs = exe_dir.join("caylibs");
+            if exe_caylibs.exists() {
+                paths.push(exe_caylibs);
+            }
+        }
+    }
+    
+    // 2. 从当前工作目录查找 caylibs
+    let cwd_caylibs = PathBuf::from("caylibs");
+    if cwd_caylibs.exists() && !paths.contains(&cwd_caylibs) {
+        paths.push(cwd_caylibs);
+    }
+    
+    paths
+}
+
 /// 编译Cay源码为IR
 fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, cayError> {
     let source = fs::read_to_string(source_path)
@@ -220,15 +243,24 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
-
-    let preprocessed = cavvy::preprocessor::preprocess(&source, source_path, base_dir)
-        .map_err(|e| cayError::Preprocessor { 
-            file: Some(source_path.to_string()),
-            line: 0, 
-            column: 0, 
-            message: format!("预处理失败: {:?}", e),
-            suggestion: "请检查预处理指令".to_string(),
-        })?;
+    
+    // 获取系统包含路径
+    let system_paths = get_system_include_paths();
+    
+    // 使用带系统路径的预处理器
+    let preprocessed = if system_paths.is_empty() {
+        cavvy::preprocessor::preprocess(&source, source_path, base_dir)
+    } else {
+        let mut pp = cavvy::preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
+        pp.process(&source, source_path)
+    }
+    .map_err(|e| cayError::Preprocessor {
+        file: Some(source_path.to_string()),
+        line: 0,
+        column: 0,
+        message: format!("预处理失败: {:?}", e),
+        suggestion: "请检查预处理指令".to_string(),
+    })?;
 
     // 编译
     let compiler_options = cavvy::CompilerOptions {

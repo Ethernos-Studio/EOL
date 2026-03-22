@@ -268,10 +268,17 @@ impl Rcpl {
             }
             InputType::Class { name, code } | InputType::Interface { name, code } => {
                 self.context.add_class(code.clone());
-                println!("[已定义 {} '{}']", 
+                println!("[已定义 {} '{}']",
                     if matches!(input_type, InputType::Class { .. }) { "类" } else { "接口" },
                     name
                 );
+                true
+            }
+            InputType::Preprocessor { code } => {
+                self.context.add_preprocessor_directive(code.clone());
+                // 提取预处理器指令类型用于显示
+                let directive_type = code.trim().split_whitespace().next().unwrap_or("#");
+                println!("[已添加预处理器指令 '{}']", directive_type);
                 true
             }
             _ => false,
@@ -293,6 +300,9 @@ impl Rcpl {
             InputType::Class { .. } | InputType::Interface { .. } => {
                 self.context.remove_last_class();
             }
+            InputType::Preprocessor { .. } => {
+                self.context.remove_last_preprocessor_directive();
+            }
             _ => {}
         }
     }
@@ -301,14 +311,20 @@ impl Rcpl {
     fn execute(&self, program: &str) -> anyhow::Result<String> {
         // 创建临时文件
         let temp_dir = std::env::temp_dir();
-        let temp_file = temp_dir.join(format!("cavvy_rcpl_{}.cay", 
+        let temp_file = temp_dir.join(format!("cavvy_rcpl_{}.cay",
             std::process::id()));
         
         std::fs::write(&temp_file, program)?;
         
-        // 执行 cay-run
+        // 获取 cay-run 所在目录作为工作目录
+        let cay_run_dir = self.cay_run_path.parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+        
+        // 执行 cay-run，使用 cay-run 所在目录作为工作目录
         let output = Command::new(&self.cay_run_path)
             .arg(&temp_file)
+            .current_dir(&cay_run_dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()?;

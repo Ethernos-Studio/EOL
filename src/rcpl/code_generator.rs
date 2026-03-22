@@ -18,27 +18,33 @@ impl CodeGenerator {
     pub fn generate(&self, context: &Context, input_type: &InputType) -> String {
         let mut parts: Vec<String> = Vec::new();
         
-        // 1. 添加累积的外部类定义
+        // 1. 添加预处理器指令（放在文件最开头）
+        let preprocessor_directives = context.preprocessor_directives();
+        if !preprocessor_directives.is_empty() {
+            parts.push(preprocessor_directives.join("\n"));
+        }
+        
+        // 2. 添加累积的外部类定义
         let classes = context.classes();
         if !classes.is_empty() {
             parts.push(classes.join("\n\n"));
         }
         
-        // 2. 获取静态字段和方法
+        // 3. 获取静态字段和方法
         let static_fields = context.static_fields().join("\n");
         let methods = context.methods().join("\n\n");
         
-        // 3. 构建持久化语句块
+        // 4. 构建持久化语句块
         let persistent_block = context.persistent_stmts()
             .iter()
             .map(|s| format!("    {}", s))
             .collect::<Vec<_>>()
             .join("\n");
         
-        // 4. 确定 main 方法体内容
+        // 5. 确定 main 方法体内容
         let main_body = self.build_main_body(input_type, &persistent_block);
         
-        // 5. 组装 @main 类
+        // 6. 组装 @main 类
         let repl_main = format!(
             r#"@main
 class __ReplMain {{
@@ -60,7 +66,7 @@ class __ReplMain {{
         
         parts.push(repl_main);
         
-        // 6. 组装最终程序
+        // 7. 组装最终程序
         parts.join("\n\n")
     }
     

@@ -62,6 +62,13 @@ impl InputParser {
             return InputType::Empty;
         }
         
+        // 预处理器指令（不以分号结尾，需要优先检测）
+        if trimmed.starts_with('#') {
+            return InputType::Preprocessor {
+                code: trimmed.to_string()
+            };
+        }
+        
         // 检测分号或右花括号结尾 - 视为定义或语句
         if trimmed.ends_with(';') || trimmed.ends_with('}') {
             // 类/接口定义
@@ -89,13 +96,6 @@ impl InputParser {
             // 赋值语句
             if let Some(assignment) = self.try_parse_assignment(trimmed) {
                 return assignment;
-            }
-            
-            // 预处理器指令
-            if trimmed.starts_with('#') {
-                return InputType::Preprocessor { 
-                    code: trimmed.to_string() 
-                };
             }
             
             // 控制流语句

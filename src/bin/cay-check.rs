@@ -1,12 +1,35 @@
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 use cavvy::error::print_error_with_context;
 use cavvy::lexer;
 use cavvy::parser;
 use cavvy::preprocessor;
 use cavvy::semantic;
+
+/// 获取系统包含路径（caylibs目录）
+fn get_system_include_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    
+    // 1. 从可执行文件所在目录查找 caylibs
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let exe_caylibs = exe_dir.join("caylibs");
+            if exe_caylibs.exists() {
+                paths.push(exe_caylibs);
+            }
+        }
+    }
+    
+    // 2. 从当前工作目录查找 caylibs
+    let cwd_caylibs = PathBuf::from("caylibs");
+    if cwd_caylibs.exists() && !paths.contains(&cwd_caylibs) {
+        paths.push(cwd_caylibs);
+    }
+    
+    paths
+}
 
 const VERSION: &str = env!("CAY_CHECK_VERSION");
 
@@ -139,7 +162,18 @@ fn main() {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()));
         
-        match preprocessor::preprocess(&source, &source_path, &base_dir) {
+        // 获取系统包含路径
+        let system_paths = get_system_include_paths();
+        
+        // 使用带系统路径的预处理器
+        let preprocess_result = if system_paths.is_empty() {
+            preprocessor::preprocess(&source, &source_path, &base_dir)
+        } else {
+            let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
+            pp.process(&source, &source_path)
+        };
+        
+        match preprocess_result {
             Ok(processed) => {
                 println!("  [+] 预处理通过");
                 processed
