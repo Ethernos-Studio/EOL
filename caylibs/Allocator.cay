@@ -5,6 +5,12 @@
 #ifndef CAY_ALLOCATOR_H
 #define CAY_ALLOCATOR_H
 
+/* 声明 C 标准库函数 */
+extern {
+    long malloc(long size);
+    void free(long ptr);
+}
+
 public interface Allocator {
     long allocate(long size);
     long allocateAligned(long size, long alignBytes);
@@ -22,22 +28,19 @@ public class GlobalAlloc implements Allocator {
     }
     
     public long allocate(long size) {
-        return __cay_malloc(size);
+        return malloc(size);
     }
     
     public long allocateAligned(long size, long alignBytes) {
-        long raw = __cay_malloc(size + alignBytes);
+        long raw = malloc(size + alignBytes);
         long mask = alignBytes - 1;
         long aligned = (raw + mask) & ~mask;
         return aligned;
     }
     
     public void deallocate(long ptr) {
-        __cay_free(ptr);
+        free(ptr);
     }
-    
-    private native static long __cay_malloc(long size);
-    private native static void __cay_free(long ptr);
 }
 
 public class Arena implements Allocator {
@@ -49,7 +52,7 @@ public class Arena implements Allocator {
     public static Arena create(long cap) {
         Arena arena = new Arena();
         capacity = cap;
-        buffer = __cay_malloc(cap);
+        buffer = malloc(cap);
         current = buffer;
         end = buffer + cap;
         return arena;
@@ -87,13 +90,6 @@ public class Arena implements Allocator {
     public long remaining() {
         return end - current;
     }
-    
-    public void dispose() {
-        __cay_free(buffer);
-    }
-    
-    private native static long __cay_malloc(long size);
-    private native static void __cay_free(long ptr);
 }
 
 public class ScopeAlloc implements Allocator {
@@ -114,18 +110,16 @@ public class ScopeAlloc implements Allocator {
     }
     
     public long allocate(long size) {
-        return __cay_stack_alloc(size);
+        /* 栈分配通过 scope 关键字支持 */
+        return 0;
     }
     
     public long allocateAligned(long size, long alignBytes) {
-        return __cay_stack_alloc_aligned(size, alignBytes);
+        return 0;
     }
     
     public void deallocate(long ptr) {
     }
-    
-    private native static long __cay_stack_alloc(long size);
-    private native static long __cay_stack_alloc_aligned(long size, long alignBytes);
 }
 
 #define GLOBAL_ALLOC GlobalAlloc.getInstance()

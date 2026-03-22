@@ -424,7 +424,7 @@ impl CavvyLanguageServer {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()));
 
-        preprocessor::preprocess(content, file_path, &base_dir)
+        preprocessor::preprocess(content, file_path, base_dir.to_str().unwrap_or("."))
     }
 
     /// 解析文档符号

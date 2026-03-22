@@ -8,7 +8,7 @@
  * 4. 批量分配与重置
  */
 
-#include "../caylibs/Allocator.cay"
+#include <Allocator.cay>
 
 public class TestAllocator {
     

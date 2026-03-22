@@ -166,10 +166,11 @@ fn main() {
         let system_paths = get_system_include_paths();
         
         // 使用带系统路径的预处理器
+        let base_dir_str = base_dir.to_str().unwrap_or(".");
         let preprocess_result = if system_paths.is_empty() {
-            preprocessor::preprocess(&source, &source_path, &base_dir)
+            preprocessor::preprocess(&source, &source_path, base_dir_str)
         } else {
-            let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
+            let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths);
             pp.process(&source, &source_path)
         };
         

@@ -125,6 +125,15 @@ enum Directive {
     PragmaOnce,
 }
 
+/// 指令处理结果
+#[derive(Debug, Clone)]
+enum DirectiveResult {
+    /// 单行输出（普通指令）
+    Single(Option<String>),
+    /// 多行输出（包含文件）
+    Multi { code: String, source_map: SourceMap },
+}
+
 impl Preprocessor {
     /// 创建新的预处理器实例
     /// 
@@ -190,14 +199,20 @@ impl Preprocessor {
                 // 解析预处理指令
                 match self.parse_directive(trimmed, line_number, file_path) {
                     Ok(Some(directive)) => {
-                        match self.process_directive(directive, file_path, line_number, &mut source_map)? {
-                            Some(processed_line) => {
+                        match self.process_directive(directive, file_path, line_number)? {
+                            DirectiveResult::Single(processed_line) => {
                                 source_map.add_mapping(file_path.to_string(), line_number);
-                                output_lines.push(processed_line);
+                                output_lines.push(processed_line.unwrap_or_default());
                             }
-                            None => {
-                                source_map.add_mapping(file_path.to_string(), line_number);
-                                output_lines.push("".to_string());
+                            DirectiveResult::Multi { code, source_map: included_source_map } => {
+                                // 包含文件返回多行，需要合并源映射
+                                for included_line in code.lines() {
+                                    output_lines.push(included_line.to_string());
+                                }
+                                // 合并源映射
+                                for mapping in included_source_map.mappings {
+                                    source_map.add_mapping(mapping.file, mapping.line);
+                                }
                             }
                         }
                     }
@@ -257,7 +272,9 @@ impl Preprocessor {
         // 提取指令名和参数（移除块注释）
         let mut parts = content.splitn(2, |c: char| c.is_whitespace());
         let directive_name = parts.next().unwrap_or("");
-        let args = Self::remove_block_comments(parts.next().unwrap_or("")).trim();
+        let args_raw = parts.next().unwrap_or("");
+        let args_cleaned = Self::remove_block_comments(args_raw);
+        let args = args_cleaned.trim();
         
         match directive_name {
             "include" => {
@@ -350,59 +367,74 @@ impl Preprocessor {
     /// 处理单个预处理指令
     ///
     /// # Returns
-    /// - Ok(Some(line)) - 生成输出代码行
-    /// - Ok(None) - 不产生输出（如条件编译控制）
-    fn process_directive(&mut self, directive: Directive, file_path: &str, line_num: usize, source_map: &mut SourceMap) -> cayResult<Option<String>> {
+    /// - Ok(DirectiveResult::Single(line)) - 生成单行输出
+    /// - Ok(DirectiveResult::Multi{code, source_map}) - 生成多行输出（包含文件）
+    fn process_directive(&mut self, directive: Directive, file_path: &str, line_num: usize) -> cayResult<DirectiveResult> {
         match directive {
             Directive::Include(path, is_system) => {
                 if self.skipping {
-                    return Ok(None);
+                    return Ok(DirectiveResult::Single(None));
                 }
                 
                 // 读取包含文件
-                let include_content = self.read_include_file(&path, is_system, file_path)?;
-                
-                // 递归处理包含的文件
-                let included_result = self.process_with_source_map(&include_content, &path)?;
-                
-                // 返回处理后的内容
-                Ok(Some(included_result.code))
+                match self.read_include_file(&path, is_system, file_path)? {
+                    Some(include_content) => {
+                        // 添加到包含栈（用于循环检测）
+                        self.include_stack.push(path.clone());
+                        
+                        // 递归处理包含的文件
+                        let included_result = self.process_with_source_map(&include_content, &path)?;
+                        
+                        // 处理完成后从栈中移除
+                        self.include_stack.pop();
+                        
+                        // 返回处理后的内容和源映射
+                        Ok(DirectiveResult::Multi { 
+                            code: included_result.code, 
+                            source_map: included_result.source_map 
+                        })
+                    }
+                    None => {
+                        // 文件已经包含过（#pragma once 语义），跳过
+                        Ok(DirectiveResult::Single(Some(String::new())))
+                    }
+                }
             }
             Directive::Define(name, value) => {
                 if self.skipping {
-                    return Ok(None);
+                    return Ok(DirectiveResult::Single(None));
                 }
                 self.defines.insert(name, value);
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Ifdef(name) => {
                 let condition = self.defines.contains_key(&name);
                 self.push_conditional(condition);
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Ifndef(name) => {
                 let condition = !self.defines.contains_key(&name);
                 self.push_conditional(condition);
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::If(expr) => {
                 // 简化实现：暂时只支持简单的数字比较
                 let condition = self.evaluate_condition(&expr);
                 self.push_conditional(condition);
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Else => {
                 self.handle_else(file_path)?;
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Elif(expr) => {
                 let condition = self.evaluate_condition(&expr);
                 self.handle_elif(condition, file_path)?;
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Endif => {
                 self.pop_conditional(file_path)?;
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Error(message) => {
                 if !self.skipping {
@@ -414,17 +446,17 @@ impl Preprocessor {
                         suggestion: "这是源代码中显式要求的编译错误".to_string(),
                     });
                 }
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::Warning(message) => {
                 if !self.skipping {
                     eprintln!("警告: {}", message);
                 }
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
             Directive::PragmaOnce => {
                 // 隐式处理：基于绝对路径的哈希
-                Ok(None)
+                Ok(DirectiveResult::Single(None))
             }
         }
     }
@@ -482,8 +514,11 @@ impl Preprocessor {
     }
 
     /// 读取包含文件
-    fn read_include_file(&mut self, path: &str, is_system: bool, current_file: &str) -> cayResult<String> {
-        // 检测循环包含
+    fn read_include_file(&mut self, path: &str, is_system: bool, current_file: &str) -> cayResult<Option<String>> {
+        // 解析完整路径
+        let full_path = self.resolve_include_path(path, is_system, current_file)?;
+        
+        // 首先检测循环包含（基于当前处理链）
         if self.include_stack.contains(&path.to_string()) {
             return Err(cayError::Preprocessor {
                 file: Some(current_file.to_string()),
@@ -494,12 +529,9 @@ impl Preprocessor {
             });
         }
         
-        // 解析完整路径
-        let full_path = self.resolve_include_path(path, is_system, current_file)?;
-        
-        // 检查是否已经包含过（#pragma once 语义）
+        // 然后检查是否已经包含过（#pragma once 语义）
         if self.included_files.contains(&full_path) {
-            return Ok(String::new());
+            return Ok(None);  // 已经包含过，返回 None 表示跳过
         }
         
         // 读取文件内容
@@ -514,12 +546,8 @@ impl Preprocessor {
         
         // 添加到已包含集合
         self.included_files.insert(full_path.clone());
-        self.include_stack.push(path.to_string());
         
-        // 处理完成后移除栈帧
-        // 注意：这里需要在递归调用后处理，所以放在 process_with_source_map 之后
-        
-        Ok(content)
+        Ok(Some(content))
     }
 
     /// 解析包含文件的完整路径
@@ -772,6 +800,23 @@ impl Preprocessor {
         let result = self.process_with_source_map(source, file_path)?;
         Ok(result.code)
     }
+}
+
+/// 独立的预处理函数接口（兼容旧版本调用）
+///
+/// # Arguments
+/// * `source` - 原始源代码
+/// * `file_path` - 源文件路径（用于错误报告）
+/// * `base_dir` - 基础目录（用于解析相对路径）
+///
+/// # Returns
+/// 预处理后的源代码字符串
+///
+/// # Errors
+/// 当遇到预处理错误时返回错误
+pub fn preprocess(source: &str, file_path: &str, base_dir: &str) -> cayResult<String> {
+    let mut pp = Preprocessor::new(base_dir);
+    pp.process(source, file_path)
 }
 
 #[cfg(test)]

@@ -248,10 +248,11 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
     let system_paths = get_system_include_paths();
     
     // 使用带系统路径的预处理器
+    let base_dir_str = base_dir.to_str().unwrap_or(".");
     let preprocessed = if system_paths.is_empty() {
-        cavvy::preprocessor::preprocess(&source, source_path, base_dir)
+        cavvy::preprocessor::preprocess(&source, source_path, base_dir_str)
     } else {
-        let mut pp = cavvy::preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
+        let mut pp = cavvy::preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths);
         pp.process(&source, source_path)
     }
     .map_err(|e| cayError::Preprocessor {

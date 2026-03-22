@@ -1,8 +1,8 @@
 {
   "name": "cavvy-analyzer",
   "displayName": "Cavvy Analyzer",
-  "description": "Cavvy (EOL) 语言支持插件 - 语法高亮、跳转定义、语法错误提示",
-  "version": "0.2.1",
+  "description": "Cavvy (EOL) 语言支持插件 - 语法高亮、跳转定义、语法错误提示、一键运行、LSP支持",
+  "version": "0.3.0",
   "publisher": "ethernos-studio",
   "license": "GPL-3.0",
   "engines": {
@@ -11,14 +11,16 @@
   "categories": [
     "Programming Languages",
     "Debuggers",
-    "Linters"
+    "Linters",
+    "Formatters"
   ],
   "keywords": [
     "cavvy",
     "eol",
     "language",
     "syntax",
-    "highlight"
+    "highlight",
+    "lsp"
   ],
   "activationEvents": [
     "onLanguage:cavvy"
@@ -36,7 +38,9 @@
         ],
         "extensions": [
           ".cay",
-          ".eol"
+          ".eol",
+          ".caybc",
+          ".ll"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
@@ -58,8 +62,28 @@
       "properties": {
         "cavvyAnalyzer.compilerPath": {
           "type": "string",
-          "default": "eolc",
-          "description": "Cavvy 编译器路径 (eolc 或 eol-check)"
+          "default": "cayc",
+          "description": "Cavvy 编译器路径 (cayc)"
+        },
+        "cavvyAnalyzer.runnerPath": {
+          "type": "string",
+          "default": "cay-run",
+          "description": "Cavvy 运行器路径 (cay-run)"
+        },
+        "cavvyAnalyzer.checkerPath": {
+          "type": "string",
+          "default": "cay-check",
+          "description": "Cavvy 语法检查器路径 (cay-check)"
+        },
+        "cavvyAnalyzer.lspServerPath": {
+          "type": "string",
+          "default": "cay-lsp",
+          "description": "Cavvy LSP 服务器路径 (cay-lsp)"
+        },
+        "cavvyAnalyzer.enableLSP": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 LSP 语言服务器"
         },
         "cavvyAnalyzer.enableDiagnostics": {
           "type": "boolean",
@@ -70,30 +94,121 @@
           "type": "number",
           "default": 500,
           "description": "诊断延迟时间 (毫秒)"
+        },
+        "cavvyAnalyzer.runInTerminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "在终端中运行程序 (支持交互式输入)"
+        },
+        "cavvyAnalyzer.preserveFocus": {
+          "type": "boolean",
+          "default": false,
+          "description": "运行程序时保持编辑器焦点"
         }
       }
     },
     "commands": [
       {
+        "command": "cavvyAnalyzer.runCode",
+        "title": "运行 Cavvy 代码",
+        "category": "Cavvy",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cavvyAnalyzer.runCodeNoDebug",
+        "title": "运行 (非调试模式)",
+        "category": "Cavvy",
+        "icon": "$(play-circle)"
+      },
+      {
         "command": "cavvyAnalyzer.checkSyntax",
         "title": "检查 Cavvy 语法",
-        "category": "Cavvy"
+        "category": "Cavvy",
+        "icon": "$(check)"
+      },
+      {
+        "command": "cavvyAnalyzer.checkSyntaxManual",
+        "title": "手动语法检查",
+        "category": "Cavvy",
+        "icon": "$(check-all)"
       },
       {
         "command": "cavvyAnalyzer.gotoDefinition",
         "title": "跳转到定义",
         "category": "Cavvy"
+      },
+      {
+        "command": "cavvyAnalyzer.restartLSP",
+        "title": "重启 LSP 服务器",
+        "category": "Cavvy",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "cavvyAnalyzer.stopLSP",
+        "title": "停止 LSP 服务器",
+        "category": "Cavvy",
+        "icon": "$(debug-stop)"
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "when": "editorLangId == cavvy",
+          "command": "cavvyAnalyzer.runCodeNoDebug",
+          "group": "navigation@1"
+        },
+        {
+          "when": "editorLangId == cavvy",
+          "command": "cavvyAnalyzer.checkSyntaxManual",
+          "group": "navigation@2"
+        }
+      ],
       "editor/context": [
         {
           "when": "editorLangId == cavvy",
+          "command": "cavvyAnalyzer.runCodeNoDebug",
+          "group": "navigation@1"
+        },
+        {
+          "when": "editorLangId == cavvy",
+          "command": "cavvyAnalyzer.checkSyntaxManual",
+          "group": "navigation@2"
+        },
+        {
+          "when": "editorLangId == cavvy",
           "command": "cavvyAnalyzer.gotoDefinition",
-          "group": "navigation"
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cavvyAnalyzer.runCode",
+          "when": "editorLangId == cavvy"
+        },
+        {
+          "command": "cavvyAnalyzer.runCodeNoDebug",
+          "when": "editorLangId == cavvy"
+        },
+        {
+          "command": "cavvyAnalyzer.checkSyntaxManual",
+          "when": "editorLangId == cavvy"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "cavvyAnalyzer.runCodeNoDebug",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorTextFocus && editorLangId == cavvy"
+      },
+      {
+        "command": "cavvyAnalyzer.checkSyntaxManual",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "editorTextFocus && editorLangId == cavvy"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -102,6 +217,9 @@
     "lint": "eslint src --ext ts",
     "package": "vsce package",
     "publish": "vsce publish"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

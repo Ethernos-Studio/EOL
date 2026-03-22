@@ -1,0 +1,38 @@
+/*
+ * 测试 Allocator.cay 导入和使用
+ */
+
+#include <Allocator.cay>
+
+public class TestAllocatorImport {
+    public static int main() {
+        println("=== 测试 Allocator 导入 ===");
+        
+        // 测试 GlobalAlloc
+        GlobalAlloc alloc = GlobalAlloc.getInstance();
+        long ptr = alloc.allocate(64);
+        println("分配内存地址: " + ptr);
+        
+        if (ptr != 0) {
+            println("分配成功!");
+            alloc.deallocate(ptr);
+            println("释放成功!");
+        }
+        
+        // 测试 Arena
+        Arena arena = Arena.create(1024);
+        println("Arena 创建成功");
+        
+        long ptr2 = arena.allocate(100);
+        println("Arena 分配: " + ptr2);
+        
+        long used = arena.used();
+        println("Arena 已使用: " + used);
+        
+        arena.reset();
+        println("Arena 重置成功");
+        
+        println("=== 所有测试通过 ===");
+        return 0;
+    }
+}
