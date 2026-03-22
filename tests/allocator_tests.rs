@@ -63,6 +63,9 @@ fn test_allocator_polymorphism() {
 }
 
 /// 测试嵌套 scope
+/// 
+/// 注意：此测试与 test_scope_statement 使用同一个示例文件
+/// 因为测试框架是单线程的，不会发生冲突
 #[test]
 fn test_nested_scope() {
     // 使用同一个测试文件，因为它已经包含嵌套 scope
@@ -78,6 +81,9 @@ fn test_nested_scope() {
 }
 
 /// 测试 scope 中的变量遮蔽
+/// 
+/// 注意：此测试与 test_scope_statement 使用同一个示例文件
+/// 因为测试框架是单线程的，不会发生冲突
 #[test]
 fn test_scope_variable_shadowing() {
     // 使用同一个测试文件，因为它已经包含变量遮蔽

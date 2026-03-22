@@ -4,6 +4,11 @@
 
 use std::process::Command;
 use std::fs;
+use std::sync::Mutex;
+use std::time::Duration;
+
+/// 全局测试锁，确保测试串行执行避免文件冲突
+static TEST_LOCK: Mutex<()> = Mutex::new(());
 
 /// 编译并运行单个 EOL 文件，返回输出结果
 ///
