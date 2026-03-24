@@ -14,7 +14,7 @@ impl IRGenerator {
         let end_label = self.new_label("while.end");
 
         // 进入循环上下文
-        self.enter_loop(cond_label.clone(), end_label.clone());
+        self.enter_loop(cond_label.clone(), end_label.clone(), while_stmt.label.clone());
 
         self.emit_line(&format!("  br label %{}", cond_label));
 
@@ -58,7 +58,7 @@ impl IRGenerator {
         }
 
         // 进入循环上下文（continue 跳转到 update 标签）
-        self.enter_loop(update_label.clone(), end_label.clone());
+        self.enter_loop(update_label.clone(), end_label.clone(), for_stmt.label.clone());
 
         self.emit_line(&format!("  br label %{}", cond_label));
 
@@ -108,7 +108,7 @@ impl IRGenerator {
         let end_label = self.new_label("dowhile.end");
 
         // 进入循环上下文
-        self.enter_loop(cond_label.clone(), end_label.clone());
+        self.enter_loop(cond_label.clone(), end_label.clone(), do_while_stmt.label.clone());
 
         // 先执行循环体
         self.emit_line(&format!("  br label %{}", body_label));

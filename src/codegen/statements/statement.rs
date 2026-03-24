@@ -40,11 +40,11 @@ impl IRGenerator {
             Stmt::Scope(scope_stmt) => {
                 self.generate_scope(scope_stmt)?;
             }
-            Stmt::Break => {
-                self.generate_break_statement()?;
+            Stmt::Break(label) => {
+                self.generate_break_statement(label)?;
             }
-            Stmt::Continue => {
-                self.generate_continue_statement()?;
+            Stmt::Continue(label) => {
+                self.generate_continue_statement(label)?;
             }
         }
         Ok(())

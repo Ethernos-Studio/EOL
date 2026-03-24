@@ -8,6 +8,7 @@ use crate::codegen::platform::PlatformConfig;
 pub struct LoopContext {
     pub cond_label: String,  // continue 跳转的目标（条件检查）
     pub end_label: String,   // break 跳转的目标（循环结束）
+    pub label: Option<String>,  // 循环标签（用于带标签的 break/continue）
 }
 
 /// 静态字段信息
@@ -319,8 +320,8 @@ impl IRGenerator {
     }
 
     /// 进入循环上下文
-    pub fn enter_loop(&mut self, cond_label: String, end_label: String) {
-        self.loop_stack.push(LoopContext { cond_label, end_label });
+    pub fn enter_loop(&mut self, cond_label: String, end_label: String, label: Option<String>) {
+        self.loop_stack.push(LoopContext { cond_label, end_label, label });
     }
 
     /// 退出循环上下文
@@ -331,6 +332,11 @@ impl IRGenerator {
     /// 获取当前循环上下文（用于 break/continue）
     pub fn current_loop(&self) -> Option<&LoopContext> {
         self.loop_stack.last()
+    }
+
+    /// 根据标签获取循环上下文（用于带标签的 break/continue）
+    pub fn get_loop_by_label(&self, label: &str) -> Option<&LoopContext> {
+        self.loop_stack.iter().rev().find(|ctx| ctx.label.as_deref() == Some(label))
     }
 
     /// 获取表达式的类型
@@ -622,15 +628,27 @@ impl IRGenerator {
         result
     }
 
-    /// 计算类的实例布局
+    /// 计算类的实例布局（支持继承）
     /// 
-    /// 对象内存布局: [type_id: i32][padding: i32][field1][field2]...
+    /// 对象内存布局: [type_id: i32][padding: i32][父类字段...][子类字段...]
     /// 返回对象总大小（字节）
-    pub fn compute_class_layout(&mut self, class_name: &str, fields: &[crate::ast::FieldDecl]) -> usize {
+    pub fn compute_class_layout(&mut self, class_name: &str, fields: &[crate::ast::FieldDecl], parent_name: Option<&str>) -> usize {
         // 对象头大小：type_id (4 bytes) + padding (4 bytes) = 8 bytes
         let header_size = 8usize;
         let mut current_offset = header_size;
         let mut field_map = HashMap::new();
+
+        // 如果有父类，先复制父类的字段布局
+        if let Some(parent) = parent_name {
+            if let Some(parent_layout) = self.class_layouts.get(parent).cloned() {
+                // 复制父类的所有字段信息
+                for (field_name, field_info) in &parent_layout.fields {
+                    field_map.insert(field_name.clone(), field_info.clone());
+                }
+                // 从父类布局的结束位置开始
+                current_offset = parent_layout.total_size;
+            }
+        }
 
         for field in fields {
             // 跳过静态字段
@@ -678,6 +696,16 @@ impl IRGenerator {
     /// 获取实例字段信息
     pub fn get_instance_field(&self, class_name: &str, field_name: &str) -> Option<&InstanceFieldInfo> {
         self.class_layouts.get(class_name)?.fields.get(field_name)
+    }
+
+    /// 获取类的父类名
+    pub fn get_parent_class(&self, class_name: &str) -> Option<String> {
+        if let Some(registry) = &self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                return class_info.parent.clone();
+            }
+        }
+        None
     }
 
     /// 设置平台配置

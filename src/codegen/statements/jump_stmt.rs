@@ -7,22 +7,32 @@ use crate::error::{cayResult, codegen_error};
 
 impl IRGenerator {
     /// 生成 break 语句代码
-    pub fn generate_break_statement(&mut self) -> cayResult<()> {
-        if let Some(loop_ctx) = self.current_loop() {
-            self.emit_line(&format!("  br label %{}", loop_ctx.end_label));
+    pub fn generate_break_statement(&mut self, label: &Option<String>) -> cayResult<()> {
+        let loop_ctx = if let Some(label_name) = label {
+            // 带标签的 break
+            self.get_loop_by_label(label_name)
+                .ok_or_else(|| codegen_error(format!("break label '{}' not found", label_name)))?
         } else {
-            return Err(codegen_error("break statement outside of loop".to_string()));
-        }
+            // 不带标签的 break
+            self.current_loop()
+                .ok_or_else(|| codegen_error("break statement outside of loop".to_string()))?
+        };
+        self.emit_line(&format!("  br label %{}", loop_ctx.end_label));
         Ok(())
     }
 
     /// 生成 continue 语句代码
-    pub fn generate_continue_statement(&mut self) -> cayResult<()> {
-        if let Some(loop_ctx) = self.current_loop() {
-            self.emit_line(&format!("  br label %{}", loop_ctx.cond_label));
+    pub fn generate_continue_statement(&mut self, label: &Option<String>) -> cayResult<()> {
+        let loop_ctx = if let Some(label_name) = label {
+            // 带标签的 continue
+            self.get_loop_by_label(label_name)
+                .ok_or_else(|| codegen_error(format!("continue label '{}' not found", label_name)))?
         } else {
-            return Err(codegen_error("continue statement outside of loop".to_string()));
-        }
+            // 不带标签的 continue
+            self.current_loop()
+                .ok_or_else(|| codegen_error("continue statement outside of loop".to_string()))?
+        };
+        self.emit_line(&format!("  br label %{}", loop_ctx.cond_label));
         Ok(())
     }
 }

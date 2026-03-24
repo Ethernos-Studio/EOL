@@ -57,9 +57,15 @@ impl IRGenerator {
             } else {
                 for (j, stmt) in case.body.iter().enumerate() {
                     match stmt {
-                        Stmt::Break => {
-                            // 遇到 break，跳转到 switch 结束
-                            self.emit_line(&format!("  br label %{}", end_label));
+                        Stmt::Break(label) => {
+                            // 带标签的 break 跳出对应的循环，不带标签的 break 跳出 switch
+                            if label.is_some() {
+                                // 带标签的 break，使用通用处理
+                                self.generate_break_statement(label)?;
+                            } else {
+                                // 不带标签的 break，跳出 switch
+                                self.emit_line(&format!("  br label %{}", end_label));
+                            }
                             fallthrough = false;
                             break;
                         }
@@ -96,8 +102,13 @@ impl IRGenerator {
             self.emit_line(&format!("{}:", default_label));
             for stmt in default_body {
                 match stmt {
-                    Stmt::Break => {
-                        self.emit_line(&format!("  br label %{}", end_label));
+                    Stmt::Break(label) => {
+                        // 带标签的 break 跳出对应的循环，不带标签的 break 跳出 switch
+                        if label.is_some() {
+                            self.generate_break_statement(label)?;
+                        } else {
+                            self.emit_line(&format!("  br label %{}", end_label));
+                        }
                         break;
                     }
                     _ => {
