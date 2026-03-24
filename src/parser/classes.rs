@@ -8,7 +8,7 @@ use crate::error::SourceLocation;
 use super::Parser;
 use super::types::{parse_type, is_type_token};
 use super::expressions::parse_expression;
-use super::statements::parse_block;
+use super::statements::{parse_block, parse_statement};
 
 /// 解析类声明
 pub fn parse_class(parser: &mut Parser) -> cayResult<ClassDecl> {
@@ -173,10 +173,22 @@ pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
             parser.consume(&Token::RParen, "Expected ')' after constructor parameters")?;
             
             // 解析构造链调用 this() 或 super()
-            let constructor_call = parse_constructor_call(parser)?;
+            let ctor_call_result = parse_constructor_call(parser)?;
+            let constructor_call = ctor_call_result.call;
             
             // 解析构造函数体
-            let ctor_body = parse_block(parser)?;
+            // 如果 Java 风格的构造链调用已经消耗了 {，则不需要再解析 {
+            let ctor_body = if ctor_call_result.consumed_lbrace {
+                // 已经消耗了 {，直接解析语句直到 }
+                let mut statements = Vec::new();
+                while !parser.check(&Token::RBrace) && !parser.is_at_end() {
+                    statements.push(parse_statement(parser)?);
+                }
+                parser.consume(&Token::RBrace, "Expected '}' after constructor body")?;
+                Block { statements, loc: parser.current_loc() }
+            } else {
+                parse_block(parser)?
+            };
             
             return Ok(ClassMember::Constructor(ConstructorDecl {
                 modifiers: ctor_modifiers,
@@ -290,10 +302,22 @@ pub fn parse_constructor(parser: &mut Parser) -> cayResult<ConstructorDecl> {
     parser.consume(&Token::RParen, "Expected ')' after constructor parameters")?;
     
     // 解析构造链调用 this() 或 super()
-    let constructor_call = parse_constructor_call(parser)?;
+    let ctor_call_result = parse_constructor_call(parser)?;
+    let constructor_call = ctor_call_result.call;
     
     // 解析构造函数体
-    let body = parse_block(parser)?;
+    // 如果 Java 风格的构造链调用已经消耗了 {，则不需要再解析 {
+    let body = if ctor_call_result.consumed_lbrace {
+        // 已经消耗了 {，直接解析语句直到 }
+        let mut statements = Vec::new();
+        while !parser.check(&Token::RBrace) && !parser.is_at_end() {
+            statements.push(parse_statement(parser)?);
+        }
+        parser.consume(&Token::RBrace, "Expected '}' after constructor body")?;
+        Block { statements, loc: parser.current_loc() }
+    } else {
+        parse_block(parser)?
+    };
     
     Ok(ConstructorDecl {
         modifiers,
@@ -304,29 +328,88 @@ pub fn parse_constructor(parser: &mut Parser) -> cayResult<ConstructorDecl> {
     })
 }
 
+/// 构造链调用解析结果
+#[derive(Debug)]
+struct ConstructorCallResult {
+    pub call: Option<ConstructorCall>,
+    pub consumed_lbrace: bool, // 是否消耗了左大括号
+}
+
 /// 解析构造链调用 this() 或 super()
-fn parse_constructor_call(parser: &mut Parser) -> cayResult<Option<ConstructorCall>> {
-    // 检查是否有冒号（C++风格）或直接使用 this/super
+/// 支持两种风格：
+/// - C++风格: : this(args) 或 : super(args)（在构造函数参数列表后）
+/// - Java风格: this(args) 或 super(args)（作为构造函数体的第一条语句）
+fn parse_constructor_call(parser: &mut Parser) -> cayResult<ConstructorCallResult> {
+    // 检查是否有冒号（C++风格）
     if parser.match_token(&Token::Colon) {
         // C++风格: : this(args) 或 : super(args)
         if parser.match_token(&Token::This) {
             parser.consume(&Token::LParen, "Expected '(' after 'this'")?;
             let args = parse_constructor_call_args(parser)?;
             parser.consume(&Token::RParen, "Expected ')' after 'this' arguments")?;
-            return Ok(Some(ConstructorCall::This(args)));
+            return Ok(ConstructorCallResult {
+                call: Some(ConstructorCall::This(args)),
+                consumed_lbrace: false,
+            });
         } else if parser.match_token(&Token::Super) {
             parser.consume(&Token::LParen, "Expected '(' after 'super'")?;
             let args = parse_constructor_call_args(parser)?;
             parser.consume(&Token::RParen, "Expected ')' after 'super' arguments")?;
-            return Ok(Some(ConstructorCall::Super(args)));
+            return Ok(ConstructorCallResult {
+                call: Some(ConstructorCall::Super(args)),
+                consumed_lbrace: false,
+            });
         } else {
             return Err(parser.error("Expected 'this' or 'super' after ':'"));
         }
     }
     
-    // Java风格: this(args) 或 super(args) 作为构造函数体的第一条语句
-    // 这部分在语义分析中处理
-    Ok(None)
+    // Java风格: 检查是否是 this(args) 或 super(args) 作为第一条语句
+    // 向前看：{ this( 或 { super(
+    if parser.check(&Token::LBrace) {
+        // 保存当前位置
+        let checkpoint = parser.pos;
+        parser.advance(); // 跳过 {
+        
+        // 检查是否是 this(
+        if parser.match_token(&Token::This) {
+            if parser.check(&Token::LParen) {
+                parser.advance(); // 跳过 (
+                let args = parse_constructor_call_args(parser)?;
+                parser.consume(&Token::RParen, "Expected ')' after 'this' arguments")?;
+                parser.consume(&Token::Semicolon, "Expected ';' after this() call")?;
+                return Ok(ConstructorCallResult {
+                    call: Some(ConstructorCall::This(args)),
+                    consumed_lbrace: true,
+                });
+            } else {
+                // 不是 this(...)，回退
+                parser.pos = checkpoint;
+            }
+        } else if parser.match_token(&Token::Super) {
+            if parser.check(&Token::LParen) {
+                parser.advance(); // 跳过 (
+                let args = parse_constructor_call_args(parser)?;
+                parser.consume(&Token::RParen, "Expected ')' after 'super' arguments")?;
+                parser.consume(&Token::Semicolon, "Expected ';' after super() call")?;
+                return Ok(ConstructorCallResult {
+                    call: Some(ConstructorCall::Super(args)),
+                    consumed_lbrace: true,
+                });
+            } else {
+                // 不是 super(...)，回退
+                parser.pos = checkpoint;
+            }
+        } else {
+            // 不是 this 或 super，回退
+            parser.pos = checkpoint;
+        }
+    }
+    
+    Ok(ConstructorCallResult {
+        call: None,
+        consumed_lbrace: false,
+    })
 }
 
 /// 解析构造函数调用参数
