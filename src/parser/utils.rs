@@ -284,6 +284,7 @@ pub fn get_token_name(token: &Token) -> String {
         Token::Inc => "'++'".to_string(),
         Token::Dec => "'--'".to_string(),
         Token::Newline => "换行".to_string(),
+        Token::BlockComment(_) => "块注释".to_string(),
         Token::CInt => "'c_int'".to_string(),
         Token::CUInt => "'c_uint'".to_string(),
         Token::CLong => "'c_long'".to_string(),

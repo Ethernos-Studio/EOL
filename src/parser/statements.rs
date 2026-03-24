@@ -6,6 +6,25 @@ use super::Parser;
 use super::types::{parse_type, is_primitive_type_token};
 use super::expressions::parse_expression;
 
+/// 给语句添加标签
+fn add_label_to_stmt(stmt: Stmt, label: String) -> Stmt {
+    match stmt {
+        Stmt::For(mut for_stmt) => {
+            for_stmt.label = Some(label);
+            Stmt::For(for_stmt)
+        }
+        Stmt::While(mut while_stmt) => {
+            while_stmt.label = Some(label);
+            Stmt::While(while_stmt)
+        }
+        Stmt::DoWhile(mut do_while_stmt) => {
+            do_while_stmt.label = Some(label);
+            Stmt::DoWhile(do_while_stmt)
+        }
+        _ => stmt, // 非循环语句不支持标签，保持原样
+    }
+}
+
 /// 解析代码块
 pub fn parse_block(parser: &mut Parser) -> cayResult<Block> {
     let loc = parser.current_loc();
@@ -23,6 +42,26 @@ pub fn parse_block(parser: &mut Parser) -> cayResult<Block> {
 
 /// 解析语句
 pub fn parse_statement(parser: &mut Parser) -> cayResult<Stmt> {
+    // 检查是否是标签语句: label:
+    if let crate::lexer::Token::Identifier(label_name) = parser.current_token().clone() {
+        // 向前看检查是否是冒号
+        let checkpoint = parser.pos;
+        parser.advance(); // 跳过标识符
+        
+        if parser.check(&crate::lexer::Token::Colon) {
+            parser.advance(); // 跳过冒号
+            
+            // 解析带标签的语句
+            let stmt = parse_statement(parser)?;
+            
+            // 给语句添加标签
+            return Ok(add_label_to_stmt(stmt, label_name));
+        } else {
+            // 不是标签，回退
+            parser.pos = checkpoint;
+        }
+    }
+    
     match parser.current_token() {
         crate::lexer::Token::LBrace => Ok(Stmt::Block(parse_block(parser)?)),
         crate::lexer::Token::If => parse_if_statement(parser),
@@ -35,14 +74,32 @@ pub fn parse_statement(parser: &mut Parser) -> cayResult<Stmt> {
         crate::lexer::Token::Break => {
             let _loc = parser.current_loc();
             parser.advance();
+            
+            // 检查是否有标签
+            let label = if let crate::lexer::Token::Identifier(name) = parser.current_token().clone() {
+                parser.advance();
+                Some(name)
+            } else {
+                None
+            };
+            
             parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after break")?;
-            Ok(Stmt::Break)
+            Ok(Stmt::Break(label))
         }
         crate::lexer::Token::Continue => {
             let _loc = parser.current_loc();
             parser.advance();
+            
+            // 检查是否有标签
+            let label = if let crate::lexer::Token::Identifier(name) = parser.current_token().clone() {
+                parser.advance();
+                Some(name)
+            } else {
+                None
+            };
+            
             parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after continue")?;
-            Ok(Stmt::Continue)
+            Ok(Stmt::Continue(label))
         }
         _ => {
             // 检查是否是变量声明：支持任意类型标识（类名或原始类型），
@@ -202,6 +259,7 @@ pub fn parse_while_statement(parser: &mut Parser) -> cayResult<Stmt> {
     Ok(Stmt::While(WhileStmt {
         condition,
         body,
+        label: None,
         loc,
     }))
 }
@@ -241,6 +299,7 @@ pub fn parse_for_statement(parser: &mut Parser) -> cayResult<Stmt> {
         condition,
         update,
         body,
+        label: None,
         loc,
     }))
 }
@@ -261,6 +320,7 @@ pub fn parse_do_while_statement(parser: &mut Parser) -> cayResult<Stmt> {
     Ok(Stmt::DoWhile(DoWhileStmt {
         condition,
         body,
+        label: None,
         loc,
     }))
 }
