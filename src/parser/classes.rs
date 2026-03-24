@@ -152,23 +152,9 @@ pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
         return Ok(ClassMember::Method(parse_method(parser)?));
     }
     
-    // 如果是类型关键字，可能是字段或方法
-    if is_type_token(parser) {
-        // 读取类型
-        let member_type = parse_type(parser)?;
-        let member_name = parser.consume_identifier("Expected member name")?;
-        
-        if parser.check(&Token::LParen) {
-            // 是方法
-            parser.pos = checkpoint;
-            Ok(ClassMember::Method(parse_method(parser)?))
-        } else {
-            // 是字段
-            parser.pos = checkpoint;
-            Ok(ClassMember::Field(parse_field(parser)?))
-        }
-    } else if matches!(parser.current_token(), Token::Identifier(_)) {
-        // 可能是构造函数：类名(...)
+    // 检查是否是构造函数：类名(...)
+    // 构造函数的特征是：标识符后直接跟'('，且不是类型关键字（void, int等）
+    if matches!(parser.current_token(), Token::Identifier(_)) {
         // 向前看：检查下一个token是否是 '('
         let current_pos = parser.pos;
         parser.advance(); // 跳过标识符
@@ -202,9 +188,23 @@ pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
         } else {
             // 不是构造函数，回退位置
             parser.pos = current_pos;
-            // 是字段（没有类型声明的字段，错误）
+        }
+    }
+    
+    // 如果是类型关键字，可能是字段或方法
+    if is_type_token(parser) {
+        // 读取类型
+        let member_type = parse_type(parser)?;
+        let member_name = parser.consume_identifier("Expected member name")?;
+        
+        if parser.check(&Token::LParen) {
+            // 是方法
             parser.pos = checkpoint;
-            Err(parser.error("Expected field or method declaration"))
+            Ok(ClassMember::Method(parse_method(parser)?))
+        } else {
+            // 是字段
+            parser.pos = checkpoint;
+            Ok(ClassMember::Field(parse_field(parser)?))
         }
     } else {
         Err(parser.error("Expected field, method, constructor, or destructor declaration"))
