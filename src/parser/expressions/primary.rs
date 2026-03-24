@@ -68,6 +68,14 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
                 loc,
             }))
         }
+        crate::lexer::Token::Super => {
+            parser.advance();
+            // super 可以作为标识符使用，用于 super.methodName() 调用
+            Ok(Expr::Identifier(IdentifierExpr {
+                name: "super".to_string(),
+                loc,
+            }))
+        }
         crate::lexer::Token::Identifier(name) => {
             let name = name.clone();
             parser.advance();
@@ -133,7 +141,72 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
             parser.consume(&crate::lexer::Token::RBrace, "Expected '}' after array initializer")?;
             Ok(Expr::ArrayInit(ArrayInitExpr { elements, loc }))
         }
-        _ => Err(parser.error("Expected expression")),
+        _ => {
+            let current_token = parser.current_token();
+            let token_desc = match current_token {
+                crate::lexer::Token::Semicolon => "分号(;)".to_string(),
+                crate::lexer::Token::RBrace => "右花括号(})".to_string(),
+                crate::lexer::Token::RBracket => "右方括号(])".to_string(),
+                crate::lexer::Token::RParen => "右圆括号())".to_string(),
+                crate::lexer::Token::LBrace => "左花括号({)".to_string(),
+                crate::lexer::Token::LBracket => "左方括号([)".to_string(),
+                crate::lexer::Token::LParen => "左圆括号(()".to_string(),
+                crate::lexer::Token::Comma => "逗号(,)".to_string(),
+                crate::lexer::Token::Dot => "点(.)".to_string(),
+                crate::lexer::Token::Colon => "冒号(:)".to_string(),
+                crate::lexer::Token::Public => "关键字(public)".to_string(),
+                crate::lexer::Token::Private => "关键字(private)".to_string(),
+                crate::lexer::Token::Protected => "关键字(protected)".to_string(),
+                crate::lexer::Token::Static => "关键字(static)".to_string(),
+                crate::lexer::Token::Final => "关键字(final)".to_string(),
+                crate::lexer::Token::Abstract => "关键字(abstract)".to_string(),
+                crate::lexer::Token::Class => "关键字(class)".to_string(),
+                crate::lexer::Token::Interface => "关键字(interface)".to_string(),
+                crate::lexer::Token::Extends => "关键字(extends)".to_string(),
+                crate::lexer::Token::Implements => "关键字(implements)".to_string(),
+                crate::lexer::Token::Void => "关键字(void)".to_string(),
+                crate::lexer::Token::Int => "关键字(int)".to_string(),
+                crate::lexer::Token::Long => "关键字(long)".to_string(),
+                crate::lexer::Token::Float => "关键字(float)".to_string(),
+                crate::lexer::Token::Double => "关键字(double)".to_string(),
+                crate::lexer::Token::Bool => "关键字(boolean)".to_string(),
+                crate::lexer::Token::Char => "关键字(char)".to_string(),
+                crate::lexer::Token::String => "关键字(String)".to_string(),
+                crate::lexer::Token::If => "关键字(if)".to_string(),
+                crate::lexer::Token::Else => "关键字(else)".to_string(),
+                crate::lexer::Token::For => "关键字(for)".to_string(),
+                crate::lexer::Token::While => "关键字(while)".to_string(),
+                crate::lexer::Token::Do => "关键字(do)".to_string(),
+                crate::lexer::Token::Switch => "关键字(switch)".to_string(),
+                crate::lexer::Token::Case => "关键字(case)".to_string(),
+                crate::lexer::Token::Default => "关键字(default)".to_string(),
+                crate::lexer::Token::Break => "关键字(break)".to_string(),
+                crate::lexer::Token::Continue => "关键字(continue)".to_string(),
+                crate::lexer::Token::Return => "关键字(return)".to_string(),
+                crate::lexer::Token::New => "关键字(new)".to_string(),
+                crate::lexer::Token::This => "关键字(this)".to_string(),
+                crate::lexer::Token::Super => "关键字(super)".to_string(),
+                crate::lexer::Token::Null => "关键字(null)".to_string(),
+                crate::lexer::Token::True => "关键字(true)".to_string(),
+                crate::lexer::Token::False => "关键字(false)".to_string(),
+                crate::lexer::Token::Identifier(name) => format!("标识符('{}')", name),
+                crate::lexer::Token::IntegerLiteral(Some((val, _))) => format!("整数({})", val),
+                crate::lexer::Token::FloatLiteral(Some((val, _))) => format!("浮点数({})", val),
+                crate::lexer::Token::StringLiteral(Some(s)) => format!("字符串(\"{}\")", s),
+                crate::lexer::Token::CharLiteral(Some(c)) => format!("字符('{}')", c),
+                _ => {
+                    if parser.is_at_end() {
+                        "文件结束(EOF)".to_string()
+                    } else {
+                        format!("{:?}", current_token)
+                    }
+                }
+            };
+            Err(parser.error(&format!(
+                "期望表达式，但遇到了 {}\n提示: 表达式可以是字面量(如 42, 3.14, \"hello\")、标识符、方法调用、new表达式等",
+                token_desc
+            )))
+        }
     }
 }
 
