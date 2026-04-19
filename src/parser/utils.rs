@@ -32,16 +32,26 @@ pub fn previous_full_loc(parser: &Parser) -> FullSourceLocation {
 }
 
 /// 获取当前位置（向后兼容）
+/// 使用 source_line（原始源文件行号）而不是 loc.line（预处理后的行号）
 pub fn current_loc(parser: &Parser) -> crate::error::SourceLocation {
-    parser.tokens[parser.pos].loc.clone()
+    let token = &parser.tokens[parser.pos];
+    crate::error::SourceLocation {
+        line: token.source_line.unwrap_or(token.loc.line),
+        column: token.loc.column,
+    }
 }
 
 /// 获取上一个位置（向后兼容）
+/// 使用 source_line（原始源文件行号）而不是 loc.line（预处理后的行号）
 pub fn previous_loc(parser: &Parser) -> crate::error::SourceLocation {
-    if parser.pos > 0 {
-        parser.tokens[parser.pos - 1].loc.clone()
+    let token = if parser.pos > 0 {
+        &parser.tokens[parser.pos - 1]
     } else {
-        parser.tokens[0].loc.clone()
+        &parser.tokens[0]
+    };
+    crate::error::SourceLocation {
+        line: token.source_line.unwrap_or(token.loc.line),
+        column: token.loc.column,
     }
 }
 

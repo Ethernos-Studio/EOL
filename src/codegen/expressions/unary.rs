@@ -27,8 +27,15 @@ impl IRGenerator {
                 }
             }
             UnaryOp::Not => {
-                self.emit_line(&format!("  {} = xor {} {}, 1",
-                    temp, op_type, op_val));
+                // 逻辑非操作：先将操作数转换为 i1（布尔值），然后取反
+                let bool_val = if op_type == "i1" {
+                    op_val.to_string()
+                } else {
+                    let cmp_temp = self.new_temp();
+                    self.emit_line(&format!("  {} = icmp ne {} {}, 0", cmp_temp, op_type, op_val));
+                    cmp_temp
+                };
+                self.emit_line(&format!("  {} = xor i1 {}, true", temp, bool_val));
                 return Ok(format!("i1 {}", temp));
             }
             UnaryOp::BitNot => {
@@ -43,6 +50,14 @@ impl IRGenerator {
             }
             UnaryOp::PreInc | UnaryOp::PostInc | UnaryOp::PreDec | UnaryOp::PostDec => {
                 return self.generate_inc_dec(unary, op_type, op_val);
+            }
+            UnaryOp::AddressOf => {
+                // 取地址操作：获取操作数的地址（指针）
+                return self.generate_address_of(unary);
+            }
+            UnaryOp::Deref => {
+                // 解引用操作：加载指针指向的值
+                return self.generate_deref(unary, op_type, op_val);
             }
         }
         
@@ -99,5 +114,42 @@ impl IRGenerator {
         } else {
             Ok(format!("{} {}", llvm_type, load_temp))
         }
+    }
+
+    /// 生成取地址表达式代码 (&variable)
+    ///
+    /// # Arguments
+    /// * `unary` - 一元表达式（必须是AddressOf操作）
+    fn generate_address_of(&mut self, unary: &UnaryExpr) -> cayResult<String> {
+        // 获取操作数的左值信息（类型和指针）
+        let (llvm_type, llvm_ptr) = self.get_lvalue_info(&unary.operand)?;
+        
+        // 返回指针类型和指针值
+        // 注意：llvm_ptr 已经是 %name 格式，表示 alloca 的地址
+        Ok(format!("{}* {}", llvm_type, llvm_ptr))
+    }
+
+    /// 生成解引用表达式代码 (*pointer)
+    ///
+    /// # Arguments
+    /// * `unary` - 一元表达式（必须是Deref操作）
+    /// * `op_type` - 操作数类型（应该是指针类型）
+    /// * `op_val` - 操作数值（应该是指针值）
+    fn generate_deref(&mut self, unary: &UnaryExpr, op_type: String, op_val: String) -> cayResult<String> {
+        // 解析指针类型，获取指向的类型
+        // op_type 应该是 "i32*" 或 "i64*" 等格式
+        if !op_type.ends_with('*') {
+            return Err(codegen_error(format!("Cannot dereference non-pointer type: {}", op_type)));
+        }
+        
+        // 提取指向的类型（去掉末尾的*）
+        let elem_type = op_type[..op_type.len()-1].to_string();
+        
+        // 加载指针指向的值
+        let temp = self.new_temp();
+        self.emit_line(&format!("  {} = load {}, {} {}, align {}",
+            temp, elem_type, op_type, op_val, self.get_type_align(&elem_type)));
+        
+        Ok(format!("{} {}", elem_type, temp))
     }
 }

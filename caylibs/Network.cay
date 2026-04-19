@@ -1,0 +1,1001 @@
+/**
+ * Network - 网络编程标准库
+ * 
+ * 提供TCP和UDP网络通信功能：
+ * - Socket: 基础Socket类
+ * - TcpSocket: TCP客户端Socket
+ * - TcpServer: TCP服务器
+ * - UdpSocket: UDP Socket
+ * 
+ * 版本: 0.5.1.0
+ */
+
+#ifndef CAY_NETWORK_H
+#define CAY_NETWORK_H
+
+/* 引入StringBuilder */
+#include <StringBuilder.cay>
+
+/* ============================================================================
+ * 平台特定的C库函数声明
+ * ============================================================================ */
+
+/* Windows平台使用ws2_32库 */
+#ifdef _WIN32
+extern {
+    /* WSA (Windows Sockets API) 函数 */
+    /* 注意：wVersionRequired 实际上是 short 类型，但 Cavvy 不支持 short，所以使用 int */
+    int WSAStartup(int wVersionRequired, long lpWSAData);
+    int WSACleanup();
+    int WSAGetLastError();
+    
+    /* Socket函数 */
+    long socket(int af, int type, int protocol);
+    int closesocket(long s);
+    int bind(long s, long name, int namelen);
+    int listen(long s, int backlog);
+    long accept(long s, long addr, long addrlen);
+    int connect(long s, long name, int namelen);
+    int send(long s, long buf, int len, int flags);
+    int recv(long s, long buf, int len, int flags);
+    int sendto(long s, long buf, int len, int flags, long to, int tolen);
+    int recvfrom(long s, long buf, int len, int flags, long from, long fromlen);
+    int shutdown(long s, int how);
+    
+    /* 地址转换 */
+    long inet_addr(long cp);
+    long inet_ntoa(long in);
+    
+    /* 主机信息 */
+    long gethostbyname(long name);
+    long gethostbyaddr(long addr, int len, int type);
+    
+    /* IO控制 */
+    int ioctlsocket(long s, long cmd, long argp);
+    int setsockopt(long s, int level, int optname, long optval, int optlen);
+    int getsockopt(long s, int level, int optname, long optval, long optlen);
+    
+    /* 内存分配 */
+    long malloc(int size);
+    void free(long ptr);
+}
+#else
+/* Linux/Unix平台 */
+extern {
+    /* Socket函数 */
+    int socket(int domain, int type, int protocol);
+    int close(int fd);
+    int bind(int sockfd, long addr, int addrlen);
+    int listen(int sockfd, int backlog);
+    int accept(int sockfd, long addr, long addrlen);
+    int connect(int sockfd, long addr, int addrlen);
+    long send(int sockfd, long buf, long len, int flags);
+    long recv(int sockfd, long buf, long len, int flags);
+    long sendto(int sockfd, long buf, long len, int flags, long dest_addr, int addrlen);
+    long recvfrom(int sockfd, long buf, long len, int flags, long src_addr, long addrlen);
+    int shutdown(int sockfd, int how);
+    
+    /* 地址转换 */
+    int inet_pton(int af, long src, long dst);
+    long inet_ntop(int af, long src, long dst, int size);
+    int inet_aton(long cp, long inp);
+    long inet_addr(long cp);
+    long inet_ntoa(long in);
+    
+    /* 主机信息 */
+    long gethostbyname(long name);
+    long gethostbyaddr(long addr, int len, int type);
+    void herror(long s);
+    
+    /* IO控制 */
+    int fcntl(int fd, int cmd, int arg);
+    int setsockopt(int sockfd, int level, int optname, long optval, int optlen);
+    int getsockopt(int sockfd, int level, int optname, long optval, long optlen);
+    int select(int nfds, long readfds, long writefds, long exceptfds, long timeout);
+    
+    /* 内存分配 */
+    long malloc(int size);
+    void free(long ptr);
+}
+#endif
+
+/* ============================================================================
+ * 常量定义
+ * ============================================================================ */
+
+/* 地址族 */
+#define AF_UNSPEC 0
+#define AF_INET 2
+#define AF_INET6 23
+
+/* Socket类型 */
+#define SOCK_STREAM 1
+#define SOCK_DGRAM 2
+#define SOCK_RAW 3
+
+/* 协议 */
+#define IPPROTO_TCP 6
+#define IPPROTO_UDP 17
+#define IPPROTO_IP 0
+
+/* 错误码 */
+#define SOCKET_ERROR (long)(-1)
+#define INVALID_SOCKET (long)(-1)
+
+/* Shutdown方式 */
+#define SD_RECEIVE 0
+#define SD_SEND 1
+#define SD_BOTH 2
+
+/* Socket选项级别 */
+#define SOL_SOCKET 0xFFFF
+#define IPPROTO_TCP 6
+
+/* Socket选项 */
+#define SO_REUSEADDR 0x0004
+#define SO_KEEPALIVE 0x0008
+#define SO_BROADCAST 0x0020
+#define SO_LINGER 0x0080
+#define SO_SNDBUF 0x1001
+#define SO_RCVBUF 0x1002
+#define SO_SNDTIMEO 0x1005
+#define SO_RCVTIMEO 0x1006
+#define TCP_NODELAY 0x0001
+
+/* ============================================================================
+ * 网络地址类
+ * ============================================================================ */
+
+/**
+ * 网络地址结构 (sockaddr_in)
+ * 内存布局与C结构兼容
+ */
+public class SocketAddr {
+    public int family;
+    public int port;
+    public long addr;
+    public long padding;
+    
+    public SocketAddr() {
+        this.family = AF_INET;
+        this.port = 0;
+        this.addr = 0;
+        this.padding = 0;
+    }
+    
+    /**
+     * 从IP地址字符串和端口初始化地址
+     * @param ip IP地址字符串 (如 "127.0.0.1")
+     * @param port 端口号
+     * @return this，支持链式调用
+     */
+    public SocketAddr fromIpPort(String ip, int port) {
+        this.family = AF_INET;
+        this.port = NetworkUtils.htons(port);
+        this.addr = inet_addr(ip.c_str());
+        return this;
+    }
+    
+    /**
+     * 设置为任意地址绑定 (0.0.0.0)
+     * @param port 端口号
+     * @return this，支持链式调用
+     */
+    public SocketAddr any(int port) {
+        this.family = AF_INET;
+        this.port = NetworkUtils.htons(port);
+        this.addr = 0;
+        return this;
+    }
+    
+    /**
+     * 设置为本地回环地址 (127.0.0.1)
+     * @param port 端口号
+     * @return this，支持链式调用
+     */
+    public SocketAddr localhost(int port) {
+        return this.fromIpPort("127.0.0.1", port);
+    }
+}
+
+/* ============================================================================
+ * 主机信息类
+ * ============================================================================ */
+
+/**
+ * 主机信息
+ */
+public class HostInfo {
+    public String name;
+    public String[] aliases;
+    public int addrType;
+    public long[] addresses;
+    
+    public HostInfo() {
+        this.name = "";
+        this.aliases = new String[0]();
+        this.addrType = AF_INET;
+        this.addresses = new long[0]();
+    }
+}
+
+/* ============================================================================
+ * 基础Socket类
+ * ============================================================================ */
+
+/**
+ * 基础Socket类
+ * 提供通用的Socket操作
+ */
+public class Socket {
+    protected long handle;
+    protected int family;
+    protected int type;
+    protected int protocol;
+    protected bool connected;
+    protected bool bound;
+    
+    /**
+     * 创建Socket
+     * @param family 地址族 (AF_INET, AF_INET6)
+     * @param type Socket类型 (SOCK_STREAM, SOCK_DGRAM)
+     * @param protocol 协议 (IPPROTO_TCP, IPPROTO_UDP, 0)
+     */
+    public Socket(int family, int type, int protocol) {
+        this.family = family;
+        this.type = type;
+        this.protocol = protocol;
+        this.connected = false;
+        this.bound = false;
+        this.handle = INVALID_SOCKET;
+    }
+    
+    /**
+     * 获取Socket句柄
+     * @return Socket句柄
+     */
+    public long getHandle() {
+        return this.handle;
+    }
+    
+    /**
+     * 设置Socket句柄 (供子类使用)
+     * @param h 新的句柄值
+     */
+    protected void setHandle(long h) {
+        this.handle = h;
+    }
+    
+    /**
+     * 检查Socket是否有效
+     * @return true如果Socket有效
+     */
+    public bool isValid() {
+        return this.handle != INVALID_SOCKET;
+    }
+    
+    /**
+     * 检查是否已连接
+     * @return true如果已连接
+     */
+    public bool isConnected() {
+        return this.connected;
+    }
+    
+    /**
+     * 设置连接状态 (供子类使用)
+     * @param c 连接状态
+     */
+    protected void setConnected(bool c) {
+        this.connected = c;
+    }
+    
+    /**
+     * 检查是否已绑定
+     * @return true如果已绑定
+     */
+    public bool isBound() {
+        return this.bound;
+    }
+    
+    /**
+     * 设置绑定状态 (供子类使用)
+     * @param b 绑定状态
+     */
+    protected void setBound(bool b) {
+        this.bound = b;
+    }
+    
+    /**
+     * 关闭Socket
+     */
+    public void close() {
+        if (this.handle != INVALID_SOCKET) {
+#ifdef _WIN32
+            closesocket(this.handle);
+#else
+            close((int)this.handle);
+#endif
+            this.handle = INVALID_SOCKET;
+            this.connected = false;
+            this.bound = false;
+        }
+    }
+    
+    /**
+     * 设置Socket选项
+     * @param level 选项级别
+     * @param optname 选项名称
+     * @param optval 选项值
+     * @return true如果成功
+     */
+    public bool setOption(int level, int optname, int optval) {
+        if (this.handle == INVALID_SOCKET) {
+            return false;
+        }
+        int result = setsockopt((int)this.handle, level, optname, (long)(&optval), 4);
+        return result != SOCKET_ERROR;
+    }
+    
+    /**
+     * 设置地址重用选项
+     * @param reuse true启用重用
+     * @return true如果成功
+     */
+    public bool setReuseAddr(bool reuse) {
+        int value = reuse ? 1 : 0;
+        return this.setOption(SOL_SOCKET, SO_REUSEADDR, value);
+    }
+    
+    /**
+     * 设置发送超时
+     * @param milliseconds 超时毫秒数
+     * @return true如果成功
+     */
+    public bool setSendTimeout(int milliseconds) {
+        return this.setOption(SOL_SOCKET, SO_SNDTIMEO, milliseconds);
+    }
+    
+    /**
+     * 设置接收超时
+     * @param milliseconds 超时毫秒数
+     * @return true如果成功
+     */
+    public bool setRecvTimeout(int milliseconds) {
+        return this.setOption(SOL_SOCKET, SO_RCVTIMEO, milliseconds);
+    }
+    
+    /**
+     * 设置TCP_NODELAY选项 (禁用Nagle算法)
+     * @param enable true启用
+     * @return true如果成功
+     */
+    public bool setTcpNoDelay(bool enable) {
+        int value = enable ? 1 : 0;
+        return this.setOption(IPPROTO_TCP, TCP_NODELAY, value);
+    }
+    
+    /**
+     * 设置发送缓冲区大小
+     * @param size 缓冲区大小
+     * @return true如果成功
+     */
+    public bool setSendBufferSize(int size) {
+        return this.setOption(SOL_SOCKET, SO_SNDBUF, size);
+    }
+    
+    /**
+     * 设置接收缓冲区大小
+     * @param size 缓冲区大小
+     * @return true如果成功
+     */
+    public bool setRecvBufferSize(int size) {
+        return this.setOption(SOL_SOCKET, SO_RCVBUF, size);
+    }
+    
+    /**
+     * 获取最后的错误码
+     * @return 错误码
+     */
+    public static int getLastError() {
+#ifdef _WIN32
+        return WSAGetLastError();
+#else
+        return 0;
+#endif
+    }
+}
+
+/* ============================================================================
+ * TCP Socket类
+ * ============================================================================ */
+
+/**
+ * TCP客户端Socket
+ */
+public class TcpSocket extends Socket {
+    
+    /**
+     * 创建TCP Socket
+     */
+    public TcpSocket() {
+        super(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        this.setHandle(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
+    }
+    
+    /**
+     * 使用现有句柄创建TCP Socket
+     * @param handle Socket句柄
+     */
+    public static TcpSocket fromHandle(long handle) {
+        TcpSocket sock = new TcpSocket();
+        sock.setHandle(handle);
+        sock.setConnected(true);
+        return sock;
+    }
+    
+    /**
+     * 连接到服务器
+     * @param addr 服务器地址
+     * @return true如果连接成功
+     */
+    public bool connect(SocketAddr addr) {
+        if (this.getHandle() == INVALID_SOCKET) {
+            return false;
+        }
+        
+        int result = connect((int)this.getHandle(), (long)(&addr), 16);
+        if (result == 0) {
+            this.setConnected(true);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 连接到指定的IP和端口
+     * @param ip IP地址
+     * @param port 端口号
+     * @return true如果连接成功
+     */
+    public bool connectTo(String ip, int port) {
+        SocketAddr addr = new SocketAddr().fromIpPort(ip, port);
+        return this.connect(addr);
+    }
+    
+    /**
+     * 发送数据
+     * @param data 要发送的数据
+     * @return 发送的字节数，-1表示错误
+     */
+    public int send(String data) {
+        if (this.getHandle() == INVALID_SOCKET || !this.isConnected()) {
+            return -1;
+        }
+        
+        int len = data.length();
+        long ptr = (long)(data.c_str());
+        
+        long result = send((int)this.getHandle(), ptr, len, 0);
+        return (int)result;
+    }
+    
+    /**
+     * 发送字节数据
+     * @param buffer 数据缓冲区
+     * @param length 数据长度
+     * @return 发送的字节数，-1表示错误
+     */
+    public int sendBytes(long buffer, int length) {
+        if (this.getHandle() == INVALID_SOCKET || !this.connected) {
+            return -1;
+        }
+        
+        long result = send((int)this.getHandle(), buffer, length, 0);
+        return (int)result;
+    }
+    
+    /**
+     * 接收数据
+     * @param buffer 接收缓冲区
+     * @param maxLength 最大接收长度
+     * @return 接收的字节数，0表示连接关闭，-1表示错误
+     */
+    public int receive(long buffer, int maxLength) {
+        if (this.getHandle() == INVALID_SOCKET || !this.connected) {
+            return -1;
+        }
+        
+        long result = recv((int)this.getHandle(), buffer, maxLength, 0);
+        return (int)result;
+    }
+    
+    /**
+     * 接收数据到字符串
+     * @param maxLength 最大接收长度
+     * @return 接收到的字符串
+     */
+    public String receiveString(int maxLength) {
+        if (maxLength <= 0) {
+            maxLength = 1024;
+        }
+        
+        long buffer = malloc(maxLength);
+        if (buffer == 0) {
+            return "";
+        }
+        
+        int received = this.receive(buffer, maxLength);
+        String result = "";
+        
+        if (received > 0) {
+            result = NetworkUtils.bufferToString(buffer, received);
+        }
+        
+        free(buffer);
+        return result;
+    }
+    
+    /**
+     * 优雅地关闭连接
+     * @param how 关闭方式 (SD_RECEIVE, SD_SEND, SD_BOTH)
+     */
+    public void shutdown(int how) {
+        if (this.getHandle() != INVALID_SOCKET) {
+            shutdown((int)this.getHandle(), how);
+        }
+    }
+}
+
+/* ============================================================================
+ * TCP服务器类
+ * ============================================================================ */
+
+/**
+ * TCP服务器
+ */
+public class TcpServer {
+    private long handle;
+    private int port;
+    private bool listening;
+    
+    /**
+     * 创建TCP服务器
+     */
+    public TcpServer() {
+        this.handle = INVALID_SOCKET;
+        this.port = 0;
+        this.listening = false;
+    }
+    
+    /**
+     * 绑定到指定地址
+     * @param addr 绑定地址
+     * @return true如果成功
+     */
+    public bool bind(SocketAddr addr) {
+        this.handle = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (this.handle == INVALID_SOCKET) {
+            return false;
+        }
+        
+        /* 设置地址重用 */
+        int reuse = 1;
+        setsockopt((int)this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
+        
+        int result = bind((int)this.handle, (long)(&addr), 16);
+        if (result == 0) {
+            this.port = NetworkUtils.ntohs(addr.port);
+            return true;
+        }
+        
+        this.close();
+        return false;
+    }
+    
+    /**
+     * 绑定到指定端口
+     * @param port 端口号
+     * @return true如果成功
+     */
+    public bool bindTo(int port) {
+        SocketAddr addr = new SocketAddr().any(port);
+        return this.bind(addr);
+    }
+    
+    /**
+     * 开始监听
+     * @param backlog 连接队列长度
+     * @return true如果成功
+     */
+    public bool listen(int backlog) {
+        if (this.handle == INVALID_SOCKET) {
+            return false;
+        }
+        
+        int result = listen((int)this.handle, backlog);
+        if (result == 0) {
+            this.listening = true;
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 接受连接
+     * @return 客户端Socket，null表示错误
+     */
+    public TcpSocket accept() {
+        if (this.handle == INVALID_SOCKET || !this.listening) {
+            return null;
+        }
+        
+        long clientHandle = accept((int)this.handle, 0, 0);
+        if (clientHandle == INVALID_SOCKET) {
+            return null;
+        }
+        
+        return TcpSocket.fromHandle(clientHandle);
+    }
+    
+    /**
+     * 获取服务器端口
+     * @return 端口号
+     */
+    public int getPort() {
+        return this.port;
+    }
+    
+    /**
+     * 检查是否正在监听
+     * @return true如果正在监听
+     */
+    public bool isListening() {
+        return this.listening;
+    }
+    
+    /**
+     * 关闭服务器
+     */
+    public void close() {
+        if (this.handle != INVALID_SOCKET) {
+#ifdef _WIN32
+            closesocket(this.handle);
+#else
+            close((int)this.handle);
+#endif
+            this.handle = INVALID_SOCKET;
+            this.listening = false;
+            this.port = 0;
+        }
+    }
+}
+
+/* ============================================================================
+ * UDP Socket类
+ * ============================================================================ */
+
+/**
+ * UDP Socket
+ */
+public class UdpSocket extends Socket {
+    
+    /**
+     * 创建UDP Socket
+     */
+    public UdpSocket() {
+        super(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        this.setHandle(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+    }
+    
+    /**
+     * 绑定到指定地址
+     * @param addr 绑定地址
+     * @return true如果成功
+     */
+    public bool bind(SocketAddr addr) {
+        if (this.getHandle() == INVALID_SOCKET) {
+            return false;
+        }
+        
+        int result = bind((int)this.getHandle(), (long)(&addr), 16);
+        if (result == 0) {
+            this.setBound(true);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 绑定到指定端口
+     * @param port 端口号
+     * @return true如果成功
+     */
+    public bool bindTo(int port) {
+        SocketAddr addr = new SocketAddr().any(port);
+        return this.bind(addr);
+    }
+    
+    /**
+     * 发送数据到指定地址
+     * @param data 要发送的数据
+     * @param addr 目标地址
+     * @return 发送的字节数，-1表示错误
+     */
+    public int sendTo(String data, SocketAddr addr) {
+        if (this.getHandle() == INVALID_SOCKET) {
+            return -1;
+        }
+        
+        int len = data.length();
+        long ptr = (long)(data.c_str());
+        
+        long result = sendto((int)this.getHandle(), ptr, len, 0, (long)(&addr), 16);
+        return (int)result;
+    }
+    
+    /**
+     * 发送字节数据到指定地址
+     * @param buffer 数据缓冲区
+     * @param length 数据长度
+     * @param addr 目标地址
+     * @return 发送的字节数，-1表示错误
+     */
+    public int sendBytesTo(long buffer, int length, SocketAddr addr) {
+        if (this.getHandle() == INVALID_SOCKET) {
+            return -1;
+        }
+        
+        long result = sendto((int)this.getHandle(), buffer, length, 0, (long)(&addr), 16);
+        return (int)result;
+    }
+    
+    /**
+     * 发送数据到指定IP和端口
+     * @param data 要发送的数据
+     * @param ip 目标IP
+     * @param port 目标端口
+     * @return 发送的字节数，-1表示错误
+     */
+    public int sendToIpPort(String data, String ip, int port) {
+        SocketAddr addr = new SocketAddr().fromIpPort(ip, port);
+        return this.sendTo(data, addr);
+    }
+    
+    /**
+     * 接收数据
+     * @param buffer 接收缓冲区
+     * @param maxLength 最大接收长度
+     * @param fromAddr 发送方地址 (输出参数)
+     * @return 接收的字节数，-1表示错误
+     */
+    public int receiveFrom(long buffer, int maxLength, SocketAddr fromAddr) {
+        if (this.getHandle() == INVALID_SOCKET) {
+            return -1;
+        }
+        
+        int addrLen = 16;
+        long result = recvfrom((int)this.getHandle(), buffer, maxLength, 0, (long)(&fromAddr), (long)(&addrLen));
+        return (int)result;
+    }
+    
+    /**
+     * 接收数据到字符串
+     * @param maxLength 最大接收长度
+     * @param fromAddr 发送方地址 (输出参数)
+     * @return 接收到的字符串
+     */
+    public String receiveStringFrom(int maxLength, SocketAddr fromAddr) {
+        if (maxLength <= 0) {
+            maxLength = 1024;
+        }
+        
+        long buffer = malloc(maxLength);
+        if (buffer == 0) {
+            return "";
+        }
+        
+        int received = this.receiveFrom(buffer, maxLength, fromAddr);
+        String result = "";
+        
+        if (received > 0) {
+            result = NetworkUtils.bufferToString(buffer, received);
+        }
+        
+        free(buffer);
+        return result;
+    }
+}
+
+/* ============================================================================
+ * 网络工具类
+ * ============================================================================ */
+
+/**
+ * 网络工具类
+ * 提供字节序转换、初始化、辅助函数等
+ */
+public class NetworkUtils {
+    
+    /**
+     * 初始化网络库 (Windows需要)
+     * @return true如果成功
+     */
+    public static bool init() {
+#ifdef _WIN32
+        int version = 0x0202;
+        long wsaData = malloc(400);
+        if (wsaData == 0) {
+            return false;
+        }
+        int result = WSAStartup(version, wsaData);
+        free(wsaData);
+        return result == 0;
+#else
+        return true;
+#endif
+    }
+    
+    /**
+     * 清理网络库 (Windows需要)
+     */
+    public static void cleanup() {
+#ifdef _WIN32
+        WSACleanup();
+#endif
+    }
+    
+    /**
+     * 主机字节序转网络字节序 (16位)
+     * 假设小端系统 (x86/x86_64)
+     * @param hostshort 主机字节序的16位整数
+     * @return 网络字节序的16位整数
+     */
+    public static int htons(int hostshort) {
+        return ((hostshort & 0xFF) << 8) | ((hostshort >> 8) & 0xFF);
+    }
+    
+    /**
+     * 主机字节序转网络字节序 (32位)
+     * 假设小端系统 (x86/x86_64)
+     * @param hostlong 主机字节序的32位整数
+     * @return 网络字节序的32位整数
+     */
+    public static int htonl(int hostlong) {
+        return ((hostlong & 0xFF) << 24) |
+               ((hostlong & 0xFF00) << 8) |
+               ((hostlong >> 8) & 0xFF00) |
+               ((hostlong >> 24) & 0xFF);
+    }
+    
+    /**
+     * 网络字节序转主机字节序 (16位)
+     * @param netshort 网络字节序的16位整数
+     * @return 主机字节序的16位整数
+     */
+    public static int ntohs(int netshort) {
+        return htons(netshort);
+    }
+    
+    /**
+     * 网络字节序转主机字节序 (32位)
+     * @param netlong 网络字节序的32位整数
+     * @return 主机字节序的32位整数
+     */
+    public static int ntohl(int netlong) {
+        return htonl(netlong);
+    }
+    
+    /**
+     * 将缓冲区转换为字符串
+     * @param buffer 缓冲区指针
+     * @param length 数据长度
+     * @return 字符串
+     * @note 由于Cavvy限制，此功能需要运行时支持
+     */
+    public static String bufferToString(long buffer, int length) {
+        /* 暂时返回空字符串，实际实现需要运行时支持 */
+        return "";
+    }
+    
+    /**
+     * 解析IP地址
+     * @param ip IP地址字符串
+     * @return 网络字节序的地址，-1表示错误
+     */
+    public static long parseIp(String ip) {
+        return inet_addr(ip.c_str());
+    }
+    
+    /**
+     * 获取主机名对应的IP地址
+     * @param hostname 主机名
+     * @return IP地址字符串
+     */
+    public static String resolveHost(String hostname) {
+        /* 注意：gethostbyname需要C字符串指针
+         * 由于Cavvy目前不支持直接获取String的C指针
+         * 这里返回空字符串表示需要外部实现 */
+        return "";
+    }
+    
+    /**
+     * 获取主机名对应的IP地址（内部实现，使用C字符串）
+     * @param hostnamePtr 主机名C字符串指针
+     * @return IP地址字符串
+     * @note 由于Cavvy限制，此功能需要运行时支持
+     */
+    private static String resolveHostInternal(long hostnamePtr) {
+        /* 暂时返回空字符串，实际实现需要运行时支持 */
+        return "";
+    }
+    
+    /**
+     * 创建TCP客户端并连接到服务器
+     * @param ip 服务器IP
+     * @param port 服务器端口
+     * @return 连接的TcpSocket，null表示失败
+     */
+    public static TcpSocket connectTcp(String ip, int port) {
+        if (!NetworkUtils.init()) {
+            return null;
+        }
+        
+        TcpSocket socket = new TcpSocket();
+        if (!socket.connectTo(ip, port)) {
+            socket.close();
+            return null;
+        }
+        
+        return socket;
+    }
+    
+    /**
+     * 创建TCP服务器并监听端口
+     * @param port 监听端口
+     * @param backlog 连接队列长度
+     * @return 监听的TcpServer，null表示失败
+     */
+    public static TcpServer listenTcp(int port, int backlog) {
+        if (!NetworkUtils.init()) {
+            return null;
+        }
+        
+        TcpServer server = new TcpServer();
+        if (!server.bindTo(port)) {
+            server.close();
+            return null;
+        }
+        
+        if (!server.listen(backlog)) {
+            server.close();
+            return null;
+        }
+        
+        return server;
+    }
+    
+    /**
+     * 创建UDP Socket并绑定到端口
+     * @param port 绑定端口 (0表示任意端口)
+     * @return 绑定的UdpSocket，null表示失败
+     */
+    public static UdpSocket createUdp(int port) {
+        if (!NetworkUtils.init()) {
+            return null;
+        }
+        
+        UdpSocket socket = new UdpSocket();
+        
+        if (port > 0) {
+            if (!socket.bindTo(port)) {
+                socket.close();
+                return null;
+            }
+        }
+        
+        return socket;
+    }
+}
+
+#endif

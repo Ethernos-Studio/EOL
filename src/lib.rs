@@ -220,7 +220,9 @@ impl Compiler {
     fn convert_source_map(source_map: &preprocessor::SourceMap) -> std::collections::HashMap<usize, (String, usize)> {
         let mut map = std::collections::HashMap::new();
         for (idx, pos) in source_map.mappings.iter().enumerate() {
-            map.insert(idx + 1, (pos.file.clone(), pos.line)); // 1-based line numbers
+            // idx + 1 是 1-based 的输出行号
+            // pos.line + 1 将 0-based 原始行号转换为 1-based
+            map.insert(idx + 1, (pos.file.clone(), pos.line + 1));
         }
         map
     }

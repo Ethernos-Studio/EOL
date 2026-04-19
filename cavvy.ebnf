@@ -790,11 +790,110 @@ any_unicode_character = ? 任何 Unicode 字符 ?;
  *)
 
 (* ============================================================================
+ * 标准库 (Standard Library)
+ * ============================================================================ *)
+
+(*
+ * Cavvy 提供以下标准库模块（位于 caylibs/ 目录）：
+ *
+ * 1. Network.cay - 网络编程库
+ *    提供TCP/UDP Socket通信功能：
+ *    - Socket: 基础Socket类
+ *    - TcpSocket: TCP客户端Socket
+ *    - TcpServer: TCP服务器
+ *    - UdpSocket: UDP Socket
+ *    - SocketAddr: 网络地址结构
+ *    - NetworkUtils: 网络工具函数
+ *
+ *    使用示例：
+ *    #include "caylibs/Network.cay"
+ *
+ *    // TCP客户端
+ *    TcpSocket client = new TcpSocket();
+ *    client.connectTo("127.0.0.1", 8080);
+ *    client.send("Hello");
+ *    String response = client.receiveString(1024);
+ *    client.close();
+ *
+ *    // TCP服务器
+ *    TcpServer server = new TcpServer();
+ *    server.bindTo(8080);
+ *    server.listen(5);
+ *    TcpSocket client = server.accept();
+ *
+ *    // UDP通信
+ *    UdpSocket udp = new UdpSocket();
+ *    udp.bindTo(9090);
+ *    udp.sendToIpPort("Hello", "127.0.0.1", 9090);
+ *
+ * 2. IOPlus.cay - 增强I/O工具
+ *    - prints(): 类似Python的print函数
+ *    - printsNoLn(): 不换行打印
+ *    - printsSep(): 指定分隔符打印
+ *    - printi()/printfl()/printdb(): 打印数组
+ *
+ * 3. StringPlus.cay - 字符串增强
+ *    - split(): 字符串分割
+ *    - format(): 格式化字符串
+ *    - formatIndexed(): 索引格式化
+ *
+ * 4. Allocator.cay - 内存分配器
+ *    - Allocator: 分配器接口
+ *    - GlobalAlloc: 全局堆分配器
+ *    - Arena: 线性分配器
+ *    - ScopeAlloc: 栈作用域分配器
+ *)
+
+(* ============================================================================
+ * 标准库 (Standard Library)
+ * ============================================================================ *)
+
+(*
+ * Cavvy 提供以下标准库模块 (位于 caylibs/ 目录):
+ *
+ * 1. Allocator.cay - 内存分配器
+ *    - interface Allocator
+ *    - class GlobalAlloc
+ *    - class Arena
+ *    - class ScopeAlloc
+ *
+ * 2. IOPlus.cay - 输入输出增强
+ *    - prints(String...), printsNoLn(String...)
+ *    - printsSep(String, String...)
+ *    - printi(int...), printfl(float...), printdb(double...)
+ *    - input(String), input()
+ *
+ * 3. StringPlus.cay - 字符串增强
+ *    - split(String), split(String, String)
+ *    - format(String, String...), formatIndexed(String, String...)
+ *
+ * 4. Network.cay - 网络编程 (0.5.1.x 新增)
+ *    - class Socket - 基础Socket类
+ *    - class TcpSocket - TCP客户端
+ *    - class TcpServer - TCP服务器
+ *    - class UdpSocket - UDP Socket
+ *    - class SocketAddr - 网络地址
+ *    - class NetworkUtils - 网络工具
+ *    - 字节序转换: htons, htonl, ntohs, ntohl
+ *    - 便捷函数: connectTcp, listenTcp, createUdp
+ *
+ * 使用方式:
+ *   #include <Allocator.cay>
+ *   #include <Network.cay>
+ *)
+
+(* ============================================================================
  * 版本历史
  * ============================================================================ *)
 
 (*
- * 0.5.0.x (Build 32) - 当前版本
+ * 0.5.1.x (Build 33) - 当前版本
+ *   - 网络编程标准库 (Network.cay)
+ *   - TCP/UDP Socket支持
+ *   - 字节序转换函数
+ *   - 网络工具类
+ *
+ * 0.5.0.x (Build 32)
  *   - 内存分配器接口 (Allocator trait)
  *   - GlobalAlloc 默认堆分配器
  *   - Arena 线性分配器

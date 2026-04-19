@@ -938,6 +938,11 @@ impl IRGenerator {
 
     /// 生成单个 extern 函数声明
     fn generate_extern_function(&mut self, calling_conv: crate::ast::CallingConvention, func: &crate::ast::ExternFunction) -> cayResult<()> {
+        // 跳过运行时提供的函数（这些函数的定义已经在运行时模块中生成）
+        if func.name == "__cay_memcpy_byte" || func.name == "__cay_memset_byte" {
+            return Ok(());
+        }
+        
         let ret_type = self.type_to_llvm(&func.return_type);
 
         // 构建参数列表，支持可变参数

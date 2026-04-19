@@ -1,0 +1,19 @@
+/**
+ * Format 打印功能简单测试
+ */
+
+public int main() {
+    println("=== Format 简单测试 ===");
+
+    /* 测试1: 单个整数 */
+    int age = 25;
+    println("Age: %d", age);
+
+    /* 测试2: 两个整数 */
+    int x = 10;
+    int y = 20;
+    println("x = %d, y = %d", x, y);
+
+    println("=== 测试完成 ===");
+    return 0;
+}

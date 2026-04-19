@@ -1,0 +1,85 @@
+/**
+ * TCP服务器测试示例
+ * 
+ * 演示如何使用Network库创建TCP服务器
+ * 版本: 0.5.1.0
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== TCP服务器测试 ===");
+    
+    /* 初始化网络库 */
+    if (!NetworkUtils.init()) {
+        println("网络初始化失败");
+        return 1;
+    }
+    
+    println("网络初始化成功");
+    
+    /* 创建TCP服务器 */
+    TcpServer server = new TcpServer();
+    int port = 12345;
+    
+    /* 绑定到端口 */
+    if (!server.bindTo(port)) {
+        println("绑定端口失败: " + port);
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    
+    println("服务器绑定到端口: " + port);
+    
+    /* 开始监听 */
+    if (!server.listen(5)) {
+        println("监听失败");
+        server.close();
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    
+    println("服务器正在监听...");
+    println("等待客户端连接 (按Ctrl+C终止)...");
+    
+    /* 接受一个连接 */
+    TcpSocket client = server.accept();
+    
+    if (client == null) {
+        println("接受连接失败");
+        server.close();
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    
+    println("客户端已连接!");
+    
+    /* 接收数据 */
+    println("等待客户端消息...");
+    String message = client.receiveString(1024);
+    
+    if (message.length() > 0) {
+        println("收到消息: " + message);
+        
+        /* 发送响应 */
+        String response = "Hello, Client! Received: " + message;
+        client.send(response);
+        println("已发送响应");
+    } else {
+        println("未收到消息或连接已关闭");
+    }
+    
+    /* 关闭客户端连接 */
+    client.close();
+    println("客户端连接已关闭");
+    
+    /* 关闭服务器 */
+    server.close();
+    println("服务器已关闭");
+    
+    /* 清理网络库 */
+    NetworkUtils.cleanup();
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

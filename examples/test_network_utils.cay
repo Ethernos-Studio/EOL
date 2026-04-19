@@ -1,0 +1,108 @@
+/**
+ * 网络工具函数测试示例
+ * 
+ * 演示Network库中的工具函数
+ * 版本: 0.5.1.0
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== 网络工具函数测试 ===");
+    
+    /* 初始化网络库 */
+    if (!NetworkUtils.init()) {
+        println("网络初始化失败");
+        return 1;
+    }
+    
+    println("网络初始化成功");
+    
+    /* 测试字节序转换 */
+    println("\n--- 字节序转换测试 ---");
+    
+    int hostPort = 8080;
+    int netPort = NetworkUtils.htons(hostPort);
+    int hostPortBack = NetworkUtils.ntohs(netPort);
+    
+    println("主机字节序端口: " + hostPort);
+    println("网络字节序端口: " + netPort);
+    println("转换回主机字节序: " + hostPortBack);
+    
+    if (hostPort == hostPortBack) {
+        println("字节序转换测试通过!");
+    } else {
+        println("字节序转换测试失败!");
+    }
+    
+    /* 测试Socket地址创建 */
+    println("\n--- Socket地址测试 ---");
+    
+    SocketAddr addr1 = new SocketAddr().fromIpPort("192.168.1.1", 8080);
+    println("创建的地址 - 端口(网络字节序): " + addr1.port);
+    println("创建的地址 - 地址族: " + addr1.family);
+    
+    SocketAddr addr2 = new SocketAddr().any(9090);
+    println("任意地址 - 端口(网络字节序): " + addr2.port);
+    println("任意地址 - IP地址: " + addr2.addr);
+    
+    SocketAddr addr3 = new SocketAddr().localhost(3000);
+    println("本地地址 - 端口(网络字节序): " + addr3.port);
+    
+    /* 测试便捷函数 */
+    println("\n--- 便捷函数测试 ---");
+    
+    /* 测试TCP连接函数 (这里只是测试函数存在，不会真正连接) */
+    println("便捷函数 connectTcp 可用");
+    println("便捷函数 listenTcp 可用");
+    println("便捷函数 createUdp 可用");
+    
+    /* 测试TCP Socket创建 */
+    println("\n--- TCP Socket测试 ---");
+    TcpSocket tcpSocket = new TcpSocket();
+    if (tcpSocket.isValid()) {
+        println("TCP Socket创建成功");
+        
+        /* 设置选项 */
+        tcpSocket.setReuseAddr(true);
+        tcpSocket.setTcpNoDelay(true);
+        tcpSocket.setSendBufferSize(8192);
+        tcpSocket.setRecvBufferSize(8192);
+        
+        println("TCP选项设置完成");
+        tcpSocket.close();
+    } else {
+        println("TCP Socket创建失败");
+    }
+    
+    /* 测试UDP Socket创建 */
+    println("\n--- UDP Socket测试 ---");
+    UdpSocket udpSocket = new UdpSocket();
+    if (udpSocket.isValid()) {
+        println("UDP Socket创建成功");
+        udpSocket.close();
+    } else {
+        println("UDP Socket创建失败");
+    }
+    
+    /* 测试TCP服务器创建 */
+    println("\n--- TCP服务器测试 ---");
+    TcpServer server = new TcpServer();
+    if (server.bindTo(0)) {  /* 绑定到任意可用端口 */
+        println("TCP服务器绑定成功，端口: " + server.getPort());
+        
+        if (server.listen(5)) {
+            println("TCP服务器开始监听");
+        }
+        
+        server.close();
+    } else {
+        println("TCP服务器绑定失败");
+    }
+    
+    /* 清理网络库 */
+    NetworkUtils.cleanup();
+    
+    println("\n=== 所有测试完成 ===");
+    return 0;
+}

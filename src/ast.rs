@@ -357,6 +357,8 @@ pub enum UnaryOp {
     PreDec,
     PostInc,
     PostDec,
+    AddressOf,  // &variable - 取地址
+    Deref,      // *pointer - 解引用
 }
 
 #[derive(Debug, Clone)]

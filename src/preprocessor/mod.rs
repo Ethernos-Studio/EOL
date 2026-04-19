@@ -143,8 +143,24 @@ impl Preprocessor {
     /// # Returns
     /// 初始化后的预处理器
     pub fn new(base_dir: impl AsRef<Path>) -> Self {
+        let mut defines = HashMap::new();
+        
+        // 自动定义平台宏
+        #[cfg(target_os = "windows")]
+        {
+            defines.insert("_WIN32".to_string(), "".to_string());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            defines.insert("__linux__".to_string(), "".to_string());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            defines.insert("__APPLE__".to_string(), "".to_string());
+        }
+        
         Self {
-            defines: HashMap::new(),
+            defines,
             included_files: HashSet::new(),
             base_dir: base_dir.as_ref().to_path_buf(),
             conditional_stack: Vec::new(),
@@ -163,8 +179,24 @@ impl Preprocessor {
     /// # Returns
     /// 初始化后的预处理器
     pub fn with_system_paths(base_dir: impl AsRef<Path>, system_paths: Vec<PathBuf>) -> Self {
+        let mut defines = HashMap::new();
+        
+        // 自动定义平台宏
+        #[cfg(target_os = "windows")]
+        {
+            defines.insert("_WIN32".to_string(), "".to_string());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            defines.insert("__linux__".to_string(), "".to_string());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            defines.insert("__APPLE__".to_string(), "".to_string());
+        }
+        
         Self {
-            defines: HashMap::new(),
+            defines,
             included_files: HashSet::new(),
             base_dir: base_dir.as_ref().to_path_buf(),
             conditional_stack: Vec::new(),
@@ -382,8 +414,20 @@ impl Preprocessor {
                         // 添加到包含栈（用于循环检测）
                         self.include_stack.push(path.clone());
                         
+                        // 保存当前条件编译状态
+                        let saved_conditional_stack = self.conditional_stack.clone();
+                        let saved_skipping = self.skipping;
+                        
+                        // 重置条件编译状态用于包含文件
+                        self.conditional_stack = Vec::new();
+                        self.skipping = false;
+                        
                         // 递归处理包含的文件
                         let included_result = self.process_with_source_map(&include_content, &path)?;
+                        
+                        // 恢复条件编译状态
+                        self.conditional_stack = saved_conditional_stack;
+                        self.skipping = saved_skipping;
                         
                         // 处理完成后从栈中移除
                         self.include_stack.pop();

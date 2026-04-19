@@ -1,0 +1,13 @@
+/**
+ * Format 打印功能调试测试
+ */
+
+public int main() {
+    println("=== Format 调试测试 ===");
+
+    /* 测试: 转义百分号 */
+    println("Discount: 50%% off!");
+
+    println("=== 测试完成 ===");
+    return 0;
+}

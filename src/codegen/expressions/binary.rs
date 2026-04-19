@@ -374,15 +374,45 @@ impl IRGenerator {
 
     /// 生成逻辑与表达式
     fn generate_and(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        self.emit_line(&format!("  {} = and {} {}, {}", 
-            temp, left_type, left_val, right_val));
+        // 确保操作数都是 i1 类型
+        let left_i1 = if left_type == "i1" {
+            left_val.to_string()
+        } else {
+            let cmp_temp = self.new_temp();
+            self.emit_line(&format!("  {} = icmp ne {} {}, 0", cmp_temp, left_type, left_val));
+            cmp_temp
+        };
+        let right_i1 = if right_type == "i1" {
+            right_val.to_string()
+        } else {
+            let cmp_temp = self.new_temp();
+            self.emit_line(&format!("  {} = icmp ne {} {}, 0", cmp_temp, right_type, right_val));
+            cmp_temp
+        };
+        self.emit_line(&format!("  {} = and i1 {}, {}", 
+            temp, left_i1, right_i1));
         Ok(format!("i1 {}", temp))
     }
 
     /// 生成逻辑或表达式
     fn generate_or(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        self.emit_line(&format!("  {} = or {} {}, {}",
-            temp, left_type, left_val, right_val));
+        // 确保操作数都是 i1 类型
+        let left_i1 = if left_type == "i1" {
+            left_val.to_string()
+        } else {
+            let cmp_temp = self.new_temp();
+            self.emit_line(&format!("  {} = icmp ne {} {}, 0", cmp_temp, left_type, left_val));
+            cmp_temp
+        };
+        let right_i1 = if right_type == "i1" {
+            right_val.to_string()
+        } else {
+            let cmp_temp = self.new_temp();
+            self.emit_line(&format!("  {} = icmp ne {} {}, 0", cmp_temp, right_type, right_val));
+            cmp_temp
+        };
+        self.emit_line(&format!("  {} = or i1 {}, {}",
+            temp, left_i1, right_i1));
         Ok(format!("i1 {}", temp))
     }
 

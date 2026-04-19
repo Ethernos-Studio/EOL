@@ -1,0 +1,8 @@
+name = "cavvy"
+version = "0.5.0.1"
+description = "Cavvy Programming Language"
+package_type = "binary"
+publisher = "did:ethernos:cavvy"
+
+[entry_points]
+cavvy = "cavvy.exe"

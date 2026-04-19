@@ -387,6 +387,10 @@ impl IRGenerator {
                     }
                 })
             },
+            Expr::New(new_expr) => {
+                // New 表达式返回对象类型
+                Some(Type::Object(new_expr.class_name.clone()))
+            },
             _ => None,
         }
     }

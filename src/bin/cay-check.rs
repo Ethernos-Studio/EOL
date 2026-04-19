@@ -155,7 +155,7 @@ fn main() {
     let start_time = std::time::Instant::now();
 
     // 预处理阶段
-    let processed_source = if options.preprocess {
+    let (processed_source, source_map) = if options.preprocess {
         println!("[0] 预处理...");
         let base_dir = Path::new(&source_path)
             .parent()
@@ -165,19 +165,23 @@ fn main() {
         // 获取系统包含路径
         let system_paths = get_system_include_paths();
         
-        // 使用带系统路径的预处理器
+        // 使用带系统路径的预处理器（带源映射）
         let base_dir_str = base_dir.to_str().unwrap_or(".");
-        let preprocess_result = if system_paths.is_empty() {
-            preprocessor::preprocess(&source, &source_path, base_dir_str)
+        let mut pp = if system_paths.is_empty() {
+            preprocessor::Preprocessor::new(base_dir_str)
         } else {
-            let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths);
-            pp.process(&source, &source_path)
+            preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths)
         };
         
-        match preprocess_result {
-            Ok(processed) => {
+        match pp.process_with_source_map(&source, &source_path) {
+            Ok(result) => {
                 println!("  [+] 预处理通过");
-                processed
+                // 转换源映射格式
+                let mut map = std::collections::HashMap::new();
+                for (idx, pos) in result.source_map.mappings.iter().enumerate() {
+                    map.insert(idx + 1, (pos.file.clone(), pos.line + 1)); // 1-based line numbers
+                }
+                (result.code, Some(map))
             }
             Err(e) => {
                 print_error_with_context(&e, &source, &source_path);
@@ -185,7 +189,7 @@ fn main() {
             }
         }
     } else {
-        source
+        (source, None)
     };
 
     match options.level {
@@ -194,7 +198,12 @@ fn main() {
                 println!("");
             }
             println!("[1] 词法分析...");
-            match lexer::lex(&processed_source) {
+            let lex_result = if let Some(ref map) = source_map {
+                lexer::lex_with_source_map(&processed_source, map.clone())
+            } else {
+                lexer::lex(&processed_source)
+            };
+            match lex_result {
                 Ok(tokens) => {
                     let elapsed = start_time.elapsed();
                     println!("  [+] 词法分析通过");
@@ -213,7 +222,12 @@ fn main() {
                 println!("");
             }
             println!("[1] 词法分析...");
-            let tokens = match lexer::lex(&processed_source) {
+            let lex_result = if let Some(ref map) = source_map {
+                lexer::lex_with_source_map(&processed_source, map.clone())
+            } else {
+                lexer::lex(&processed_source)
+            };
+            let tokens = match lex_result {
                 Ok(tokens) => {
                     println!("  [+] 词法分析通过");
                     tokens
@@ -245,7 +259,12 @@ fn main() {
                 println!("");
             }
             println!("[1] 词法分析...");
-            let tokens = match lexer::lex(&processed_source) {
+            let lex_result = if let Some(ref map) = source_map {
+                lexer::lex_with_source_map(&processed_source, map.clone())
+            } else {
+                lexer::lex(&processed_source)
+            };
+            let tokens = match lex_result {
                 Ok(tokens) => {
                     println!("  [+] 词法分析通过");
                     tokens

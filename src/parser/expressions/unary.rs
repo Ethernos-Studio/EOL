@@ -59,6 +59,26 @@ pub fn parse_unary(parser: &mut Parser) -> cayResult<Expr> {
         }));
     }
 
+    // 取地址 &variable
+    if parser.match_token(&crate::lexer::Token::Ampersand) {
+        let operand = parse_unary(parser)?;
+        return Ok(Expr::Unary(UnaryExpr {
+            op: UnaryOp::AddressOf,
+            operand: Box::new(operand),
+            loc,
+        }));
+    }
+
+    // 解引用 *pointer
+    if parser.match_token(&crate::lexer::Token::Star) {
+        let operand = parse_unary(parser)?;
+        return Ok(Expr::Unary(UnaryExpr {
+            op: UnaryOp::Deref,
+            operand: Box::new(operand),
+            loc,
+        }));
+    }
+
     // 尝试解析类型转换 (type) expr
     if parser.check(&crate::lexer::Token::LParen) {
         let checkpoint = parser.pos;

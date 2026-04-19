@@ -1,0 +1,83 @@
+/**
+ * TCP客户端测试示例
+ * 
+ * 演示如何使用Network库创建TCP客户端
+ * 版本: 0.5.1.0
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== TCP客户端测试 ===");
+    
+    /* 初始化网络库 */
+    if (!NetworkUtils.init()) {
+        println("网络初始化失败");
+        return 1;
+    }
+    
+    println("网络初始化成功");
+    
+    /* 创建TCP Socket */
+    TcpSocket socket = new TcpSocket();
+    
+    if (!socket.isValid()) {
+        println("创建Socket失败");
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    
+    println("Socket创建成功");
+    
+    /* 连接到服务器 (这里连接到本地回环地址的测试端口) */
+    String serverIp = "127.0.0.1";
+    int serverPort = 12345;
+    
+    println("正在连接到服务器: " + serverIp + ":" + serverPort);
+    
+    if (!socket.connectTo(serverIp, serverPort)) {
+        println("连接失败 (服务器可能未启动)");
+        socket.close();
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    
+    println("连接成功!");
+    
+    /* 设置TCP_NODELAY选项 */
+    socket.setTcpNoDelay(true);
+    println("已设置TCP_NODELAY");
+    
+    /* 发送数据 */
+    String message = "Hello, Server!";
+    println("发送消息: " + message);
+    
+    int sent = socket.send(message);
+    if (sent < 0) {
+        println("发送失败");
+    } else {
+        println("发送成功，字节数: " + sent);
+    }
+    
+    /* 接收响应 */
+    println("等待服务器响应...");
+    String response = socket.receiveString(1024);
+    
+    if (response.length() > 0) {
+        println("收到响应: " + response);
+    } else {
+        println("未收到响应或连接已关闭");
+    }
+    
+    /* 关闭连接 */
+    socket.shutdown(SD_BOTH);
+    socket.close();
+    
+    println("连接已关闭");
+    
+    /* 清理网络库 */
+    NetworkUtils.cleanup();
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

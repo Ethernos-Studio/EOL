@@ -223,6 +223,15 @@ impl SemanticAnalyzer {
                 }
             }
             UnaryOp::BitNot => Ok(operand_type),
+            UnaryOp::AddressOf => {
+                // &操作符返回指向操作数的指针，类型为 Int64 (long)
+                Ok(Type::Int64)
+            }
+            UnaryOp::Deref => {
+                // *操作符解引用指针，返回指针指向的类型
+                // 简化处理：假设解引用返回 Int32
+                Ok(Type::Int32)
+            }
             _ => Ok(operand_type),
         }
     }
@@ -245,7 +254,8 @@ impl SemanticAnalyzer {
             }
 
             // 检查是否是 extern 函数（全局函数）
-            if let Some(ref prog) = self.program {
+            let extern_func_info = if let Some(ref prog) = self.program {
+                let mut found_func = None;
                 for extern_decl in &prog.extern_declarations {
                     for extern_func in &extern_decl.functions {
                         if extern_func.name == name.as_ref() {
@@ -271,11 +281,37 @@ impl SemanticAnalyzer {
                                 }
                             }
                             
-                            // 返回 extern 函数的返回类型
-                            return Ok(extern_func.return_type.clone());
+                            found_func = Some((extern_func.return_type.clone(), extern_func.params.clone()));
+                            break;
                         }
                     }
+                    if found_func.is_some() {
+                        break;
+                    }
                 }
+                found_func
+            } else {
+                None
+            };
+            
+            // 在可变借用self之前检查extern函数参数类型
+            if let Some((return_type, params)) = extern_func_info {
+                // 检查参数类型兼容性
+                for (i, (arg, param)) in call.args.iter().zip(params.iter()).enumerate() {
+                    if param.is_varargs {
+                        break; // 可变参数后面不再检查
+                    }
+                    let arg_type = self.infer_expr_type(arg)?;
+                    if !self.types_compatible(&arg_type, &param.param_type) {
+                        return Err(semantic_error(
+                            call.loc.line,
+                            call.loc.column,
+                            format!("Argument {} type mismatch: expected {}, got {}",
+                                i + 1, param.param_type, arg_type)
+                        ));
+                    }
+                }
+                return Ok(return_type);
             }
 
             // 尝试查找当前类的方法（无对象调用）- 支持方法重载

@@ -158,6 +158,15 @@ impl IRGenerator {
                     temp, obj_val, other_val));
                 Ok(Some(format!("i1 {}", temp)))
             }
+            "c_str" => {
+                // c_str() - 返回C字符串指针 (i8*)
+                // 在Cavvy中，String本身就是i8*，所以直接返回
+                if !args.is_empty() {
+                    return Err(codegen_error("String.c_str() takes no arguments".to_string()));
+                }
+                // String在Cavvy内部就是i8*，直接返回对象值
+                Ok(Some(format!("i8* {}", obj_val)))
+            }
             _ => Ok(None), // 不是已知的 String 方法
         }
     }

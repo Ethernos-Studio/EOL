@@ -1,0 +1,664 @@
+/**
+ * StringBuilder - 可变字符串构建器
+ * 
+ * 提供高效的字符串拼接操作
+ * 版本: 0.5.1.0
+ */
+
+#ifndef CAY_STRINGBUILDER_H
+#define CAY_STRINGBUILDER_H
+
+/* 外部辅助函数声明 */
+extern {
+    /* 内存分配函数 */
+    long malloc(int size);
+    void free(long ptr);
+    
+    /* 内存操作函数（运行时提供） */
+    void __cay_memcpy_byte(long dest, long src, int n);
+    void __cay_memset_byte(long ptr, int value, int n);
+}
+
+/**
+ * 字符串构建器类
+ * 用于高效地构建和拼接字符串
+ */
+public class StringBuilder {
+    /* 内部缓冲区指针 */
+    private long buffer;
+    /* 当前长度 */
+    private int length;
+    /* 缓冲区容量 */
+    private int capacity;
+    
+    /* 默认初始容量 */
+    private static final int DEFAULT_CAPACITY = 16;
+    /* 容量增长因子 */
+    private static final int GROWTH_FACTOR = 2;
+    
+    /**
+     * 默认构造函数
+     */
+    public StringBuilder() {
+        this.capacity = DEFAULT_CAPACITY;
+        this.buffer = malloc(this.capacity);
+        this.length = 0;
+        /* 初始化为空字符串 */
+        if (this.buffer != 0) {
+            __cay_memset_byte(this.buffer, 0, 1);
+        }
+    }
+
+    /**
+     * 带初始容量的构造函数
+     * @param initialCapacity 初始容量
+     */
+    public StringBuilder(int initialCapacity) {
+        if (initialCapacity < 0) {
+            initialCapacity = DEFAULT_CAPACITY;
+        }
+        this.capacity = initialCapacity;
+        this.buffer = malloc(this.capacity);
+        this.length = 0;
+        if (this.buffer != 0) {
+            __cay_memset_byte(this.buffer, 0, 1);
+        }
+    }
+    
+    /**
+     * 从初始字符串构造
+     * @param str 初始字符串
+     */
+    public StringBuilder(String str) {
+        this();
+        if (str != null) {
+            this.append(str);
+        }
+    }
+    
+    /**
+     * 析构函数，释放内存
+     */
+    public void finalize() {
+        if (this.buffer != 0) {
+            free(this.buffer);
+            this.buffer = 0;
+        }
+    }
+    
+    /**
+     * 确保容量足够
+     * @param minCapacity 最小需要的容量
+     */
+    private void ensureCapacity(int minCapacity) {
+        if (minCapacity <= this.capacity) {
+            return;
+        }
+        
+        /* 计算新容量 */
+        int newCapacity = this.capacity * GROWTH_FACTOR;
+        if (newCapacity < minCapacity) {
+            newCapacity = minCapacity;
+        }
+        
+        /* 分配新缓冲区 */
+        long newBuffer = malloc(newCapacity);
+        if (newBuffer == 0) {
+            return; /* 内存分配失败 */
+        }
+        
+        /* 复制旧数据 - 使用外部辅助函数 */
+        if (this.length > 0 && this.buffer != 0) {
+            __cay_memcpy_byte(newBuffer, this.buffer, this.length);
+        }
+        
+        /* 释放旧缓冲区 */
+        if (this.buffer != 0) {
+            free(this.buffer);
+        }
+        
+        this.buffer = newBuffer;
+        this.capacity = newCapacity;
+    }
+    
+    /**
+     * 追加字符串
+     * @param str 要追加的字符串
+     * @return this，支持链式调用
+     */
+    public StringBuilder append(String str) {
+        if (str == null) {
+            return this.append("null");
+        }
+        
+        int strLen = str.length();
+        if (strLen == 0) {
+            return this;
+        }
+        
+        /* 确保容量足够（包括null terminator） */
+        this.ensureCapacity(this.length + strLen + 1);
+        
+        /* 复制字符串内容 - 使用外部辅助函数 */
+        __cay_memcpy_byte(this.buffer + this.length, str.c_str(), strLen);
+        
+        this.length = this.length + strLen;
+        
+        /* 添加null terminator */
+        __cay_memset_byte(this.buffer + this.length, 0, 1);
+        
+        return this;
+    }
+    
+    /**
+     * 追加字符
+     * @param c 要追加的字符
+     * @return this，支持链式调用
+     */
+    public StringBuilder append(char c) {
+        this.ensureCapacity(this.length + 2);
+        
+        /* 使用外部辅助函数写入字符 */
+        __cay_memset_byte(this.buffer + this.length, (int)c, 1);
+        this.length = this.length + 1;
+        
+        /* 添加null terminator */
+        __cay_memset_byte(this.buffer + this.length, 0, 1);
+        
+        return this;
+    }
+    
+    /**
+     * 追加整数
+     * @param n 要追加的整数
+     * @return this，支持链式调用
+     */
+    public StringBuilder append(int n) {
+        /* 使用字符串拼接转换整数为字符串 */
+        if (n == 0) {
+            return this.append("0");
+        }
+        
+        boolean negative = false;
+        if (n < 0) {
+            negative = true;
+            n = -n;
+        }
+        
+        String result = "";
+        while (n > 0) {
+            long digit = n % 10;
+            char c = (char)('0' + (int)digit);
+            result = c + result;
+            n = n / 10;
+        }
+        
+        if (negative) {
+            result = "-" + result;
+        }
+        
+        return this.append(result);
+    }
+    
+    /**
+     * 追加长整数
+     * @param n 要追加的长整数
+     * @return this，支持链式调用
+     */
+    public StringBuilder append(long n) {
+        /* 使用字符串拼接转换长整数为字符串 */
+        if (n == 0) {
+            return this.append("0");
+        }
+        
+        boolean negative = false;
+        if (n < 0) {
+            negative = true;
+            n = -n;
+        }
+        
+        String result = "";
+        while (n > 0) {
+            long digit = n % 10;
+            char c = (char)('0' + digit);
+            result = c + result;
+            n = n / 10;
+        }
+        
+        if (negative) {
+            result = "-" + result;
+        }
+        
+        return this.append(result);
+    }
+    
+    /**
+     * 追加布尔值
+     * @param b 要追加的布尔值
+     * @return this，支持链式调用
+     */
+    public StringBuilder append(boolean b) {
+        if (b) {
+            return this.append("true");
+        } else {
+            return this.append("false");
+        }
+    }
+    
+    /**
+     * 追加字符数组
+     * @param chars 要追加的字符数组
+     * @return this，支持链式调用
+     */
+    public StringBuilder append(char[] chars) {
+        if (chars == null) {
+            return this.append("null");
+        }
+        
+        int len = chars.length;
+        int i = 0;
+        while (i < len) {
+            this.append(chars[i]);
+            i = i + 1;
+        }
+        
+        return this;
+    }
+    
+    /**
+     * 追加换行符
+     * @return this，支持链式调用
+     */
+    public StringBuilder appendln() {
+        return this.append('\n');
+    }
+    
+    /**
+     * 追加字符串并添加换行符
+     * @param str 要追加的字符串
+     * @return this，支持链式调用
+     */
+    public StringBuilder appendln(String str) {
+        this.append(str);
+        return this.append('\n');
+    }
+    
+    /**
+     * 获取当前长度
+     * @return 字符串长度
+     */
+    public int length() {
+        return this.length;
+    }
+    
+    /**
+     * 获取当前容量
+     * @return 缓冲区容量
+     */
+    public int capacity() {
+        return this.capacity;
+    }
+    
+    /**
+     * 检查是否为空
+     * @return true如果长度为0
+     */
+    public boolean isEmpty() {
+        return this.length == 0;
+    }
+    
+    /**
+     * 清空字符串构建器
+     * @return this，支持链式调用
+     */
+    public StringBuilder clear() {
+        this.length = 0;
+        if (this.buffer != 0) {
+            __cay_memset_byte(this.buffer, 0, 1);
+        }
+        return this;
+    }
+    
+    /**
+     * 转换为字符串
+     * @return 构建的字符串
+     */
+    public String toString() {
+        if (this.length == 0 || this.buffer == 0) {
+            return "";
+        }
+        
+        /* 使用字符数组构建字符串 */
+        char[] chars = new char[this.length]();
+        
+        int i = 0;
+        while (i < this.length) {
+            long ptr = this.buffer + i;
+            int pi = (int)(ptr & 0xFF);
+            chars[i] = (char)pi;
+            i = i + 1;
+        }
+        
+        return charsToString(chars, this.length);
+    }
+    
+    /**
+     * 将字符数组转换为字符串
+     * @param chars 字符数组
+     * @param len 字符数量
+     * @return 字符串
+     */
+    private static String charsToString(char[] chars, int len) {
+        String result = "";
+        int i = 0;
+        while (i < len) {
+            result = result + chars[i];
+            i = i + 1;
+        }
+        return result;
+    }
+    
+    /**
+     * 获取指定位置的字符
+     * @param index 索引
+     * @return 字符
+     */
+    public char charAt(int index) {
+        if (index < 0 || index >= this.length || this.buffer == 0) {
+            return '\0';
+        }
+        long ptr = this.buffer + index;
+        int pi = (int)(ptr & 0xFF);
+        return (char)pi;
+    }
+    
+    /**
+     * 删除指定范围的字符
+     * @param start 起始索引（包含）
+     * @param end 结束索引（不包含）
+     * @return this，支持链式调用
+     */
+    public StringBuilder delete(int start, int end) {
+        if (start < 0) {
+            start = 0;
+        }
+        if (end > this.length) {
+            end = this.length;
+        }
+        if (start >= end) {
+            return this;
+        }
+        
+        int deleteLen = end - start;
+        int moveLen = this.length - end;
+        
+        /* 移动后面的字符 */
+        int i = 0;
+        while (i < moveLen) {
+            long srcPtr = this.buffer + end + i;
+            long dstPtr = this.buffer + start + i;
+            int si = (int)(srcPtr & 0xFF);
+            dstPtr = si;
+            i = i + 1;
+        }
+        
+        this.length = this.length - deleteLen;
+        
+        /* 更新null terminator */
+        long endPtr = this.buffer + this.length;
+        endPtr = 0;
+        
+        return this;
+    }
+    
+    /**
+     * 在指定位置插入字符串
+     * @param offset 插入位置
+     * @param str 要插入的字符串
+     * @return this，支持链式调用
+     */
+    public StringBuilder insert(int offset, String str) {
+        if (offset < 0) {
+            offset = 0;
+        }
+        if (offset > this.length) {
+            offset = this.length;
+        }
+        
+        if (str == null) {
+            str = "null";
+        }
+        
+        int strLen = str.length();
+        if (strLen == 0) {
+            return this;
+        }
+        
+        /* 确保容量 */
+        this.ensureCapacity(this.length + strLen + 1);
+        
+        /* 移动后面的字符 */
+        int moveLen = this.length - offset;
+        int i = moveLen - 1;
+        while (i >= 0) {
+            long srcPtr = this.buffer + offset + i;
+            long dstPtr = this.buffer + offset + strLen + i;
+            int si = (int)(srcPtr & 0xFF);
+            dstPtr = si;
+            i = i - 1;
+        }
+        
+        /* 插入新字符串 - 使用外部辅助函数 */
+        __cay_memcpy_byte(this.buffer + offset, str.c_str(), strLen);
+        
+        this.length = this.length + strLen;
+        
+        /* 更新null terminator */
+        __cay_memset_byte(this.buffer + this.length, 0, 1);
+        
+        return this;
+    }
+    
+    /**
+     * 反转字符串
+     * @return this，支持链式调用
+     */
+    public StringBuilder reverse() {
+        if (this.length <= 1 || this.buffer == 0) {
+            return this;
+        }
+        
+        int left = 0;
+        int right = this.length - 1;
+        
+        while (left < right) {
+            long leftPtr = this.buffer + left;
+            long rightPtr = this.buffer + right;
+            
+            int li = (int)(leftPtr & 0xFF);
+            int ri = (int)(rightPtr & 0xFF);
+            char temp = (char)li;
+            leftPtr = ri;
+            rightPtr = (int)temp & 0xFF;
+            
+            left = left + 1;
+            right = right - 1;
+        }
+        
+        return this;
+    }
+    
+    /**
+     * 设置长度（截断或扩展）
+     * @param newLength 新长度
+     */
+    public void setLength(int newLength) {
+        if (newLength < 0) {
+            return;
+        }
+        
+        if (newLength > this.length) {
+            /* 扩展 - 填充null字符 */
+            this.ensureCapacity(newLength + 1);
+            int i = this.length;
+            while (i < newLength) {
+                long ptr = this.buffer + i;
+                ptr = 0;
+                i = i + 1;
+            }
+        }
+        
+        this.length = newLength;
+        
+        /* 更新null terminator */
+        if (this.buffer != 0) {
+            long endPtr = this.buffer + this.length;
+            endPtr = 0;
+        }
+    }
+    
+    /**
+     * 截取子字符串
+     * @param start 起始索引
+     * @return 子字符串
+     */
+    public String substring(int start) {
+        return this.substring(start, this.length);
+    }
+    
+    /**
+     * 截取子字符串
+     * @param start 起始索引（包含）
+     * @param end 结束索引（不包含）
+     * @return 子字符串
+     */
+    public String substring(int start, int end) {
+        if (start < 0) {
+            start = 0;
+        }
+        if (end > this.length) {
+            end = this.length;
+        }
+        if (start >= end) {
+            return "";
+        }
+        
+        int len = end - start;
+        char[] chars = new char[len]();
+        
+        int i = 0;
+        while (i < len) {
+            long ptr = this.buffer + start + i;
+            int pi = (int)(ptr & 0xFF);
+            chars[i] = (char)pi;
+            i = i + 1;
+        }
+        
+        return charsToString(chars, len);
+    }
+    
+    /**
+     * 查找子串首次出现的位置
+     * @param str 要查找的子串
+     * @return 索引位置，-1表示未找到
+     */
+    public int indexOf(String str) {
+        if (str == null || this.length == 0) {
+            return -1;
+        }
+        
+        int strLen = str.length();
+        if (strLen == 0) {
+            return 0;
+        }
+        if (strLen > this.length) {
+            return -1;
+        }
+        
+        int i = 0;
+        while (i <= this.length - strLen) {
+            int j = 0;
+            while (j < strLen) {
+                long ptr1 = this.buffer + i + j;
+                int pi = (int)(ptr1 & 0xFF);
+                char c1 = (char)pi;
+                char c2 = str.charAt(j);
+                if (c1 != c2) {
+                    break;
+                }
+                j = j + 1;
+            }
+            if (j == strLen) {
+                return i;
+            }
+            i = i + 1;
+        }
+        
+        return -1;
+    }
+    
+    /**
+     * 替换所有出现的子串
+     * @param target 目标子串
+     * @param replacement 替换内容
+     * @return this，支持链式调用
+     */
+    public StringBuilder replace(String target, String replacement) {
+        if (target == null || replacement == null || this.length == 0) {
+            return this;
+        }
+        
+        int targetLen = target.length();
+        int replacementLen = replacement.length();
+        
+        if (targetLen == 0) {
+            return this;
+        }
+        
+        /* 简单实现：转换为字符串，替换，再设置回来 */
+        String current = this.toString();
+        String result = current.replace(target, replacement);
+        
+        this.clear();
+        this.append(result);
+        
+        return this;
+    }
+    
+    /**
+     * 获取内部缓冲区指针（用于FFI）
+     * @return C字符串指针
+     */
+    public long c_str() {
+        return this.buffer;
+    }
+    
+    /**
+     * 从C字符串指针创建StringBuilder
+     * @param ptr C字符串指针
+     * @return StringBuilder实例
+     */
+    public static StringBuilder fromCString(long ptr) {
+        StringBuilder sb = new StringBuilder();
+        if (ptr == 0) {
+            return sb;
+        }
+        
+        /* 复制C字符串内容 */
+        int i = 0;
+        while (true) {
+            long charPtr = ptr + i;
+            int ci = (int)(charPtr & 0xFF);
+            char c = (char)ci;
+            if (c == '\0') {
+                break;
+            }
+            sb.append(c);
+            i = i + 1;
+        }
+        
+        return sb;
+    }
+}
+
+#endif /* CAY_STRINGBUILDER_H */

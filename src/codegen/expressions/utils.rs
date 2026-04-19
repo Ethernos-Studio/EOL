@@ -27,17 +27,17 @@ impl IRGenerator {
             return (left_type.to_string(), left_val.to_string(), right_val.to_string());
         }
         
-        // char (i8) 类型在算术运算中需要提升到 i32
-        let target_type = if left_type == "i8" || right_type == "i8" {
-            "i32"
-        } else if left_type == right_type {
+        // 如果类型相同，直接返回
+        if left_type == right_type {
             return (left_type.to_string(), left_val.to_string(), right_val.to_string());
-        } else {
-            // 确定提升后的类型（选择位数更大的类型）
-            let left_bits: u32 = left_type.trim_start_matches('i').parse().unwrap_or(64);
-            let right_bits: u32 = right_type.trim_start_matches('i').parse().unwrap_or(64);
-            if left_bits >= right_bits { left_type } else { right_type }
-        };
+        }
+        
+        // 确定提升后的类型（选择位数更大的类型）
+        let left_bits: u32 = left_type.trim_start_matches('i').parse().unwrap_or(64);
+        let right_bits: u32 = right_type.trim_start_matches('i').parse().unwrap_or(64);
+        
+        // char (i8) 类型在算术运算中需要提升，但如果另一个操作数是 i64，则提升到 i64
+        let target_type = if left_bits >= right_bits { left_type } else { right_type };
         
         // 提升左操作数
         let promoted_left = if left_type != target_type {

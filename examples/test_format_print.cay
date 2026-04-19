@@ -1,0 +1,61 @@
+/**
+ * Format 打印功能测试
+ *
+ * 测试 print/println 的 format 写法支持
+ * 版本: 0.5.1.0
+ */
+
+public int main() {
+    println("=== Format 打印功能测试 ===");
+
+    /* 测试1: 原有的单参数写法（向后兼容） */
+    println("--- 测试1: 单参数写法（向后兼容） ---");
+    print("字符串: ");
+    println("Hello World");
+    print("整数: ");
+    println(42);
+    print("长整数: ");
+    println(1234567890L);
+
+    /* 测试2: Format 字符串 - 整数 */
+    println("\n--- 测试2: Format 字符串 - 整数 ---");
+    int age = 25;
+    println("Age: %d", age);
+
+    int x = 10;
+    int y = 20;
+    println("x = %d, y = %d", x, y);
+
+    /* 测试3: Format 字符串 - 字符串 */
+    println("\n--- 测试3: Format 字符串 - 字符串 ---");
+    String name = "Alice";
+    println("Name: %s", name);
+
+    String first = "Hello";
+    String last = "World";
+    println("%s %s!", first, last);
+
+    /* 测试4: Format 字符串 - 混合类型 */
+    println("\n--- 测试4: Format 字符串 - 混合类型 ---");
+    String user = "Bob";
+    int score = 95;
+    println("User: %s, Score: %d", user, score);
+
+    /* 测试5: Format 字符串 - 不换行 */
+    println("\n--- 测试5: Format 字符串 - 不换行 ---");
+    print("Loading");
+    print(".");
+    print(".");
+    println(". Done!");
+
+    print("Progress: %d%%", 75);
+    println(" complete");
+
+    /* 测试6: 转义百分号 */
+    println("\n--- 测试6: 转义百分号 ---");
+    println("Discount: 50%% off!");
+    println("Rate: %d%%", 80);
+
+    println("\n=== 所有测试完成 ===");
+    return 0;
+}

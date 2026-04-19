@@ -21,6 +21,12 @@ impl IRGenerator {
                 // 需要类型转换
                 let temp = self.new_temp();
 
+                // 特殊处理：null 值（i64 0）转换为指针类型
+                if value == "i64 0" && ret_type.ends_with("*") {
+                    self.emit_line(&format!("  ret {} null", ret_type));
+                    return Ok(());
+                }
+
                 // 浮点类型转换
                 if value_type == "double" && ret_type == "float" {
                     // double -> float 转换

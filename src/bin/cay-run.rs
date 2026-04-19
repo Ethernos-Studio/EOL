@@ -440,6 +440,11 @@ fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptio
         ir2exe_args.push(format!("-L{}", path));
     }
 
+    // 自动检测并添加网络库（Windows）
+    if ir_code.contains("WSAStartup") || ir_code.contains("socket(") || ir_code.contains("@socket(") {
+        ir2exe_args.push("-lws2_32".to_string());
+    }
+
     // 额外库
     for lib in &options.link_libs {
         ir2exe_args.push(format!("-l{}", lib));

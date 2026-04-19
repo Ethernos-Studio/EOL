@@ -140,5 +140,37 @@ impl IRGenerator {
         self.emit_string_replace_runtime();
         self.emit_string_isempty_runtime();
         self.emit_string_equals_runtime();
+        
+        // 生成内存操作函数
+        self.emit_memory_runtime();
+    }
+    
+    /// 生成内存操作运行时函数
+    fn emit_memory_runtime(&mut self) {
+        // __cay_memset_byte: 按字节设置内存
+        self.emit_raw("define void @__cay_memset_byte(i64 %ptr, i32 %value, i32 %n) {");
+        self.emit_raw("entry:");
+        self.emit_raw("  %ptr_i8 = inttoptr i64 %ptr to i8*");
+        self.emit_raw("  %val_i8 = trunc i32 %value to i8");
+        self.emit_raw("  %n_i64 = sext i32 %n to i64");
+        self.emit_raw("  call void @llvm.memset.p0i8.i64(i8* %ptr_i8, i8 %val_i8, i64 %n_i64, i1 false)");
+        self.emit_raw("  ret void");
+        self.emit_raw("}");
+        self.emit_raw("");
+        
+        // __cay_memcpy_byte: 按字节复制内存
+        self.emit_raw("define void @__cay_memcpy_byte(i64 %dest, i64 %src, i32 %n) {");
+        self.emit_raw("entry:");
+        self.emit_raw("  %dest_i8 = inttoptr i64 %dest to i8*");
+        self.emit_raw("  %src_i8 = inttoptr i64 %src to i8*");
+        self.emit_raw("  %n_i64 = sext i32 %n to i64");
+        self.emit_raw("  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest_i8, i8* %src_i8, i64 %n_i64, i1 false)");
+        self.emit_raw("  ret void");
+        self.emit_raw("}");
+        self.emit_raw("");
+        
+        // 声明 llvm.memset
+        self.emit_raw("declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)");
+        self.emit_raw("");
     }
 }

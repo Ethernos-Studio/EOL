@@ -313,6 +313,12 @@ impl SemanticAnalyzer {
                 }
                 Ok(Type::Bool)
             }
+            "c_str" => {
+                if !args.is_empty() {
+                    return Err(semantic_error(line, column, "String.c_str() takes no arguments".to_string()));
+                }
+                Ok(Type::Int64)
+            }
             _ => Err(semantic_error(line, column, format!("Unknown String method '{}'", method_name))),
         }
     }

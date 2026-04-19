@@ -104,8 +104,25 @@ impl IRGenerator {
                         }
                     }
                     _ => {
-                        // object 不是标识符，可能是其他表达式
-                        return Err(codegen_error("Invalid method call".to_string()));
+                        // object 不是标识符，可能是其他表达式（如 new 表达式）
+                        // 尝试从表达式推断类型
+                        if let Some(obj_type) = self.get_expression_type(&member.object) {
+                            let class_name = match obj_type {
+                                crate::types::Type::Object(name) => name,
+                                _ => {
+                                    return Err(codegen_error(format!(
+                                        "Cannot call method '{}' on non-class type",
+                                        member.member
+                                    )));
+                                }
+                            };
+                            (class_name, member.member.clone(), Some(member.object.clone()))
+                        } else {
+                            return Err(codegen_error(format!(
+                                "Cannot determine type for method call '{}'",
+                                member.member
+                            )));
+                        }
                     }
                 }
             }
