@@ -1,0 +1,35 @@
+/**
+ * htons测试
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== htons测试 ===");
+    
+    /* 测试htons */
+    int port = 10808;
+    int networkPort = NetworkUtils.htons(port);
+    
+    println("Host port: {}", port);
+    println("Network port: {}", networkPort);
+    
+    /* 手动计算期望的值 */
+    int expected = ((port & 0xFF) << 8) | ((port >> 8) & 0xFF);
+    println("Expected: {}", expected);
+    
+    /* 创建SocketAddr并检查word0 */
+    SocketAddr addr = new SocketAddr().any(port);
+    println("word0 value: {}", addr.word0);
+    
+    /* 期望的word0: (networkPort << 16) | AF_INET
+     * AF_INET = 2
+     * networkPort = 0x382A = 14378
+     * word0 = 0x382A0002 = 943718402
+     */
+    int expectedWord0 = (networkPort << 16) | 2;
+    println("Expected word0: {}", expectedWord0);
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

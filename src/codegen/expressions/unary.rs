@@ -125,8 +125,29 @@ impl IRGenerator {
         let (llvm_type, llvm_ptr) = self.get_lvalue_info(&unary.operand)?;
         
         // 返回指针类型和指针值
-        // 注意：llvm_ptr 已经是 %name 格式，表示 alloca 的地址
-        Ok(format!("{}* {}", llvm_type, llvm_ptr))
+        // 注意：llvm_ptr 是 alloca 的地址，类型是 llvm_type*
+        // 例如：如果 llvm_type 是 i8*，llvm_ptr 是 %addr_s3
+        // 那么 %addr_s3 实际上是 i8** 类型
+        // 我们需要返回 i8* 类型，所以需要加载
+        let temp = self.new_temp();
+        self.emit_line(&format!("  {} = load {}, {}* {}, align {}",
+            temp, llvm_type, llvm_type, llvm_ptr, self.get_type_align(&llvm_type)));
+        
+        // Cavvy 对象有 8 字节的对象头（type_id: i32 + padding: i32）
+        // 当获取对象地址用于 FFI 调用时，需要跳过对象头
+        // 只对 Cavvy 对象（类型为 i8*）跳过对象头
+        if llvm_type == "i8*" {
+            // 使用 getelementptr 跳过 8 字节的对象头
+            let data_ptr = self.new_temp();
+            self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 8",
+                data_ptr, temp));
+            
+            // 返回指向数据部分的指针
+            Ok(format!("i8* {}", data_ptr))
+        } else {
+            // 对于非对象类型，直接返回加载后的值
+            Ok(format!("{} {}", llvm_type, temp))
+        }
     }
 
     /// 生成解引用表达式代码 (*pointer)

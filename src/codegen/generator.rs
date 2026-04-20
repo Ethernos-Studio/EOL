@@ -518,6 +518,9 @@ impl IRGenerator {
     }
 
     fn generate_class(&mut self, class: &ClassDecl) -> cayResult<()> {
+        // 检查是否有显式构造函数
+        let has_explicit_ctor = class.members.iter().any(|m| matches!(m, ClassMember::Constructor(_)));
+        
         for member in &class.members {
             match member {
                 ClassMember::Method(method) => {
@@ -544,6 +547,12 @@ impl IRGenerator {
                 }
             }
         }
+        
+        // 如果没有显式构造函数，生成默认构造函数
+        if !has_explicit_ctor {
+            self.generate_default_constructor(&class.name)?;
+        }
+        
         Ok(())
     }
 
@@ -607,7 +616,7 @@ impl IRGenerator {
                 let array_type = format!("{}*", elem_type);
                 
                 // 声明变量时使用数组类型（这样 generate_identifier 和数组访问能正确工作）
-                let llvm_name = self.scope_manager.declare_var(&param.name, &array_type);
+                let llvm_name = self.scope_manager.declare_var_with_flag(&param.name, &array_type, true);
                 self.emit_line(&format!("  %{} = alloca {}", llvm_name, array_type));
                 
                 // 将 i8* 参数转换为正确的数组类型指针
@@ -622,7 +631,7 @@ impl IRGenerator {
                 self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
             } else {
                 let param_type = self.type_to_llvm(&param.param_type);
-                let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+                let llvm_name = self.scope_manager.declare_var_with_flag(&param.name, &param_type, true);
                 self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
                 self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
                     param_type, class_name, param.name, param_type, llvm_name));
@@ -684,7 +693,7 @@ impl IRGenerator {
 
         for param in &ctor.params {
             let param_type = self.type_to_llvm(&param.param_type);
-            let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+            let llvm_name = self.scope_manager.declare_var_with_flag(&param.name, &param_type, true);
             self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
             self.emit_line(&format!("  store {} %{}.{}_param, {}* %{}",
                 param_type, class_name, param.name, param_type, llvm_name));
@@ -736,6 +745,52 @@ impl IRGenerator {
         }
 
         self.generate_block(&ctor.body)?;
+
+        self.emit_line("  ret void");
+        
+        // 退出函数作用域
+        self.scope_manager.exit_scope();
+
+        self.indent -= 1;
+        self.emit_line("}");
+        self.emit_line("");
+
+        Ok(())
+    }
+    
+    /// 生成默认构造函数（无参构造函数）
+    fn generate_default_constructor(&mut self, class_name: &str) -> cayResult<()> {
+        let fn_name = format!("{}.__ctor", class_name);
+        self.current_function = fn_name.clone();
+        self.current_class = class_name.to_string();
+        self.current_return_type = "void".to_string();
+
+        self.temp_counter = 0;
+        self.var_types.clear();
+        self.scope_manager.reset();
+        self.loop_stack.clear();
+
+        self.emit_line(&format!("define void @{}(i8* %this) {{", fn_name));
+        self.indent += 1;
+        self.emit_line("entry:");
+        
+        // 进入函数作用域
+        self.scope_manager.enter_scope();
+
+        let this_llvm_name = self.scope_manager.declare_var("this", "i8*");
+        self.emit_line(&format!("  %{} = alloca i8*", this_llvm_name));
+        self.emit_line(&format!("  store i8* %this, i8** %{}", this_llvm_name));
+        self.var_types.insert("this".to_string(), "i8*".to_string());
+        
+        // 如果有父类，调用父类的默认构造函数
+        if let Some(ref registry) = self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                if let Some(ref parent_name) = class_info.parent {
+                    let parent_ctor_name = format!("{}.__ctor", parent_name);
+                    self.emit_line(&format!("  call void @{}(i8* %this)", parent_ctor_name));
+                }
+            }
+        }
 
         self.emit_line("  ret void");
         
@@ -908,7 +963,7 @@ impl IRGenerator {
 
         for param in &func.params {
             let param_type = self.type_to_llvm(&param.param_type);
-            let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+            let llvm_name = self.scope_manager.declare_var_with_flag(&param.name, &param_type, true);
             self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
             self.emit_line(&format!("  store {} %{}.param, {}* %{}",
                 param_type, param.name, param_type, llvm_name));

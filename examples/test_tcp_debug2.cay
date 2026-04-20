@@ -1,0 +1,46 @@
+/**
+ * TCP 调试测试2 - 最小化测试
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== TCP调试测试2 ===");
+    
+    /* 初始化网络 */
+    if (!NetworkUtils.init()) {
+        println("网络初始化失败");
+        return 1;
+    }
+    println("网络初始化成功");
+    
+    /* 创建socket */
+    long sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        println("创建socket失败");
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("Socket创建成功");
+    
+    /* 创建地址结构 - 不设置SO_REUSEADDR */
+    SocketAddr addr = new SocketAddr().any(10808);
+    println("SocketAddr创建完成");
+    
+    /* 直接调用bind */
+    int bindResult = bind(sock, (long)(&addr), 16);
+    if (bindResult != 0) {
+        println("绑定失败，结果: {}", bindResult);
+        closesocket(sock);
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("绑定成功到端口10808");
+    
+    /* 关闭 */
+    closesocket(sock);
+    NetworkUtils.cleanup();
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

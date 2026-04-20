@@ -1,0 +1,60 @@
+/**
+ * TCP 简单绑定测试
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== TCP简单绑定测试 ===");
+    
+    /* 初始化网络 */
+    bool initResult = NetworkUtils.init();
+    if (!initResult) {
+        println("网络初始化失败");
+        return 1;
+    }
+    println("网络初始化成功");
+    
+    /* 创建服务器 */
+    TcpServer server = new TcpServer();
+    println("TCP服务器创建成功");
+    
+    /* 先测试绑定到端口0（任意端口） */
+    println("测试绑定到端口0...");
+    bool bindResult0 = server.bindTo(0);
+    if (bindResult0) {
+        println("绑定端口0成功，实际端口: {}", server.getPort());
+        server.close();
+    } else {
+        println("绑定端口0失败");
+    }
+    
+    /* 再创建新服务器测试绑定到10808 */
+    TcpServer server2 = new TcpServer();
+    int port = 10808;
+    println("测试绑定到端口{}...", port);
+    bool bindResult = server2.bindTo(port);
+    if (!bindResult) {
+        println("绑定端口失败: {}", port);
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("绑定端口成功: {}", port);
+    
+    /* 开始监听 */
+    bool listenResult = server2.listen(5);
+    if (!listenResult) {
+        println("开始监听失败");
+        server2.close();
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("开始监听成功");
+    
+    /* 关闭 */
+    server2.close();
+    NetworkUtils.cleanup();
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

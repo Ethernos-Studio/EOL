@@ -1,0 +1,42 @@
+/**
+ * UDP 类测试
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== UDP类测试 ===");
+    
+    /* 初始化网络 */
+    if (!NetworkUtils.init()) {
+        println("网络初始化失败");
+        return 1;
+    }
+    println("网络初始化成功");
+    
+    /* 创建UDP Socket */
+    UdpSocket socket = new UdpSocket();
+    
+    println("UdpSocket创建完成");
+    println("Socket是否有效: " + socket.isValid());
+    
+    /* 绑定到本地端口 */
+    int localPort = 12346;
+    println("尝试绑定到端口: " + localPort);
+    
+    if (!socket.bindTo(localPort)) {
+        println("绑定端口失败: " + localPort);
+        socket.close();
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    
+    println("绑定成功到端口: " + localPort);
+    
+    /* 关闭 */
+    socket.close();
+    NetworkUtils.cleanup();
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

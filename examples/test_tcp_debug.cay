@@ -1,0 +1,68 @@
+/**
+ * TCP 调试测试 - 带错误码输出
+ */
+
+#include <Network.cay>
+
+public int main() {
+    println("=== TCP调试测试 ===");
+    
+    /* 初始化网络 */
+    bool initResult = NetworkUtils.init();
+    if (!initResult) {
+        println("网络初始化失败");
+        return 1;
+    }
+    println("网络初始化成功");
+    
+    /* 创建socket */
+    long sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        println("创建socket失败");
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("Socket创建成功");
+    
+    /* 设置地址重用 */
+    int reuse = 1;
+    int optResult = setsockopt((int)sock, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
+    if (optResult != 0) {
+        println("设置SO_REUSEADDR失败");
+    } else {
+        println("设置SO_REUSEADDR成功");
+    }
+    
+    /* 创建地址结构 */
+    SocketAddr addr = new SocketAddr().any(10808);
+    println("SocketAddr创建完成");
+    
+    /* 手动调用bind */
+    long addrPtr = (long)(&addr);
+    
+    int bindResult = bind(sock, addrPtr, 16);
+    if (bindResult != 0) {
+        println("绑定失败");
+        closesocket(sock);
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("绑定成功到端口10808");
+    
+    /* 开始监听 */
+    int listenResult = listen(sock, 5);
+    if (listenResult != 0) {
+        println("监听失败");
+        closesocket(sock);
+        NetworkUtils.cleanup();
+        return 1;
+    }
+    println("监听成功");
+    
+    /* 关闭 */
+    closesocket(sock);
+    NetworkUtils.cleanup();
+    
+    println("=== 测试完成 ===");
+    return 0;
+}

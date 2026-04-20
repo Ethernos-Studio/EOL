@@ -54,6 +54,7 @@ pub struct VarScope {
     pub name: String,           // 原始变量名
     pub llvm_name: String,      // LLVM 中的唯一名称（带作用域后缀）
     pub var_type: String,       // 变量类型
+    pub is_parameter: bool,     // 是否是参数（参数存储的是值，局部变量存储的是对象指针）
 }
 
 /// 作用域栈管理
@@ -85,6 +86,11 @@ impl ScopeManager {
 
     /// 声明变量（在当前作用域）
     pub fn declare_var(&mut self, name: &str, var_type: &str) -> String {
+        self.declare_var_with_flag(name, var_type, false)
+    }
+    
+    /// 声明变量（带参数标志）
+    pub fn declare_var_with_flag(&mut self, name: &str, var_type: &str, is_parameter: bool) -> String {
         let llvm_name = if self.scopes.len() == 1 {
             // 全局作用域，使用原始名称
             name.to_string()
@@ -97,6 +103,7 @@ impl ScopeManager {
             name: name.to_string(),
             llvm_name: llvm_name.clone(),
             var_type: var_type.to_string(),
+            is_parameter,
         };
 
         if let Some(scope) = self.scopes.last_mut() {
@@ -124,6 +131,11 @@ impl ScopeManager {
     /// 获取变量的 LLVM 名称
     pub fn get_llvm_name(&self, name: &str) -> Option<String> {
         self.lookup_var(name).map(|v| v.llvm_name.clone())
+    }
+    
+    /// 检查变量是否是参数
+    pub fn is_parameter(&self, name: &str) -> bool {
+        self.lookup_var(name).map(|v| v.is_parameter).unwrap_or(false)
     }
 
     /// 检查变量是否在当前作用域中声明

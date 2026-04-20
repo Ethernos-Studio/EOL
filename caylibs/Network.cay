@@ -148,19 +148,32 @@ extern {
 
 /**
  * 网络地址结构 (sockaddr_in)
- * 内存布局与C结构兼容
+ * 内存布局与C结构兼容: family(2) + port(2) + addr(4) + padding(8) = 16 bytes
+ * 
+ * 在小端系统上，C的sockaddr_in内存布局:
+ *   偏移0-1: family (小端) = 0x02 0x00
+ *   偏移2-3: port (大端网络字节序)
+ *   偏移4-7: addr (4 bytes)
+ *   偏移8-15: padding (8 bytes)
+ * 
+ * Cavvy的int是4字节小端存储。word0在内存中的字节顺序是低字节在前。
+ * 为了匹配C结构，word0 = (port_network << 16) | family
+ * 这样内存布局是: family_low, family_high, port_high, port_low
+ * 即: 0x02, 0x00, port_high, port_low - 与C的sockaddr_in一致
  */
 public class SocketAddr {
-    public int family;
-    public int port;
-    public long addr;
-    public long padding;
+    public int word0;  /* family(2) + port(2) */
+    public int word1;  /* addr(4) */
+    public int word2;  /* padding(4) */
+    public int word3;  /* padding(4) */
     
     public SocketAddr() {
-        this.family = AF_INET;
-        this.port = 0;
-        this.addr = 0;
-        this.padding = 0;
+        /* word0 = (0 << 16) | 0x0002 = 0x00000002
+         * 内存: 02 00 00 00 - family=2, port=0 */
+        this.word0 = AF_INET;
+        this.word1 = 0;
+        this.word2 = 0;
+        this.word3 = 0;
     }
     
     /**
@@ -170,9 +183,12 @@ public class SocketAddr {
      * @return this，支持链式调用
      */
     public SocketAddr fromIpPort(String ip, int port) {
-        this.family = AF_INET;
-        this.port = NetworkUtils.htons(port);
-        this.addr = inet_addr(ip.c_str());
+        /* word0 = (port_network << 16) | family
+         * 例: port=10808, htons(10808)=0x382A
+         * word0 = 0x382A0002
+         * 内存: 02 00 2A 38 - family=2, port=0x382A (网络字节序) */
+        this.word0 = (NetworkUtils.htons(port) << 16) | AF_INET;
+        this.word1 = (int)inet_addr(ip.c_str());
         return this;
     }
     
@@ -182,9 +198,8 @@ public class SocketAddr {
      * @return this，支持链式调用
      */
     public SocketAddr any(int port) {
-        this.family = AF_INET;
-        this.port = NetworkUtils.htons(port);
-        this.addr = 0;
+        this.word0 = (NetworkUtils.htons(port) << 16) | AF_INET;
+        this.word1 = 0;
         return this;
     }
     
@@ -583,9 +598,14 @@ public class TcpServer {
         int reuse = 1;
         setsockopt((int)this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
         
-        int result = bind((int)this.handle, (long)(&addr), 16);
-        if (result == 0) {
-            this.port = NetworkUtils.ntohs(addr.port);
+        /* 调用系统bind函数 - 使用中间变量避免名称冲突 */
+        long sockHandle = this.handle;
+        long addrPtr = (long)(&addr);
+        int sysResult = bind(sockHandle, addrPtr, 16);
+        if (sysResult == 0) {
+            /* 从word0中提取端口号 (word0 = (port_network << 16) | family) */
+            int portNetwork = (addr.word0 >> 16) & 0xFFFF;
+            this.port = NetworkUtils.ntohs(portNetwork);
             return true;
         }
         
@@ -600,7 +620,8 @@ public class TcpServer {
      */
     public bool bindTo(int port) {
         SocketAddr addr = new SocketAddr().any(port);
-        return this.bind(addr);
+        bool bindResult = this.bind(addr);
+        return bindResult;
     }
     
     /**

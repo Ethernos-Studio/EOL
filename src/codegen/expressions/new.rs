@@ -27,33 +27,31 @@ impl IRGenerator {
         self.emit_line(&format!("  {} = bitcast i8* {} to i32*", type_id_ptr, calloc_temp));
         self.emit_line(&format!("  store i32 {}, i32* {}", type_id_value, type_id_ptr));
 
-        // 如果有参数，调用构造函数
-        if !new_expr.args.is_empty() {
-            // 先推断参数类型
-            let mut param_types = Vec::new();
-            for arg in &new_expr.args {
-                let arg_type = self.infer_argument_type(arg);
-                param_types.push(arg_type);
-            }
-            
-            // 生成参数值
-            let mut arg_values = Vec::new();
-            for arg in &new_expr.args {
-                let arg_val = self.generate_expression(arg)?;
-                arg_values.push(arg_val);
-            }
-            
-            // 生成构造函数名（使用推断的参数类型）
-            let ctor_name = self.generate_constructor_call_name_with_types(class_name, &param_types);
-            
-            // 生成参数列表
-            let mut arg_strs = vec![format!("i8* {}", calloc_temp)];
-            arg_strs.extend(arg_values);
-            
-            // 调用构造函数
-            self.emit_line(&format!("  call void @{}({})",
-                ctor_name, arg_strs.join(", ")));
+        // 调用构造函数（无论是否有参数）
+        // 先推断参数类型
+        let mut param_types = Vec::new();
+        for arg in &new_expr.args {
+            let arg_type = self.infer_argument_type(arg);
+            param_types.push(arg_type);
         }
+        
+        // 生成参数值
+        let mut arg_values = Vec::new();
+        for arg in &new_expr.args {
+            let arg_val = self.generate_expression(arg)?;
+            arg_values.push(arg_val);
+        }
+        
+        // 生成构造函数名（使用推断的参数类型）
+        let ctor_name = self.generate_constructor_call_name_with_types(class_name, &param_types);
+        
+        // 生成参数列表
+        let mut arg_strs = vec![format!("i8* {}", calloc_temp)];
+        arg_strs.extend(arg_values);
+        
+        // 调用构造函数
+        self.emit_line(&format!("  call void @{}({})",
+            ctor_name, arg_strs.join(", ")));
 
         let cast_temp = self.new_temp();
         self.emit_line(&format!("  {} = bitcast i8* {} to i8*", cast_temp, calloc_temp));

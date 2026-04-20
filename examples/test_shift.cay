@@ -1,0 +1,6 @@
+public int main() {
+    int a = 1;
+    int b = a << 16;
+    println("1 << 16 = {}", b);
+    return 0;
+}

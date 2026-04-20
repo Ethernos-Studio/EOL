@@ -149,41 +149,52 @@ impl IRGenerator {
     /// * `expr` - 表达式
     ///
     /// # Returns
-    /// (类型字符串, 指针字符串)
-    pub fn get_lvalue_info(&mut self, expr: &Expr) -> cayResult<(String, String)> {
+    /// (类型字符串, 指针字符串, 是否是参数)
+    pub fn get_lvalue_info_with_param_flag(&mut self, expr: &Expr) -> cayResult<(String, String, bool)> {
         match expr {
             Expr::Identifier(name) => {
                 let name_str = name.as_ref();
                 // 优先使用作用域管理器获取变量类型
-                let (var_type, llvm_name) = if let Some(scope_type) = self.scope_manager.get_var_type(name_str) {
+                let (var_type, llvm_name, is_param) = if let Some(scope_type) = self.scope_manager.get_var_type(name_str) {
                     let llvm_name = self.scope_manager.get_llvm_name(name_str).unwrap_or_else(|| name_str.to_string());
-                    (scope_type, llvm_name)
+                    let is_param = self.scope_manager.is_parameter(name_str);
+                    (scope_type, llvm_name, is_param)
                 } else {
                     // 检查是否是当前类的静态字段
                     if !self.current_class.is_empty() {
                         let static_key = format!("{}.{}", self.current_class, name_str);
                         if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
-                            return Ok((field_info.llvm_type, field_info.name));
+                            return Ok((field_info.llvm_type, field_info.name, false));
                         }
                     }
                     // 回退到旧系统
                     let var_type = self.var_types.get(name_str)
                         .ok_or_else(|| codegen_error(format!("Variable '{}' not found", name_str)))?
                         .clone();
-                    (var_type, name_str.to_string())
+                    (var_type, name_str.to_string(), false)
                 };
-                Ok((var_type, format!("%{}", llvm_name)))
+                Ok((var_type, format!("%{}", llvm_name), is_param))
             }
             Expr::ArrayAccess(arr) => {
                 let (elem_type, elem_ptr, _) = self.get_array_element_ptr(arr)?;
-                Ok((elem_type, elem_ptr))
+                Ok((elem_type, elem_ptr, false))
             }
             Expr::MemberAccess(member) => {
                 // 处理实例字段作为左值（如 this.sp）
-                self.get_member_field_pointer(member)
+                let (ty, ptr) = self.get_member_field_pointer(member)?;
+                Ok((ty, ptr, false))
             }
             _ => Err(codegen_error("Invalid lvalue expression".to_string()))
         }
+    }
+    
+    /// 获取左值信息（向后兼容版本）
+    ///
+    /// # Returns
+    /// (类型字符串, 指针字符串)
+    pub fn get_lvalue_info(&mut self, expr: &Expr) -> cayResult<(String, String)> {
+        let (ty, ptr, _) = self.get_lvalue_info_with_param_flag(expr)?;
+        Ok((ty, ptr))
     }
 
     /// 生成运行时除零检查代码
