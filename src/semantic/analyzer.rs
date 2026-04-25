@@ -27,10 +27,16 @@ pub struct SemanticAnalyzer {
     /// 源映射表：输出行号 -> (原始文件, 原始行号)
     /// 用于根据AST中的原始行号反查对应的源文件
     pub(super) source_map: Option<std::collections::HashMap<usize, (String, usize)>>,
+    /// 启用的语言特性
+    pub(super) features: Vec<String>,
 }
 
 impl SemanticAnalyzer {
     pub fn new() -> Self {
+        Self::with_features(Vec::new())
+    }
+
+    pub fn with_features(features: Vec<String>) -> Self {
         let mut analyzer = Self {
             program: None,
             type_registry: TypeRegistry::new(),
@@ -42,6 +48,7 @@ impl SemanticAnalyzer {
             errors: Vec::new(),
             current_file: None,
             source_map: None,
+            features,
         };
         
         // 注册内置函数
@@ -64,6 +71,9 @@ impl SemanticAnalyzer {
 
         // 注册运行时函数到 NetworkUtils 类
         self.register_runtime_functions();
+
+        // 注册顶层函数到符号表
+        self.register_top_level_functions(program)?;
 
         // 检查主类冲突（在收集类之后，类型检查之前）
         self.check_main_class_conflicts(program)?;
@@ -122,6 +132,51 @@ impl SemanticAnalyzer {
 
             class_info.add_method(method);
         }
+    }
+
+    /// 注册顶层函数到符号表
+    fn register_top_level_functions(&mut self, program: &Program) -> cayResult<()> {
+        use crate::semantic::symbol_table::SemanticSymbolInfo;
+
+        // 检查是否启用了顶层函数特性
+        let top_level_enabled = self.features.contains(&"top_level_function".to_string());
+
+        // Cavvy默认是面向对象语言，不允许顶层函数（除了main函数）
+        // 除非启用了 top_level_function 特性
+        if !top_level_enabled {
+            for func in &program.top_level_functions {
+                if func.name != "main" {
+                    return Err(crate::error::semantic_error(
+                        func.loc.line,
+                        func.loc.column,
+                        format!("Cavvy是面向对象语言，不允许顶层函数 '{}'。请将函数定义在类中，或使用 -F=top_level_function 启用该特性。", func.name)
+                    ));
+                }
+            }
+        }
+
+        for func in &program.top_level_functions {
+            // 检查函数名是否已存在（在当前作用域）
+            if self.symbol_table.lookup_current(&func.name).is_some() {
+                return Err(crate::error::semantic_error(
+                    func.loc.line,
+                    func.loc.column,
+                    format!("顶层函数 '{}' 已定义", func.name)
+                ));
+            }
+
+            // 将顶层函数添加到符号表
+            // 使用函数类型作为符号类型，参数和返回类型编码在类型中
+            let symbol_info = SemanticSymbolInfo {
+                name: func.name.clone(),
+                symbol_type: func.return_type.clone(),
+                is_final: true,
+                is_initialized: true,
+            };
+            self.symbol_table.declare(func.name.clone(), symbol_info);
+        }
+
+        Ok(())
     }
 
     /// 获取类型注册表（用于代码生成）

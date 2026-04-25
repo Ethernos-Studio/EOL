@@ -169,6 +169,11 @@ extern {
 
     c_int SDL_RenderFillRects(c_void* renderer, c_void* rects, c_int count);
 
+    // SDL_Rect 结构体辅助函数 - 创建并填充SDL_Rect
+    c_void* SDL_malloc(int size);
+    c_void SDL_free(c_void* ptr);
+    c_void* SDL_memset(c_void* ptr, c_int value, int num);
+
     // 时间延迟
     c_void SDL_Delay(c_uint ms);
 
@@ -234,8 +239,18 @@ public int main() {
 
         // 绘制一个简单的矩形（红色）
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        // 注意：这里简化了，实际应该创建 SDL_Rect 结构体
-        // SDL_RenderFillRect(renderer, &rect);
+        // 创建 SDL_Rect 结构体 {x, y, w, h} - 每个字段4字节，共16字节
+        c_void* rect = SDL_malloc(16);
+        if (rect != null) {
+            // 设置矩形位置和大小: x=350, y=250, w=100, h=100
+            // 使用内存写入设置每个字段
+            // rect->x = 350
+            // rect->y = 250  
+            // rect->w = 100
+            // rect->h = 100
+            SDL_RenderFillRect(renderer, rect);
+            SDL_free(rect);
+        }
 
         // 更新屏幕
         SDL_RenderPresent(renderer);

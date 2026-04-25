@@ -150,8 +150,14 @@ impl IRGenerator {
 
             // 调用专门的运行时函数来避免调用约定问题
             let result = self.new_temp();
-            self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(double {})",
-                result, arg_val));
+            // 根据原始类型选择正确的转换函数
+            if from_type == "float" {
+                self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(float {})",
+                    result, val));
+            } else {
+                self.emit_line(&format!("  {} = call i8* @__cay_double_to_string(double {})",
+                    result, arg_val));
+            }
 
             return Ok(format!("{} {}", to_type, result));
         }

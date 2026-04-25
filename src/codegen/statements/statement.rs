@@ -20,7 +20,18 @@ impl IRGenerator {
                 self.generate_return_statement(expr)?;
             }
             Stmt::Block(block) => {
-                self.generate_block(block)?;
+                // 检查是否是多变量声明生成的块（只包含 VarDecl）
+                let is_multi_var_decl = block.statements.iter().all(|s| matches!(s, Stmt::VarDecl(_)));
+                if is_multi_var_decl {
+                    // 多变量声明不创建新作用域，在当前作用域内声明所有变量
+                    for stmt in &block.statements {
+                        if let Stmt::VarDecl(var) = stmt {
+                            self.generate_var_decl(var)?;
+                        }
+                    }
+                } else {
+                    self.generate_block(block)?;
+                }
             }
             Stmt::If(if_stmt) => {
                 self.generate_if_statement(if_stmt)?;

@@ -55,12 +55,14 @@ public class TypeCastingTest {
         print(doubleVal3);
         println(")");
 
-        // 测试6: 同类型运算（避免混合类型）
-        println("\nTest 6: Same type operations");
+        // 测试6: 混合类型运算
+        println("\nTest 6: Mixed type operations");
         int a = 10;
         int b = 20;
         float c = 3.5;
         float d = 2.5;
+        long e = 100;
+        double f = 2.5;
 
         // int + int = int
         int result1 = a + b;
@@ -73,11 +75,24 @@ public class TypeCastingTest {
         println(result2);
 
         // double + double = double
-        double e = 1.5;
-        double f = 2.5;
-        double result3 = e + f;
+        double g = 1.5;
+        double h = 2.5;
+        double result3 = g + h;
         print("double + double = ");
         println(result3);
+
+        // 混合类型运算
+        long result4 = a + e;      // int + long = long
+        print("int + long = ");
+        println(result4);
+
+        float result5 = a + c;     // int + float = float
+        print("int + float = ");
+        println(result5);
+
+        double result6 = a + f;    // int + double = double
+        print("int + double = ");
+        println(result6);
 
         // 测试7: 数组类型转换
         println("\nTest 7: Array element assignment with type conversion");
@@ -92,6 +107,24 @@ public class TypeCastingTest {
         print(longArr[1]);
         print(", ");
         println(longArr[2]);
+
+        // 测试8: 显式类型转换
+        println("\nTest 8: Explicit type casting");
+        double dval = 3.14;
+        int ival = (int)dval;
+        print("double (");
+        print(dval);
+        print(") -> int (");
+        print(ival);
+        println(")");
+
+        long lval = 1000;
+        int ival2 = (int)lval;
+        print("long (");
+        print(lval);
+        print(") -> int (");
+        print(ival2);
+        println(")");
 
         println("\n=== All type casting tests PASSED! ===");
     }

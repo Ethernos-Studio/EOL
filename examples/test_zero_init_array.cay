@@ -7,32 +7,53 @@ public class Main {
         int[] arr1 = new int[5]();
         println("Zero-initialized int array:");
         
-        // 手动展开循环以避免变量名冲突
-        print(arr1[0]); print(" ");
-        print(arr1[1]); print(" ");
-        print(arr1[2]); print(" ");
-        print(arr1[3]); print(" ");
-        print(arr1[4]); print(" ");
+        // 使用循环遍历数组
+        int i;
+        for (i = 0; i < arr1.length; i++) {
+            print(arr1[i]);
+            print(" ");
+        }
         println("");
         
         // 测试 long 数组零初始化
         long[] arr2 = new long[3]();
         println("\nZero-initialized long array:");
-        print(arr2[0]); print(" ");
-        print(arr2[1]); print(" ");
-        print(arr2[2]); print(" ");
+        for (i = 0; i < arr2.length; i++) {
+            print(arr2[i]);
+            print(" ");
+        }
         println("");
         
         // 测试不使用()语法（calloc仍然零初始化）
         int[] arr3 = new int[3];
         println("\nArray without () (still zero-init):");
-        print(arr3[0]); print(" ");
-        print(arr3[1]); print(" ");
-        print(arr3[2]); print(" ");
+        for (i = 0; i < arr3.length; i++) {
+            print(arr3[i]);
+            print(" ");
+        }
         println("");
         
+        // 测试多维数组零初始化
+        int[][] arr4 = new int[3][3]();
+        println("\nZero-initialized 2D array:");
+        int j;
+        for (i = 0; i < 3; i++) {
+            for (j = 0; j < 3; j++) {
+                print(arr4[i][j]);
+                print(" ");
+            }
+            println("");
+        }
+        
         // 验证数组确实被零初始化
-        if (arr1[0] == 0 && arr1[1] == 0 && arr1[2] == 0) {
+        boolean allZero = true;
+        for (i = 0; i < arr1.length; i++) {
+            if (arr1[i] != 0) {
+                allZero = false;
+            }
+        }
+        
+        if (allZero) {
             println("\nZero initialization test PASSED!");
         } else {
             println("\nZero initialization test FAILED!");

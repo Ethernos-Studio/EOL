@@ -1,0 +1,27 @@
+class Main {
+    public static int main(String[] args) {
+        // 测试 String.valueOf() 各种类型
+        int i = 42;
+        long l = 1234567890L;
+        float f = 3.14f;
+        double d = 2.71828;
+        boolean b = true;
+        char c = 'A';
+
+        String si = String.valueOf(i);
+        String sl = String.valueOf(l);
+        String sf = String.valueOf(f);
+        String sd = String.valueOf(d);
+        String sb = String.valueOf(b);
+        String sc = String.valueOf(c);
+
+        println("int: " + si);
+        println("long: " + sl);
+        println("float: " + sf);
+        println("double: " + sd);
+        println("boolean: " + sb);
+        println("char: " + sc);
+
+        return 0;
+    }
+}

@@ -8,64 +8,7 @@
  */
 
 #include <Network.cay>
-
-/**
- * HTTP响应构建器
- */
-public class HttpResponse {
-    private int statusCode;
-    private String statusText;
-    private String contentType;
-    private String body;
-    
-    public HttpResponse() {
-        this.statusCode = 200;
-        this.statusText = "OK";
-        this.contentType = "text/html; charset=utf-8";
-        this.body = "";
-    }
-    
-    public HttpResponse setStatus(int code, String text) {
-        this.statusCode = code;
-        this.statusText = text;
-        return this;
-    }
-    
-    public HttpResponse setContentType(String type) {
-        this.contentType = type;
-        return this;
-    }
-    
-    public HttpResponse setBody(String body) {
-        this.body = body;
-        return this;
-    }
-    
-    public String build() {
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append("HTTP/1.1 ");
-        sb.append(this.statusCode);
-        sb.append(" ");
-        sb.append(this.statusText);
-        sb.append("\r\n");
-        
-        sb.append("Content-Type: ");
-        sb.append(this.contentType);
-        sb.append("\r\n");
-        
-        sb.append("Content-Length: ");
-        sb.append(this.body.length());
-        sb.append("\r\n");
-        
-        sb.append("Connection: close\r\n");
-        sb.append("Server: CavvyWebServer/0.5.1\r\n");
-        sb.append("\r\n");
-        sb.append(this.body);
-        
-        return sb.toString();
-    }
-}
+#include <StringBuilder.cay>
 
 /**
  * Cavvy Web Server 测试类
@@ -220,7 +163,6 @@ public class CavvyWebServerTest {
     /**
      * 运行服务器（带超时）
      * 使用简单的循环计数来模拟超时
-     * 注意：测试模式下跳过accept调用，因为accept是阻塞的
      */
     public void runWithTimeout(int timeoutMs) {
         println("[信息] 服务器将在 " + timeoutMs + "ms 后自动停止");
@@ -230,8 +172,14 @@ public class CavvyWebServerTest {
         int maxIterations = timeoutMs * iterationsPerMs;
         int iterationCount = 0;
         
-        /* 测试模式：只等待超时，不调用accept（避免阻塞） */
+        /* 接受一个连接然后退出 */
         while (this.running && iterationCount < maxIterations) {
+            /* 尝试接受连接 */
+            TcpSocket client = this.server.accept();
+            if (client != null) {
+                this.handleClient(client);
+            }
+            
             /* 增加迭代计数 */
             iterationCount = iterationCount + 1;
         }

@@ -103,7 +103,7 @@ impl IRGenerator {
         Ok(format!("{}* {}", elem_type, cast_temp))
     }
 
-    /// 生成多维数组创建: new Type[size1][size2]...[sizeN]
+    /// 生成多维数组创建: new Type[size1][size2]...[sizeN] 或 new Type[size][] (不规则数组)
     ///
     /// # Arguments
     /// * `element_type` - 元素类型
@@ -114,10 +114,17 @@ impl IRGenerator {
         // 1. 分配 3 个指针的数组 (int**)
         // 2. 循环 3 次，每次递归分配 [4][5] 的子数组
         // 3. 将子数组指针存入父数组
+        //
+        // 不规则数组 new int[3][]:
+        // 1. 分配 3 个指针的数组，初始化为 null
+        // 2. 不自动分配子数组，由用户后续手动分配
 
         if sizes.len() < 2 {
             return Err(codegen_error("Multidimensional array needs at least 2 dimensions".to_string()));
         }
+
+        // 检查是否有空维度（不规则数组）
+        let has_empty_dimension = sizes.iter().any(|s| matches!(s, Expr::Literal(LiteralValue::Null)));
 
         // 递归创建子数组类型（去掉第一维）
         let sub_sizes = &sizes[1..];
@@ -157,6 +164,12 @@ impl IRGenerator {
         // 转换为正确的指针类型
         let ptr_array = self.new_temp();
         self.emit_line(&format!("  {} = bitcast i8* {} to {}*", ptr_array, calloc_ptr_array, sub_array_llvm_type));
+
+        // 如果不规则数组（有空维度），不分配子数组，直接返回
+        if has_empty_dimension {
+            // 返回指针数组（所有子数组指针初始化为 null）
+            return Ok(format!("{}* {}", sub_array_llvm_type, ptr_array));
+        }
 
         // 生成循环来分配每个子数组
         let loop_label = self.new_label("md_loop");

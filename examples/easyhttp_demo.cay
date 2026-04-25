@@ -1,0 +1,259 @@
+/**
+ * EasyHTTP 演示程序
+ *
+ * 演示EasyHTTP库的各种功能：
+ * - 简单的GET请求
+ * - 带参数的GET请求
+ * - POST请求（JSON和表单）
+ * - 自定义请求头
+ * - 请求构建器模式
+ *
+ * 使用方法:
+ *   cay-run examples/easyhttp_demo.cay
+ *
+ * 版本: 0.5.1.0
+ */
+
+#include <EasyHTTP.cay>
+
+/**
+ * EasyHTTP演示类
+ * 包含所有测试方法
+ */
+public class EasyHTTPDemo {
+
+    /**
+     * 测试HttpHeaders类
+     */
+    public void testHeaders() {
+        println("=== 测试 HttpHeaders ===");
+
+        HttpHeaders headers = new HttpHeaders();
+
+        /* 设置头部 */
+        headers.set("Content-Type", "application/json");
+        headers.set("Authorization", "Bearer token123");
+        headers.set("X-Custom-Header", "custom-value");
+
+        /* 获取头部 */
+        String contentType = headers.get("Content-Type");
+        println("Content-Type: " + contentType);
+
+        /* 检查头部 */
+        if (headers.contains("Authorization")) {
+            println("Authorization header exists");
+        }
+
+        /* 更新头部 */
+        headers.set("Content-Type", "text/html");
+        println("Updated Content-Type: " + headers.get("Content-Type"));
+
+        /* 移除头部 */
+        headers.remove("X-Custom-Header");
+        print("After remove, size: ");
+        println(headers.size());
+
+        /* 构建头部字符串 */
+        println("Built headers:\n" + headers.build());
+        println("");
+    }
+
+    /**
+     * 测试HttpParams类
+     */
+    public void testParams() {
+        println("=== 测试 HttpParams ===");
+
+        HttpParams params = new HttpParams();
+
+        /* 添加参数 */
+        params.add("name", "John Doe");
+        params.add("age", 25);
+        params.add("active", true);
+        params.add("search", "hello world");
+
+        /* 构建查询字符串 */
+        String query = params.build();
+        println("Query string: " + query);
+        println("");
+    }
+
+    /**
+     * 测试URL编码
+     */
+    public void testUrlEncoding() {
+        println("=== 测试 URL编码 ===");
+
+        HttpParams params = new HttpParams();
+        params.add("special", "hello world!@#$%");
+        params.add("unicode", "中文测试");
+        params.add("math", "1+1=2");
+
+        String query = params.build();
+        println("Encoded query: " + query);
+        println("");
+    }
+
+    /**
+     * 测试EasyHTTP静态方法
+     */
+    public void testEasyHTTPStatic() {
+        println("=== 测试 EasyHTTP 静态方法 ===");
+
+        /* 创建参数 */
+        HttpParams params = EasyHTTP.params();
+        params.add("q", "cavvy");
+        params.add("page", 1);
+
+        println("Params built: " + params.build());
+
+        /* 创建请求头 */
+        HttpHeaders headers = EasyHTTP.headers();
+        headers.set("Accept", "application/json");
+
+        println("Headers built:\n" + headers.build());
+        println("");
+    }
+
+    /**
+     * 测试请求构建器
+     */
+    public void testRequestBuilder() {
+        println("=== 测试 请求构建器 ===");
+
+        /* 构建GET请求 */
+        HttpRequest getRequest = EasyHTTP.request()
+            .setMethod(HTTP_GET)
+            .setUrl("http://httpbin.org/get")
+            .addParam("foo", "bar")
+            .addParam("count", 42)
+            .setHeader("X-Request-ID", "12345");
+
+        println("GET request configured");
+
+        /* 构建POST请求 */
+        HttpRequest postRequest = EasyHTTP.request()
+            .setMethod(HTTP_POST)
+            .setUrl("http://httpbin.org/post")
+            .setJsonBody("{\"name\":\"test\",\"value\":123}")
+            .setBearerToken("my-api-token");
+
+        println("POST request configured");
+
+        /* 构建表单POST请求 */
+        HttpParams formParams = new HttpParams();
+        formParams.add("username", "admin");
+        formParams.add("password", "secret");
+
+        HttpRequest formRequest = EasyHTTP.request()
+            .setMethod(HTTP_POST)
+            .setUrl("http://httpbin.org/post")
+            .setFormBody(formParams);
+
+        println("Form POST request configured");
+        println("");
+    }
+
+    /**
+     * 测试HttpResponse
+     */
+    public void testHttpResponse() {
+        println("=== 测试 HttpResponse ===");
+
+        HttpResponse response = new HttpResponse();
+
+        /* 设置响应信息 */
+        response.setStatusCode(200);
+        response.setStatusText("OK");
+        response.setBody("{\"success\":true,\"data\":[]}");
+        response.setResponseTime(150);
+
+        /* 添加响应头 */
+        response.getHeaders().set("Content-Type", "application/json");
+        response.getHeaders().set("Server", "nginx");
+
+        /* 检查响应 */
+        println("Status Code: " + response.getStatusCode());
+        println("Status Text: " + response.getStatusText());
+        println("Is Success: " + response.isSuccess());
+        println("Is JSON: " + response.isJson());
+        print("Response Time: ");
+        print(response.getResponseTime());
+        println("ms");
+        println("Body: " + response.getBody());
+
+        /* 测试错误响应 */
+        HttpResponse errorResponse = new HttpResponse();
+        errorResponse.setStatusCode(404);
+        errorResponse.setStatusText("Not Found");
+
+        println("\nError Response:");
+        println("Status Code: " + errorResponse.getStatusCode());
+        println("Is Success: " + errorResponse.isSuccess());
+        println("");
+    }
+
+    /**
+     * 演示完整的HTTP请求流程
+     */
+    public void demoFullRequest() {
+        println("=== 演示完整HTTP请求流程 ===");
+
+        /* 示例1: 简单GET请求 */
+        println("示例1: 简单GET请求");
+        println("代码: EasyHTTP.get(...)");
+        println("");
+
+        /* 示例2: 带参数的GET请求 */
+        println("示例2: 带参数的GET请求");
+        println("使用 HttpParams 添加参数");
+        println("");
+
+        /* 示例3: POST JSON */
+        println("示例3: POST JSON数据");
+        println("使用 EasyHTTP.postJson(url, json)");
+        println("");
+
+        /* 示例4: 使用请求构建器 */
+        println("示例4: 使用请求构建器（完整控制）");
+        println("使用 EasyHTTP.request() 链式调用");
+        println("");
+
+        /* 示例5: 处理响应 */
+        println("示例5: 处理响应");
+        println("使用 resp.isSuccess() 检查响应状态");
+        println("");
+    }
+
+    /**
+     * 运行所有测试
+     */
+    public void runAllTests() {
+        /* 运行所有测试 */
+        this.testHeaders();
+        this.testParams();
+        this.testUrlEncoding();
+        this.testEasyHTTPStatic();
+        this.testRequestBuilder();
+        this.testHttpResponse();
+        this.demoFullRequest();
+    }
+}
+
+/**
+ * 程序入口点
+ */
+public int main() {
+    println("==============================================");
+    println("       EasyHTTP 演示程序");
+    println("==============================================\n");
+
+    EasyHTTPDemo demo = new EasyHTTPDemo();
+    demo.runAllTests();
+
+    println("==============================================");
+    println("       所有测试完成!");
+    println("==============================================");
+
+    return 0;
+}

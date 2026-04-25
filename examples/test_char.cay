@@ -1,0 +1,11 @@
+#include <StringBuilder.cay>
+
+public class TestChar {
+    public static void main(String[] args) {
+        StringBuilder sb = new StringBuilder();
+        sb.append('A');
+        sb.append('B');
+        sb.append('C');
+        println(sb.toString());
+    }
+}

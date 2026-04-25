@@ -89,8 +89,8 @@ public int main() {
 
 ```bash
 # 克隆仓库
-git clone https://github.com/Ethernos-Studio/Cavvy.git
-cd eol
+git clone https://github.com/cavvy-lang/cavvy.git
+cd cavvy
 
 # 构建编译器（Release 模式）
 cargo build --release

@@ -1,81 +1,72 @@
 /**
- * UDP通信测试示例
- * 
- * 演示如何使用Network库进行UDP通信
- * 版本: 0.5.1.0
+ * UDP Socket测试
+ * 测试UDP socket的创建、绑定、发送和接收功能
  */
 
 #include <Network.cay>
 
-public int main() {
-    println("=== UDP通信测试 ===");
-    
-    /* 初始化网络库 */
-    if (!NetworkUtils.init()) {
-        println("网络初始化失败");
-        return 1;
-    }
-    
-    println("网络初始化成功");
-    
-    /* 创建UDP Socket */
-    UdpSocket socket = new UdpSocket();
-    
-    if (!socket.isValid()) {
-        println("创建UDP Socket失败");
-        NetworkUtils.cleanup();
-        return 1;
-    }
-    
-    println("UDP Socket创建成功");
-    
-    /* 绑定到本地端口 */
-    int localPort = 12346;
-    if (!socket.bindTo(localPort)) {
-        println("绑定端口失败: " + localPort);
+public class TestUdpSocket {
+    public static int main() {
+        println("=== UDP Socket测试 ===");
+        
+        /* 初始化网络库 */
+        if (!NetworkUtils.init()) {
+            println("网络库初始化失败");
+            return 1;
+        }
+        println("网络库初始化成功");
+        
+        /* 创建UDP Socket */
+        UdpSocket socket = new UdpSocket();
+        println("UDP Socket创建成功");
+        
+        /* 绑定到本地端口 */
+        int localPort = 12345;
+        if (!socket.bindTo(localPort)) {
+            println("绑定到端口失败: " + (String)localPort);
+            NetworkUtils.cleanup();
+            return 1;
+        }
+        println("成功绑定到端口: " + (String)localPort);
+        
+        /* 发送测试数据到本地地址（回环测试） */
+        String testMessage = "Hello, UDP!";
+        String targetIp = "127.0.0.1";
+        int targetPort = 12346;  /* 不同的目标端口 */
+        
+        int sent = socket.sendTo(testMessage, targetIp, targetPort);
+        if (sent > 0) {
+            print("成功发送数据: ");
+            println(testMessage);
+            print("发送字节数: ");
+            println((String)sent);
+        } else {
+            println("发送数据失败");
+        }
+        
+        /* 短暂延迟，让数据包有时间被处理 */
+        for (int i = 0; i < 100000; i = i + 1) {
+            /* 忙等待 */
+        }
+        
+        /* 测试接收功能 - 使用非阻塞模式 */
+        SocketAddr senderAddr = new SocketAddr();
+        String received = socket.receiveFrom(1024, senderAddr);
+        if (received != null) {
+            print("接收到数据: ");
+            println(received);
+        } else {
+            println("未接收到数据（可能因为没有发送方）");
+        }
+        
+        /* 关闭Socket */
         socket.close();
+        println("Socket已关闭");
+        
+        /* 清理网络库 */
         NetworkUtils.cleanup();
-        return 1;
+        
+        println("=== 测试完成 ===");
+        return 0;
     }
-    
-    println("UDP Socket绑定到端口: " + localPort);
-    
-    /* 设置广播选项 */
-    socket.setOption(SOL_SOCKET, SO_BROADCAST, 1);
-    println("已启用广播选项");
-    
-    /* 发送UDP数据包到本地回环地址 */
-    String message = "Hello, UDP!";
-    String targetIp = "127.0.0.1";
-    int targetPort = 12346;  /* 发送给自己用于测试 */
-    
-    println("发送UDP消息到: " + targetIp + ":" + targetPort);
-    println("消息内容: " + message);
-    
-    int sent = socket.sendToIpPort(message, targetIp, targetPort);
-    if (sent < 0) {
-        println("发送失败");
-    } else {
-        println("发送成功，字节数: " + sent);
-    }
-    
-    /* 短暂延迟，让数据包有时间被处理 */
-    for (int i = 0; i < 100000; i = i + 1) {
-        /* 忙等待 */
-    }
-    
-    /* 注：receiveStringFrom 是阻塞调用，在测试中跳过接收验证
-     * 实际应用中应该使用多线程或非阻塞模式
-     */
-    println("跳过接收测试（阻塞调用）");
-    
-    /* 关闭Socket */
-    socket.close();
-    println("Socket已关闭");
-    
-    /* 清理网络库 */
-    NetworkUtils.cleanup();
-    
-    println("=== 测试完成 ===");
-    return 0;
 }

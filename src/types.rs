@@ -329,10 +329,209 @@ pub struct TypeRegistry {
 
 impl TypeRegistry {
     pub fn new() -> Self {
-        Self {
+        let mut registry = Self {
             classes: HashMap::new(),
             interfaces: HashMap::new(),
-        }
+        };
+
+        // 注册内置类 String（用于支持 String.valueOf() 等静态方法调用）
+        registry.register_builtin_string_class();
+
+        // 注册内置类 Integer（用于支持 Integer.parseInt() 等静态方法调用）
+        registry.register_builtin_integer_class();
+
+        registry
+    }
+
+    /// 注册内置 String 类
+    fn register_builtin_string_class(&mut self) {
+        // 创建 String 类信息
+        let mut string_class = ClassInfo {
+            name: "String".to_string(),
+            methods: HashMap::new(),
+            fields: HashMap::new(),
+            constructors: Vec::new(),
+            has_destructor: false,
+            parent: None,
+            interfaces: Vec::new(),
+            is_abstract: false,
+            is_final: true,  // String 是 final 类，不能被继承
+        };
+
+        // 添加 String.valueOf() 方法（各种重载版本）
+        // valueOf(int)
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::Int32,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // valueOf(long)
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::Int64,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // valueOf(float)
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::Float32,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // valueOf(double)
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::Float64,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // valueOf(boolean)
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::Bool,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // valueOf(char)
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::Char,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // valueOf(String) - 返回自身
+        string_class.add_method(MethodInfo {
+            name: "valueOf".to_string(),
+            class_name: "String".to_string(),
+            params: vec![ParameterInfo {
+                name: "value".to_string(),
+                param_type: Type::String,
+                is_varargs: false,
+            }],
+            return_type: Type::String,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // 注册 String 类
+        self.classes.insert("String".to_string(), string_class);
+    }
+
+    /// 注册内置 Integer 类
+    fn register_builtin_integer_class(&mut self) {
+        // 创建 Integer 类信息
+        let mut integer_class = ClassInfo {
+            name: "Integer".to_string(),
+            methods: HashMap::new(),
+            fields: HashMap::new(),
+            constructors: Vec::new(),
+            has_destructor: false,
+            parent: None,
+            interfaces: Vec::new(),
+            is_abstract: false,
+            is_final: true,  // Integer 是 final 类，不能被继承
+        };
+
+        // 添加 Integer.parseInt(String) 方法
+        integer_class.add_method(MethodInfo {
+            name: "parseInt".to_string(),
+            class_name: "Integer".to_string(),
+            params: vec![ParameterInfo {
+                name: "s".to_string(),
+                param_type: Type::String,
+                is_varargs: false,
+            }],
+            return_type: Type::Int32,
+            is_static: true,
+            is_public: true,
+            is_private: false,
+            is_protected: false,
+            is_native: false,
+            is_final: true,
+            is_override: false,
+        });
+
+        // 注册 Integer 类
+        self.classes.insert("Integer".to_string(), integer_class);
     }
 
     pub fn register_class(&mut self, class_info: ClassInfo) -> crate::error::cayResult<()> {

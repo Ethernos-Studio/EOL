@@ -93,6 +93,23 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
 
             Ok(Expr::Identifier(IdentifierExpr { name, loc }))
         }
+        // String 类型关键字也可以作为标识符使用（用于静态方法调用如 String.valueOf()）
+        crate::lexer::Token::String => {
+            parser.advance();
+
+            // 检查是否是方法引用: String::methodName
+            if parser.match_token(&crate::lexer::Token::DoubleColon) {
+                let method_name = parser.consume_identifier("Expected method name after '::'")?;
+                return Ok(Expr::MethodRef(MethodRefExpr {
+                    class_name: Some("String".to_string()),
+                    object: None,
+                    method_name,
+                    loc,
+                }));
+            }
+
+            Ok(Expr::Identifier(IdentifierExpr { name: "String".to_string(), loc }))
+        }
         crate::lexer::Token::New => {
             parser.advance();
             parse_new_expression(parser, loc)
@@ -360,12 +377,29 @@ pub fn parse_new_expression(parser: &mut Parser, loc: crate::error::SourceLocati
         // 如果接下来是 '[' 则为数组创建: new Type[size] 或 new Type[size1][size2]...
         if parser.check(&crate::lexer::Token::LBracket) {
             let mut sizes = Vec::new();
+            let mut has_empty_dimension = false;
 
-            // 解析所有维度: [size1][size2]...
+            // 解析所有维度: [size1][size2]... 或 [size][]...
             while parser.match_token(&crate::lexer::Token::LBracket) {
-                let size = parse_expression(parser)?;
-                parser.consume(&crate::lexer::Token::RBracket, "期望 ']'\n提示: 数组大小表达式应以 ']' 结束，例如: new int[10]")?;
-                sizes.push(size);
+                // 检查是否是空维度 [] (用于不规则数组，如 new int[5][])
+                if parser.check(&crate::lexer::Token::RBracket) {
+                    // 空维度，只有在不是第一个维度时才允许
+                    if sizes.is_empty() {
+                        return Err(parser.error(
+                            "数组第一个维度必须指定大小\n\
+                            提示: 不规则数组语法为 new Type[size][]，第一个维度必须有大小"
+                        ));
+                    }
+                    has_empty_dimension = true;
+                    parser.advance(); // 跳过 ']'
+                    // 空维度用 null 表达式表示
+                    sizes.push(Expr::Literal(LiteralValue::Null));
+                } else {
+                    // 正常维度，解析表达式
+                    let size = parse_expression(parser)?;
+                    parser.consume(&crate::lexer::Token::RBracket, "期望 ']'\n提示: 数组大小表达式应以 ']' 结束，例如: new int[10]")?;
+                    sizes.push(size);
+                }
             }
 
             // 构建多维元素类型: base_type[][]...

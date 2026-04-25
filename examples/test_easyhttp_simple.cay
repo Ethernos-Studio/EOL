@@ -1,0 +1,24 @@
+/* 引入EasyHTTP库 */
+#include <EasyHTTP.cay>
+
+/**
+ * 简化版EasyHTTP测试
+ */
+public class EasyHTTPDemo {
+    @main
+    public static void main() {
+        println("=== EasyHTTP 简化测试 ===");
+
+        /* 测试HttpHeaders */
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Content-Type", "application/json");
+        println("Content-Type: " + headers.get("Content-Type"));
+
+        /* 测试HttpParams */
+        HttpParams params = new HttpParams();
+        params.add("key", "value");
+        println("Query string: " + params.toString());
+
+        println("=== 测试完成 ===");
+    }
+}

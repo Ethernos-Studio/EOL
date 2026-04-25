@@ -29,7 +29,7 @@ impl IRGenerator {
             if registry.class_exists(name) {
                 // 类名不应该单独作为表达式使用
                 // 返回一个占位符，实际使用应该在 MemberAccess 中处理
-                return Ok(format!("i64 0"));
+                return Ok("i8* null".to_string());
             }
         }
 

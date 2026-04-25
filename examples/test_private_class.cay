@@ -1,0 +1,42 @@
+/**
+ * 测试private类访问
+ */
+public class HttpResponse {
+    public HttpResponse() {}
+    public void setError(String msg) {}
+}
+
+public class HttpRequest {
+    private void parseStatusLine(String headers, HttpResponse response) {
+        response.setError("test");
+    }
+
+    private void parseResponse(String responseStr, HttpResponse response) {
+        this.parseStatusLine(responseStr, response);
+    }
+
+    private ParsedUrl parseUrl(String url) {
+        ParsedUrl result = new ParsedUrl();
+        return result;
+    }
+
+    public void send() {
+        HttpResponse response = new HttpResponse();
+        this.parseResponse("test", response);
+    }
+}
+
+private class ParsedUrl {
+    public String protocol;
+    public ParsedUrl() {
+        this.protocol = "http";
+    }
+}
+
+public class Main {
+    @main
+    public static void main() {
+        HttpRequest req = new HttpRequest();
+        req.send();
+    }
+}

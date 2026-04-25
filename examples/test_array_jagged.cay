@@ -4,83 +4,45 @@ public class TestArrayJagged {
     public static void main() {
         println("=== Jagged Array Tests ===");
         
-        // 创建不规则数组 - 使用一维数组的数组模拟
-        // 由于当前编译器不支持 new int[5][]() 语法，我们分步创建
-        
-        // 为每行分配不同长度
-        int[] row0 = new int[1]();
-        int[] row1 = new int[2]();
-        int[] row2 = new int[3]();
-        int[] row3 = new int[4]();
-        int[] row4 = new int[5]();
+        // 创建不规则数组 - 使用多维数组语法
+        int[][] jagged = new int[5][];
+        jagged[0] = new int[1];
+        jagged[1] = new int[2];
+        jagged[2] = new int[3];
+        jagged[3] = new int[4];
+        jagged[4] = new int[5];
         
         // 初始化数据
         int i;
         int j;
         for (i = 0; i < 5; i++) {
             for (j = 0; j <= i; j++) {
-                if (i == 0) row0[j] = (i + 1) * 10 + j;
-                else if (i == 1) row1[j] = (i + 1) * 10 + j;
-                else if (i == 2) row2[j] = (i + 1) * 10 + j;
-                else if (i == 3) row3[j] = (i + 1) * 10 + j;
-                else if (i == 4) row4[j] = (i + 1) * 10 + j;
+                jagged[i][j] = (i + 1) * 10 + j;
             }
         }
         
         // 打印不规则数组
         println("Jagged array contents:");
-        print("Row 0 (length=");
-        print(row0.length);
-        print("): ");
-        for (j = 0; j < row0.length; j++) {
-            print(row0[j]);
-            print(" ");
+        for (i = 0; i < 5; i++) {
+            print("Row ");
+            print(i);
+            print(" (length=");
+            print(jagged[i].length);
+            print("): ");
+            for (j = 0; j < jagged[i].length; j++) {
+                print(jagged[i][j]);
+                print(" ");
+            }
+            println("");
         }
-        println("");
-        
-        print("Row 1 (length=");
-        print(row1.length);
-        print("): ");
-        for (j = 0; j < row1.length; j++) {
-            print(row1[j]);
-            print(" ");
-        }
-        println("");
-        
-        print("Row 2 (length=");
-        print(row2.length);
-        print("): ");
-        for (j = 0; j < row2.length; j++) {
-            print(row2[j]);
-            print(" ");
-        }
-        println("");
-        
-        print("Row 3 (length=");
-        print(row3.length);
-        print("): ");
-        for (j = 0; j < row3.length; j++) {
-            print(row3[j]);
-            print(" ");
-        }
-        println("");
-        
-        print("Row 4 (length=");
-        print(row4.length);
-        print("): ");
-        for (j = 0; j < row4.length; j++) {
-            print(row4[j]);
-            print(" ");
-        }
-        println("");
         
         // 验证行长度
         boolean lengthsCorrect = true;
-        if (row0.length != 1) lengthsCorrect = false;
-        if (row1.length != 2) lengthsCorrect = false;
-        if (row2.length != 3) lengthsCorrect = false;
-        if (row3.length != 4) lengthsCorrect = false;
-        if (row4.length != 5) lengthsCorrect = false;
+        if (jagged[0].length != 1) lengthsCorrect = false;
+        if (jagged[1].length != 2) lengthsCorrect = false;
+        if (jagged[2].length != 3) lengthsCorrect = false;
+        if (jagged[3].length != 4) lengthsCorrect = false;
+        if (jagged[4].length != 5) lengthsCorrect = false;
         
         if (lengthsCorrect) {
             println("\nJagged array length test PASSED!");
@@ -89,17 +51,20 @@ public class TestArrayJagged {
         }
         
         // 计算总元素数
-        int totalElements = row0.length + row1.length + row2.length + row3.length + row4.length;
+        int totalElements = 0;
+        for (i = 0; i < 5; i++) {
+            totalElements = totalElements + jagged[i].length;
+        }
         print("Total elements: ");
         println(totalElements);
         
         // 计算总和
         int sum = 0;
-        for (j = 0; j < row0.length; j++) sum = sum + row0[j];
-        for (j = 0; j < row1.length; j++) sum = sum + row1[j];
-        for (j = 0; j < row2.length; j++) sum = sum + row2[j];
-        for (j = 0; j < row3.length; j++) sum = sum + row3[j];
-        for (j = 0; j < row4.length; j++) sum = sum + row4[j];
+        for (i = 0; i < 5; i++) {
+            for (j = 0; j < jagged[i].length; j++) {
+                sum = sum + jagged[i][j];
+            }
+        }
         
         print("Sum of all elements: ");
         println(sum);

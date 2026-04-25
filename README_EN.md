@@ -89,8 +89,8 @@ public int main() {
 
 ```bash
 # Clone the repository
-git clone https://github.com/Ethernos-Studio/Cavvy.git
-cd eol
+git clone https://github.com/cavvy-lang/cavvy.git
+cd cavvy
 
 # Build the compiler (Release mode)
 cargo build --release

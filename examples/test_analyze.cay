@@ -1,0 +1,30 @@
+/**
+ * 测试分析方法
+ */
+public class HttpRequest {
+    private void parseStatusLine(String headers, HttpResponse response) {
+        response.setError("test");
+    }
+
+    private void parseResponse(String responseStr, HttpResponse response) {
+        this.parseStatusLine(responseStr, response);
+    }
+
+    public void send() {
+        HttpResponse response = new HttpResponse();
+        this.parseResponse("test", response);
+    }
+}
+
+public class HttpResponse {
+    public HttpResponse() {}
+    public void setError(String msg) {}
+}
+
+public class Main {
+    @main
+    public static void main() {
+        HttpRequest req = new HttpRequest();
+        req.send();
+    }
+}

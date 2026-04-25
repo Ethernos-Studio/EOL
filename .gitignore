@@ -1,9 +1,16 @@
+# 临时文件
+test.*
+test_*
+temp.*
+temp_*
+
 *.exe
 *.ll
 *.cay
 *.eol
 
 !/examples/
+!/test_docs/
 !/lib/
 !/mingw-minimal/
 !/llvm-minimal/
@@ -15,6 +22,7 @@
 !/examples/*.cay
 !/examples/errors/*.cay
 !/caylibs/*.cay
+!/test_docs/*.cay
 
 .trae/
 /*.cpp
@@ -32,3 +40,12 @@ target/
 llvm-minimal/bin-linux/*
 
 dist/
+analyze_all_code_blocks.py
+analyze_complete_programs.py
+analyze_doc_code.py
+fix_all_integer_checks.py
+fix_binary_rs.py
+generate_doc_tests.py
+missing_tests_detailed.txt
+missing_tests.txt
+sync_docs.py

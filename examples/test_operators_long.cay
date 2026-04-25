@@ -1,16 +1,16 @@
 public class TestOperatorsLong {
     public static void main() {
-        // 使用 long 类型避免类型转换问题
-        long a = 15;
-        long b = 4;
+        // 测试 int 类型的运算符（验证类型转换问题是否修复）
+        int a = 15;
+        int b = 4;
         
-        long sum = a + b;        // 19
-        long diff = a - b;       // 11
-        long prod = a * b;       // 60
-        long quot = a / b;       // 3 (整数除法)
-        long mod = a % b;        // 3
+        int sum = a + b;        // 19
+        int diff = a - b;       // 11
+        int prod = a * b;       // 60
+        int quot = a / b;       // 3 (整数除法)
+        int mod = a % b;        // 3
         
-        print("Arithmetic operators test:\n");
+        print("Arithmetic operators test (int):\n");
         print("a + b = ");
         print(sum);
         println("");
@@ -73,16 +73,16 @@ public class TestOperatorsLong {
         if (not) { print("true"); } else { print("false"); }
         println("");
         
-        // 位运算符测试（long 也支持位运算）
-        long m = 12;
-        long n = 10;
+        // 位运算符测试（int 也支持位运算）
+        int m = 12;
+        int n = 10;
         
-        long bitAnd = m & n;     // 8
-        long bitOr = m | n;      // 14
-        long bitXor = m ^ n;     // 6
-        long bitNot = ~m;        // 按位取反
-        long shiftLeft = m << 2; // 48
-        long shiftRight = m >> 1; // 6
+        int bitAnd = m & n;     // 8
+        int bitOr = m | n;      // 14
+        int bitXor = m ^ n;     // 6
+        int bitNot = ~m;        // 按位取反
+        int shiftLeft = m << 2; // 48
+        int shiftRight = m >> 1; // 6
         
         print("\nBitwise operators test:\n");
         print("m & n = ");

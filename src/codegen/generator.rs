@@ -85,6 +85,9 @@ impl IRGenerator {
         // 设置 extern 声明并构建索引
         self.set_extern_declarations(program.extern_declarations.clone());
 
+        // 设置顶层函数列表
+        self.top_level_functions = program.top_level_functions.clone();
+
         let mut main_class = None;
         let mut main_method = None;
         let mut fallback_main_class = None;
@@ -189,8 +192,16 @@ impl IRGenerator {
         if use_top_level_main {
             // 使用顶层 main 函数
             let func = top_level_main.unwrap();
+            let has_args = !func.params.is_empty();
+            
             self.output.push_str("; Cross-platform C entry point\n");
-            self.output.push_str(&format!("define i32 @main() {{\n"));
+            if has_args {
+                // 带参数的 main 函数: main(String[] args) -> 接收 argc, argv
+                self.output.push_str("define i32 @main(i32 %argc, i8** %argv) {\n");
+            } else {
+                // 无参数的 main 函数
+                self.output.push_str(&format!("define i32 @main() {{\n"));
+            }
             self.output.push_str("entry:\n");
             
             // 使用平台配置生成初始化代码
@@ -201,7 +212,47 @@ impl IRGenerator {
             
             self.generate_static_array_initialization();
             let main_fn_name = self.generate_top_level_function_name(&func.name);
-            if func.return_type == Type::Void {
+            
+            if has_args {
+                // 将 argc, argv 转换为 String[]
+                self.output.push_str("  ; Convert argc/argv to String[]\n");
+                self.output.push_str("  %args_array = call i8** @__cay_create_string_array(i32 %argc)\n");
+                self.output.push_str("  br label %args_loop_init\n\n");
+                
+                // 循环初始化
+                self.output.push_str("args_loop_init:\n");
+                self.output.push_str("  %i = alloca i32\n");
+                self.output.push_str("  store i32 0, i32* %i\n");
+                self.output.push_str("  br label %args_loop_cond\n\n");
+                
+                // 循环条件
+                self.output.push_str("args_loop_cond:\n");
+                self.output.push_str("  %i_val = load i32, i32* %i\n");
+                self.output.push_str("  %cond = icmp slt i32 %i_val, %argc\n");
+                self.output.push_str("  br i1 %cond, label %args_loop_body, label %args_loop_end\n\n");
+                
+                // 循环体
+                self.output.push_str("args_loop_body:\n");
+                self.output.push_str("  %idx = load i32, i32* %i\n");
+                self.output.push_str("  %arg_ptr = getelementptr i8*, i8** %argv, i32 %idx\n");
+                self.output.push_str("  %arg_cstr = load i8*, i8** %arg_ptr\n");
+                self.output.push_str("  %arg_str = call i8* @__cay_cstr_to_string(i8* %arg_cstr)\n");
+                self.output.push_str("  call void @__cay_array_set_ref(i8** %args_array, i32 %idx, i8* %arg_str)\n");
+                self.output.push_str("  %next_i = add i32 %idx, 1\n");
+                self.output.push_str("  store i32 %next_i, i32* %i\n");
+                self.output.push_str("  br label %args_loop_cond\n\n");
+                
+                // 循环结束
+                self.output.push_str("args_loop_end:\n");
+                
+                if func.return_type == Type::Void {
+                    self.output.push_str(&format!("  call void @{}(i8** %args_array)\n", main_fn_name));
+                    self.output.push_str("  ret i32 0\n");
+                } else {
+                    self.output.push_str(&format!("  %ret = call i32 @{}(i8** %args_array)\n", main_fn_name));
+                    self.output.push_str("  ret i32 %ret\n");
+                }
+            } else if func.return_type == Type::Void {
                 self.output.push_str(&format!("  call void @{}()\n", main_fn_name));
                 self.output.push_str("  ret i32 0\n");
             } else {
@@ -211,8 +262,18 @@ impl IRGenerator {
             self.output.push_str("}\n");
             self.output.push_str("\n");
         } else if let (Some(class_name), Some(main_method)) = (main_class, main_method) {
+            // 检查 main 方法是否有参数
+            let has_args = !main_method.params.is_empty();
+            let returns_int = main_method.return_type == Type::Int32;
+
             self.output.push_str("; C entry point\n");
-            self.output.push_str(&format!("define i32 @main() {{\n"));
+            if has_args {
+                // 带参数的 main 方法: main(String[] args)
+                self.output.push_str("define i32 @main(i32 %argc, i8** %argv) {\n");
+            } else {
+                // 无参数的 main 方法
+                self.output.push_str("define i32 @main() {\n");
+            }
             self.output.push_str("entry:\n");
             // 只在 Windows 目标平台上设置控制台代码页
             if self.is_windows_target() {
@@ -220,8 +281,53 @@ impl IRGenerator {
             }
             self.generate_static_array_initialization();
             let main_fn_name = self.generate_method_name(&class_name, &main_method);
-            self.output.push_str(&format!("  call void @{}()\n", main_fn_name));
-            self.output.push_str("  ret i32 0\n");
+
+            if has_args {
+                // 将 argc, argv 转换为 String[]
+                self.output.push_str("  ; Convert argc/argv to String[]\n");
+                self.output.push_str("  %args_array = call i8** @__cay_create_string_array(i32 %argc)\n");
+                self.output.push_str("  br label %args_loop_init\n\n");
+
+                // 循环初始化
+                self.output.push_str("args_loop_init:\n");
+                self.output.push_str("  %i = alloca i32\n");
+                self.output.push_str("  store i32 0, i32* %i\n");
+                self.output.push_str("  br label %args_loop_cond\n\n");
+
+                // 循环条件
+                self.output.push_str("args_loop_cond:\n");
+                self.output.push_str("  %i_val = load i32, i32* %i\n");
+                self.output.push_str("  %cond = icmp slt i32 %i_val, %argc\n");
+                self.output.push_str("  br i1 %cond, label %args_loop_body, label %args_loop_end\n\n");
+
+                // 循环体
+                self.output.push_str("args_loop_body:\n");
+                self.output.push_str("  %idx = load i32, i32* %i\n");
+                self.output.push_str("  %arg_ptr = getelementptr i8*, i8** %argv, i32 %idx\n");
+                self.output.push_str("  %arg_cstr = load i8*, i8** %arg_ptr\n");
+                self.output.push_str("  %arg_str = call i8* @__cay_cstr_to_string(i8* %arg_cstr)\n");
+                self.output.push_str("  call void @__cay_array_set_ref(i8** %args_array, i32 %idx, i8* %arg_str)\n");
+                self.output.push_str("  %next_i = add i32 %idx, 1\n");
+                self.output.push_str("  store i32 %next_i, i32* %i\n");
+                self.output.push_str("  br label %args_loop_cond\n\n");
+
+                // 循环结束
+                self.output.push_str("args_loop_end:\n");
+
+                if returns_int {
+                    self.output.push_str(&format!("  %ret = call i32 @{}(i8** %args_array)\n", main_fn_name));
+                    self.output.push_str("  ret i32 %ret\n");
+                } else {
+                    self.output.push_str(&format!("  call void @{}(i8** %args_array)\n", main_fn_name));
+                    self.output.push_str("  ret i32 0\n");
+                }
+            } else if returns_int {
+                self.output.push_str(&format!("  %ret = call i32 @{}()\n", main_fn_name));
+                self.output.push_str("  ret i32 %ret\n");
+            } else {
+                self.output.push_str(&format!("  call void @{}()\n", main_fn_name));
+                self.output.push_str("  ret i32 0\n");
+            }
             self.output.push_str("}\n");
             self.output.push_str("\n");
         }
@@ -937,8 +1043,13 @@ impl IRGenerator {
                     "i".to_string() // 默认int
                 }
             }
-            Expr::MemberAccess(_) => {
-                "i".to_string() // 简化处理
+            Expr::MemberAccess(member) => {
+                // 尝试推断成员访问的类型
+                if let Some(cay_type) = self.infer_member_type(member) {
+                    self.type_to_signature(&cay_type)
+                } else {
+                    "i".to_string() // 默认int
+                }
             }
             Expr::Binary(binary) => {
                 self.infer_expr_type_for_ctor(&binary.left)
@@ -949,10 +1060,62 @@ impl IRGenerator {
             Expr::Cast(cast) => {
                 self.type_to_signature(&cast.target_type)
             }
-            Expr::Call(_) => {
-                "i".to_string() // 简化处理
+            Expr::Call(call) => {
+                // 尝试推断函数调用的返回类型
+                if let Some(cay_type) = self.infer_call_return_type(call) {
+                    self.type_to_signature(&cay_type)
+                } else {
+                    "i".to_string() // 默认int
+                }
             }
             _ => "i".to_string(), // 默认int
+        }
+    }
+
+    /// 推断成员访问的类型
+    fn infer_member_type(&self, member: &crate::ast::MemberAccessExpr) -> Option<crate::types::Type> {
+        // 获取对象类型
+        let obj_type = self.infer_expr_type_for_arg(&member.object)?;
+
+        match obj_type {
+            crate::types::Type::Object(class_name) => {
+                // 查找类字段
+                if let Some(class_info) = self.class_layouts.get(&class_name) {
+                    if let Some(field) = class_info.fields.get(&member.member) {
+                        return Some(field.field_type.clone());
+                    }
+                }
+                None
+            }
+            crate::types::Type::Array(_) if member.member == "length" => {
+                // 数组的 length 属性返回 int
+                Some(crate::types::Type::Int32)
+            }
+            _ => None,
+        }
+    }
+
+    /// 推断表达式类型（辅助函数，用于构造函数参数类型推断）
+    fn infer_expr_type_for_arg(&self, expr: &crate::ast::Expr) -> Option<crate::types::Type> {
+        use crate::ast::*;
+
+        match expr {
+            Expr::Identifier(ident) => {
+                self.var_cay_types.get(&ident.name).cloned()
+            }
+            Expr::Literal(lit) => {
+                match lit {
+                    LiteralValue::Int32(_) => Some(crate::types::Type::Int32),
+                    LiteralValue::Int64(_) => Some(crate::types::Type::Int64),
+                    LiteralValue::Float32(_) => Some(crate::types::Type::Float32),
+                    LiteralValue::Float64(_) => Some(crate::types::Type::Float64),
+                    LiteralValue::Bool(_) => Some(crate::types::Type::Bool),
+                    LiteralValue::Char(_) => Some(crate::types::Type::Char),
+                    LiteralValue::String(_) => Some(crate::types::Type::String),
+                    LiteralValue::Null => None,
+                }
+            }
+            _ => None,
         }
     }
 
@@ -1012,7 +1175,18 @@ impl IRGenerator {
     /// 生成单个 extern 函数声明
     fn generate_extern_function(&mut self, calling_conv: crate::ast::CallingConvention, func: &crate::ast::ExternFunction) -> cayResult<()> {
         // 跳过运行时提供的函数（这些函数的定义已经在运行时模块中生成）
-        if func.name == "__cay_memcpy_byte" || func.name == "__cay_memset_byte" {
+        let runtime_functions = [
+            "__cay_memcpy_byte",
+            "__cay_memset_byte",
+            "__cay_write_int",
+            "__cay_read_int",
+            "__cay_string_concat",
+            "__cay_int_to_string",
+            "__cay_float_to_string",
+            "__cay_double_to_string",
+            "__cay_char_to_string",
+        ];
+        if runtime_functions.contains(&func.name.as_str()) {
             return Ok(());
         }
         

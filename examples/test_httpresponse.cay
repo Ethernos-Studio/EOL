@@ -1,0 +1,39 @@
+/**
+ * 测试HttpResponse类
+ */
+public class HttpResponse {
+    private int statusCode;
+
+    public HttpResponse() {
+        this.statusCode = 0;
+    }
+
+    public void setStatusCode(int code) {
+        this.statusCode = code;
+    }
+
+    public int getStatusCode() {
+        return this.statusCode;
+    }
+}
+
+public class TestHttp {
+    private void parseStatusLine(String headers, HttpResponse response) {
+        println("parseStatusLine called");
+        response.setStatusCode(200);
+    }
+
+    public void test() {
+        HttpResponse response = new HttpResponse();
+        this.parseStatusLine("test", response);
+        println("Status code: " + response.getStatusCode());
+    }
+}
+
+public class Main {
+    @main
+    public static void main() {
+        TestHttp t = new TestHttp();
+        t.test();
+    }
+}

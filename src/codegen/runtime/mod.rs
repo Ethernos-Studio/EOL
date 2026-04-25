@@ -19,6 +19,8 @@ mod string_replace;
 mod string_isempty;
 mod string_equals;
 mod buffer_to_string;
+mod ptr_operations;
+mod args_support;
 
 impl IRGenerator {
     /// 发射IR头部（外部声明和运行时函数）
@@ -119,7 +121,9 @@ impl IRGenerator {
             self.emit_raw("@stdin = external global i8*");
         }
         self.emit_raw("@.str.float_fmt = private unnamed_addr constant [3 x i8] c\"%f\\00\", align 1");
-        self.emit_raw("@.str.int_fmt = private unnamed_addr constant [5 x i8] c\"%lld\\00\", align 1");
+        self.emit_raw("@.str.double_fmt = private unnamed_addr constant [4 x i8] c\"%lf\\00\", align 1");
+        self.emit_raw("@.str.int_fmt = private unnamed_addr constant [3 x i8] c\"%d\\00\", align 1");
+        self.emit_raw("@.str.long_fmt = private unnamed_addr constant [5 x i8] c\"%lld\\00\", align 1");
         self.emit_raw("@.str.true_str = private unnamed_addr constant [5 x i8] c\"true\\00\", align 1");
         self.emit_raw("@.str.false_str = private unnamed_addr constant [6 x i8] c\"false\\00\", align 1");
         self.emit_raw("");
@@ -142,6 +146,17 @@ impl IRGenerator {
         self.emit_string_isempty_runtime();
         self.emit_string_equals_runtime();
         self.emit_buffer_to_string_runtime();
+
+        // 生成指针操作运行时函数
+        self.emit_read_ptr_runtime();
+        self.emit_ptr_to_string_runtime();
+        self.emit_write_ptr_runtime();
+        self.emit_write_int_runtime();
+        self.emit_read_int_runtime();
+        self.emit_write_byte_runtime();
+
+        // 生成命令行参数支持运行时函数
+        self.emit_args_support_runtime();
 
         // 生成内存操作函数
         self.emit_memory_runtime();

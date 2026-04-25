@@ -6,6 +6,11 @@ use crate::codegen::context::IRGenerator;
 use crate::ast::*;
 use crate::error::{cayResult, codegen_error};
 
+/// 检查类型是否为整数类型（不包括指针）
+fn is_integer_type(ty: &str) -> bool {
+    ty.starts_with("i") && !ty.ends_with("*")
+}
+
 impl IRGenerator {
     /// 生成二元表达式代码
     ///
@@ -68,7 +73,7 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, char_as_string, right_val));
             return Ok(format!("i8* {}", temp));
-        } else if left_type == "i8*" && right_type.starts_with("i") {
+        } else if left_type == "i8*" && is_integer_type(right_type) {
             // 字符串 + 整数：先将整数转换为字符串，然后拼接
             let int_as_string = self.new_temp();
             // 如果是 i32，先扩展到 i64
@@ -84,7 +89,7 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, left_val, int_as_string));
             return Ok(format!("i8* {}", temp));
-        } else if left_type.starts_with("i") && right_type == "i8*" {
+        } else if is_integer_type(left_type) && right_type == "i8*" {
             // 整数 + 字符串：先将整数转换为字符串，然后拼接
             let int_as_string = self.new_temp();
             // 如果是 i32，先扩展到 i64
@@ -100,7 +105,35 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, int_as_string, right_val));
             return Ok(format!("i8* {}", temp));
-        } else if left_type.starts_with("i") && right_type.starts_with("i") {
+        } else if left_type == "i8*" && (right_type == "float" || right_type == "double") {
+            // 字符串 + 浮点数：先将浮点数转换为字符串，然后拼接
+            let float_as_string = self.new_temp();
+            // 根据类型选择正确的转换函数
+            if right_type == "float" {
+                self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(float {})",
+                    float_as_string, right_val));
+            } else {
+                self.emit_line(&format!("  {} = call i8* @__cay_double_to_string(double {})",
+                    float_as_string, right_val));
+            }
+            self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                temp, left_val, float_as_string));
+            return Ok(format!("i8* {}", temp));
+        } else if (left_type == "float" || left_type == "double") && right_type == "i8*" {
+            // 浮点数 + 字符串：先将浮点数转换为字符串，然后拼接
+            let float_as_string = self.new_temp();
+            // 根据类型选择正确的转换函数
+            if left_type == "float" {
+                self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(float {})",
+                    float_as_string, left_val));
+            } else {
+                self.emit_line(&format!("  {} = call i8* @__cay_double_to_string(double {})",
+                    float_as_string, left_val));
+            }
+            self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                temp, float_as_string, right_val));
+            return Ok(format!("i8* {}", temp));
+        } else if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数加法，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = add {} {}, {}",
@@ -112,7 +145,7 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = fadd {} {}, {}",
                 temp, promoted_type, promoted_left, promoted_right));
             return Ok(format!("{} {}", promoted_type, temp));
-        } else if left_type.starts_with("i") && (right_type == "float" || right_type == "double") {
+        } else if is_integer_type(left_type) && (right_type == "float" || right_type == "double") {
             // 整数 + 浮点数：将整数转换为浮点数
             let (promoted_type, promoted_right) = if right_type == "double" { ("double", right_val.to_string()) } else { ("float", right_val.to_string()) };
             let converted_left = self.new_temp();
@@ -124,7 +157,7 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = fadd {} {}, {}",
                 temp, promoted_type, converted_left, promoted_right));
             return Ok(format!("{} {}", promoted_type, temp));
-        } else if (left_type == "float" || left_type == "double") && right_type.starts_with("i") {
+        } else if (left_type == "float" || left_type == "double") && is_integer_type(right_type) {
             // 浮点数 + 整数：将整数转换为浮点数
             let (promoted_type, promoted_left) = if left_type == "double" { ("double", left_val.to_string()) } else { ("float", left_val.to_string()) };
             let converted_right = self.new_temp();
@@ -143,7 +176,7 @@ impl IRGenerator {
 
     /// 生成减法表达式
     fn generate_sub(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数减法，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = sub {} {}, {}",
@@ -167,7 +200,7 @@ impl IRGenerator {
 
     /// 生成乘法表达式
     fn generate_mul(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数乘法，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = mul {} {}, {}",
@@ -191,7 +224,7 @@ impl IRGenerator {
 
     /// 生成除法表达式
     fn generate_div(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数除法，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             // 运行时除零检查
@@ -217,7 +250,7 @@ impl IRGenerator {
 
     /// 生成取模表达式
     fn generate_mod(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数取模，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             // 运行时除零检查（取模也需要检查）
@@ -244,7 +277,7 @@ impl IRGenerator {
             // null/0 与指针比较
             self.emit_line(&format!("  {} = icmp eq {} {}, null", temp, right_type, right_val));
             return Ok(format!("i1 {}", temp));
-        } else if left_type.starts_with("i") && right_type.starts_with("i") {
+        } else if is_integer_type(left_type) && is_integer_type(right_type) {
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = icmp eq {} {}, {}", temp, promoted_type, promoted_left, promoted_right));
             return Ok(format!("i1 {}", temp));
@@ -275,7 +308,7 @@ impl IRGenerator {
             // null/0 与指针比较
             self.emit_line(&format!("  {} = icmp ne {} {}, null", temp, right_type, right_val));
             return Ok(format!("i1 {}", temp));
-        } else if left_type.starts_with("i") && right_type.starts_with("i") {
+        } else if is_integer_type(left_type) && is_integer_type(right_type) {
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = icmp ne {} {}, {}", temp, promoted_type, promoted_left, promoted_right));
             return Ok(format!("i1 {}", temp));
@@ -294,7 +327,7 @@ impl IRGenerator {
 
     /// 生成小于比较表达式
     fn generate_lt(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = icmp slt {} {}, {}", temp, promoted_type, promoted_left, promoted_right));
             return Ok(format!("i1 {}", temp));
@@ -313,7 +346,7 @@ impl IRGenerator {
 
     /// 生成小于等于比较表达式
     fn generate_le(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = icmp sle {} {}, {}", temp, promoted_type, promoted_left, promoted_right));
             return Ok(format!("i1 {}", temp));
@@ -332,7 +365,7 @@ impl IRGenerator {
 
     /// 生成大于比较表达式
     fn generate_gt(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数大于比较，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = icmp sgt {} {}, {}",
@@ -353,7 +386,7 @@ impl IRGenerator {
 
     /// 生成大于等于比较表达式
     fn generate_ge(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 整数大于等于比较，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = icmp sge {} {}, {}",
@@ -418,7 +451,7 @@ impl IRGenerator {
 
     /// 生成位与表达式
     fn generate_bitand(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 位与，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = and {} {}, {}",
@@ -431,7 +464,7 @@ impl IRGenerator {
 
     /// 生成位或表达式
     fn generate_bitor(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 位或，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = or {} {}, {}",
@@ -444,7 +477,7 @@ impl IRGenerator {
 
     /// 生成位异或表达式
     fn generate_bitxor(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 位异或，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = xor {} {}, {}",
@@ -457,7 +490,7 @@ impl IRGenerator {
 
     /// 生成左移表达式
     fn generate_shl(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 左移，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = shl {} {}, {}",
@@ -470,7 +503,7 @@ impl IRGenerator {
 
     /// 生成算术右移表达式
     fn generate_shr(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 算术右移，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = ashr {} {}, {}",
@@ -483,7 +516,7 @@ impl IRGenerator {
 
     /// 生成逻辑右移表达式
     fn generate_ushr(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str, temp: &str) -> cayResult<String> {
-        if left_type.starts_with("i") && right_type.starts_with("i") {
+        if is_integer_type(left_type) && is_integer_type(right_type) {
             // 逻辑右移，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);
             self.emit_line(&format!("  {} = lshr {} {}, {}",

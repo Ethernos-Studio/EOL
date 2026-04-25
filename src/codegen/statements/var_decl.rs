@@ -48,12 +48,16 @@ impl IRGenerator {
                 }
                 None
             }
+            Expr::New(new_expr) => {
+                // new 表达式返回对象类型
+                Some(Type::Object(new_expr.class_name.clone()))
+            }
             _ => None, // 无法推断，返回 None
         }
     }
 
     /// 推断函数调用的返回类型
-    fn infer_call_return_type(&self, call: &CallExpr) -> Option<Type> {
+    pub fn infer_call_return_type(&self, call: &CallExpr) -> Option<Type> {
         // 处理内置函数
         if let Expr::Identifier(name) = call.callee.as_ref() {
             match name.as_str() {

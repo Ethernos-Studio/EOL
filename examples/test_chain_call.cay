@@ -1,0 +1,31 @@
+/**
+ * 测试链式方法调用
+ */
+public class TestChain {
+    private int value;
+
+    public TestChain() {
+        this.value = 0;
+    }
+
+    private void helper1() {
+        println("helper1 called");
+    }
+
+    private void helper2() {
+        this.helper1();
+        println("helper2 called");
+    }
+
+    public void test() {
+        this.helper2();
+    }
+}
+
+public class Main {
+    @main
+    public static void main() {
+        TestChain t = new TestChain();
+        t.test();
+    }
+}

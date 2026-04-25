@@ -25,8 +25,9 @@ public class TestSDL2Window {
         }
 
         // 创建窗口
+        String title = "Cavvy SDL2 Window";
         c_void* window = SDL_CreateWindow(
-            null,  // title (使用 null 避免字符串转换问题)
+            title.c_str(),  // title 使用 c_str() 获取C字符串指针
             100,   // x
             100,   // y
             640,   // width

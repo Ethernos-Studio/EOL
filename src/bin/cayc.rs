@@ -83,6 +83,8 @@ struct CompileOptions {
     funroll_loops: bool,          // -funroll-loops
     fvectorize: bool,             // -fvectorize
     fslp_vectorize: bool,         // -fslp-vectorize
+    // 语言特性
+    features: Vec<String>,        // -F/--feature=<feature>
 }
 
 /// 根据当前操作系统自动选择默认目标平台
@@ -139,6 +141,7 @@ impl Default for CompileOptions {
             funroll_loops: false,
             fvectorize: false,
             fslp_vectorize: false,
+            features: Vec::new(),
         }
     }
 }
@@ -179,6 +182,10 @@ fn print_usage() {
     println!("  -fPIC                 生成位置无关代码");
     println!("  -fno-exceptions       禁用异常处理");
     println!("  -fno-rtti             禁用运行时类型信息");
+    println!("");
+    println!("Language Features:");
+    println!("  -F<feature>, --feature=<feature>  启用语言特性");
+    println!("                                     top_level_function - 允许顶层函数");
     println!("");
     println!("Other Options:");
     println!("  --version, -v         显示版本号");
@@ -338,6 +345,27 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
                     args[i].clone()
                 };
                 options.extra_libs.push(lib);
+            }
+            _ if arg.starts_with("-F") => {
+                // -F<feature> 或 -F=<feature> 格式
+                let feature = if arg.len() > 2 {
+                    if arg.starts_with("-F=") {
+                        arg[3..].to_string()
+                    } else {
+                        arg[2..].to_string()
+                    }
+                } else {
+                    i += 1;
+                    if i >= args.len() {
+                        return Err("-F 需要特性名称参数".to_string());
+                    }
+                    args[i].clone()
+                };
+                options.features.push(feature);
+            }
+            _ if arg.starts_with("--feature=") => {
+                // --feature=<feature> 格式
+                options.features.push(arg[10..].to_string());
             }
             _ => {
                 if arg.starts_with('-') {
@@ -499,7 +527,16 @@ fn main() {
         }
     };
 
-    let compiler = Compiler::new();
+    // 创建编译器选项
+    let compiler_options = cavvy::CompilerOptions {
+        target_os: std::env::consts::OS.to_string(),
+        features: options.features.clone(),
+        no_features: Vec::new(),
+        defines: Vec::new(),
+        undefines: Vec::new(),
+        obfuscate: false,
+    };
+    let compiler = cavvy::Compiler::with_options(compiler_options);
     match compiler.compile_file(&source_path, &ir_file) {
         Ok(_) => {
             println!("  [+] Cavvy 编译成功");

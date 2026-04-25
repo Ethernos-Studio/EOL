@@ -1,9 +1,11 @@
 public class TestVarargsFull {
     // 可变参数方法：计算多个整数的和
+    // 使用数组长度来动态处理所有元素
     public static int sum(int... numbers) {
         int total = 0;
         int i = 0;
-        while (i < 5) {  // 简化：假设最多5个元素
+        // 使用数组长度属性动态遍历所有元素
+        while (i < numbers.length) {
             total = total + numbers[i];
             i = i + 1;
         }
@@ -14,7 +16,8 @@ public class TestVarargsFull {
     public static int multiplyAndAdd(int multiplier, int... numbers) {
         int total = 0;
         int i = 0;
-        while (i < 3) {  // 简化：假设最多3个元素
+        // 使用数组长度属性动态遍历所有元素
+        while (i < numbers.length) {
             total = total + numbers[i];
             i = i + 1;
         }

@@ -1,0 +1,11 @@
+#include <StringBuilder.cay>
+
+public class TestAppend {
+    public static void main(String[] args) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Status: ");
+        sb.append(200);
+        sb.append(" OK");
+        println(sb.toString());
+    }
+}

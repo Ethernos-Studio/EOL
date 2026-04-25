@@ -19,10 +19,12 @@ public class StringOpsTest {
         print("Empty string length: ");
         println(empty.length());
         
-        // 测试3: 字符串与数字拼接
+        // 测试3: 字符串与数字拼接（使用显式转换）
         println("\nTest 3: String with numbers");
         int num = 42;
-        // 注意：EOL 可能不支持直接字符串+数字，需要测试
+        // Cavvy要求显式转换，不能直接拼接string和int
+        string numStr = "Number: " + (string)num;
+        println(numStr);
         
         // 测试4: 字符串比较
         println("\nTest 4: String equality");

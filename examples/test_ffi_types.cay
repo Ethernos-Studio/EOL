@@ -4,33 +4,16 @@
 public class FFITypesTest {
     // 测试 FFI 类型的声明和使用
     public static void testFFITypes() {
-        // 基本类型 - 使用变量避免直接赋值字面量
-        c_int a;
-        a = 10;
-
-        c_uint b;
-        b = 20;
-
-        c_long c;
-        c = 30;
-
-        c_short d;
-        d = 40;
-
-        c_ushort e;
-        e = 50;
-
-        c_char f;
-        f = 65;  // 'A'
-
-        c_uchar g;
-        g = 66; // 'B'
-
-        c_float h;
-        h = 3.14;
-
-        c_double i;
-        i = 3.14159;
+        // 基本类型 - 直接赋值字面量
+        c_int a = 10;
+        c_uint b = 20;
+        c_long c = 30;
+        c_short d = 40;
+        c_ushort e = 50;
+        c_char f = 65;  // 'A'
+        c_uchar g = 66; // 'B'
+        c_float h = 3.14;
+        c_double i = 3.14159;
 
         // 指针类型
         c_void* ptr = null;
@@ -42,17 +25,10 @@ public class FFITypesTest {
         c_char*** str_ptr_ptr = null;
 
         // 特殊类型
-        size_t size;
-        size = 100;
-
-        ssize_t ssize;
-        ssize = -50;
-
-        uintptr_t uptr;
-        uptr = 0x12345678;
-
-        intptr_t iptr;
-        iptr = -0x12345678;
+        size_t size = 100;
+        ssize_t ssize = -50;
+        uintptr_t uptr = 0x12345678;
+        intptr_t iptr = -0x12345678;
 
         println("FFI Types Test");
         println("===============");

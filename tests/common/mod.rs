@@ -32,14 +32,45 @@ static TEST_LOCK: Mutex<()> = Mutex::new(());
 /// - 时间复杂度: O(编译时间 + 执行时间)
 /// - 会自动清理生成的 .exe 和 .ll 文件
 pub fn compile_and_run_eol(source_path: &str) -> Result<String, String> {
+    compile_and_run_eol_with_features(source_path, &[])
+}
+
+/// 编译并运行单个 EOL 文件，支持特性标志，返回输出结果
+///
+/// 使用 release 版本的 cayc.exe 编译 EOL 源代码为 EXE，
+/// 支持传入特性标志（如 -F=top_level_function），
+/// 然后执行生成的程序，最后清理生成的临时文件。
+///
+/// # Arguments
+/// * `source_path` - EOL 源代码文件路径（相对于项目根目录）
+/// * `features` - 特性标志列表，如 &["-F=top_level_function"]
+///
+/// # Returns
+/// * `Ok(String)` - 成功时返回 stdout 字符串
+/// * `Err(String)` - 失败时返回错误信息字符串
+///
+/// # Example
+/// ```rust
+/// let output = compile_and_run_eol_with_features(
+///     "examples/toplevel.cay",
+///     &["-F=top_level_function"]
+/// ).expect("编译运行失败");
+/// ```
+pub fn compile_and_run_eol_with_features(source_path: &str, features: &[&str]) -> Result<String, String> {
     // 使用唯一ID生成输出文件名，避免测试冲突
     let unique_id = format!("{}_{:?}", std::process::id(), std::thread::current().id());
     let exe_path = source_path.replace(".cay", &format!("_{}.exe", unique_id));
     let ir_path = source_path.replace(".cay", &format!("_{}.ll", unique_id));
     
+    // 构建参数
+    let mut args = vec![source_path, &exe_path];
+    for feature in features {
+        args.push(feature);
+    }
+    
     // 1. 编译 EOL -> EXE (使用 release 版本)
     let output = Command::new("./target/release/cayc.exe")
-        .args(&[source_path, &exe_path])
+        .args(&args)
         .output()
         .map_err(|e| format!("Failed to execute cayc: {}", e))?;
     

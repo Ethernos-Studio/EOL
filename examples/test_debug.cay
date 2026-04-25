@@ -1,0 +1,29 @@
+/**
+ * 调试测试
+ */
+public class HttpRequest {
+    private void parseStatusLine(String headers, HttpResponse response) {
+        println("parseStatusLine");
+    }
+
+    private void parseResponse(String responseStr, HttpResponse response) {
+        this.parseStatusLine(responseStr, response);
+    }
+
+    public void send() {
+        HttpResponse response = new HttpResponse();
+        this.parseResponse("test", response);
+    }
+}
+
+public class HttpResponse {
+    public HttpResponse() {}
+}
+
+public class Main {
+    @main
+    public static void main() {
+        HttpRequest req = new HttpRequest();
+        req.send();
+    }
+}

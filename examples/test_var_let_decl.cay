@@ -20,7 +20,7 @@ public class TestVarLetDecl {
         println(x);
         println(y);
         println(name);
-        // println(pi); // double 类型暂时不测试
+        println(pi);
         println(traditional);
         println(modern);
         

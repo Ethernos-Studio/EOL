@@ -1,0 +1,16 @@
+// FFI 网络功能测试（简化版）
+// 测试 Network.cay 中的基本功能
+
+#include <Network.cay>
+
+public int main() {
+    // 测试 TcpSocket 创建（不实际连接）
+    println("Network FFI test");
+    println("TcpSocket and TcpServer classes are available via Network.cay");
+    
+    // 由于网络测试需要实际的网络环境，
+    // 这里只验证类可以正常加载
+    println("Network classes loaded successfully");
+    
+    return 0;
+}

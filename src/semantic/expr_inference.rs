@@ -241,8 +241,27 @@ impl SemanticAnalyzer {
             }
             UnaryOp::Deref => {
                 // *操作符解引用指针，返回指针指向的类型
-                // 简化处理：假设解引用返回 Int32
-                Ok(Type::Int32)
+                // 根据操作数类型推断解引用返回类型
+                match &operand_type {
+                    Type::Int64 => {
+                        // long 类型被视为指针，解引用返回类型需要根据上下文确定
+                        // 由于 Cavvy 使用 Int64 表示指针，我们无法仅从类型知道指向的内容
+                        // 这里返回一个特殊的指针类型标记，让赋值检查来处理
+                        Ok(Type::Int64)
+                    }
+                    Type::Array(elem_type) => {
+                        // 数组类型解引用返回元素类型
+                        Ok((**elem_type).clone())
+                    }
+                    _ => {
+                        // 对于其他类型，报错
+                        Err(semantic_error(
+                            unary.loc.line,
+                            unary.loc.column,
+                            format!("Cannot dereference non-pointer type '{}'", operand_type)
+                        ))
+                    }
+                }
             }
             _ => Ok(operand_type),
         }
@@ -262,6 +281,39 @@ impl SemanticAnalyzer {
                 "readLine" => return Ok(Type::String),
                 "readChar" => return Ok(Type::Char),
                 "readBool" => return Ok(Type::Bool),
+                // 运行时辅助函数
+                "__cay_read_ptr" => {
+                    // 检查参数数量
+                    if call.args.len() != 1 {
+                        return Err(semantic_error(call.loc.line, call.loc.column,
+                            format!("Function '__cay_read_ptr' requires 1 argument, but got {}", call.args.len())));
+                    }
+                    return Ok(Type::Int64);
+                }
+                "__cay_ptr_to_string" => {
+                    // 检查参数数量
+                    if call.args.len() != 1 {
+                        return Err(semantic_error(call.loc.line, call.loc.column,
+                            format!("Function '__cay_ptr_to_string' requires 1 argument, but got {}", call.args.len())));
+                    }
+                    return Ok(Type::String);
+                }
+                "__cay_write_ptr" => {
+                    // 检查参数数量
+                    if call.args.len() != 2 {
+                        return Err(semantic_error(call.loc.line, call.loc.column,
+                            format!("Function '__cay_write_ptr' requires 2 arguments, but got {}", call.args.len())));
+                    }
+                    return Ok(Type::Void);
+                }
+                "__cay_write_int" => {
+                    // 检查参数数量
+                    if call.args.len() != 2 {
+                        return Err(semantic_error(call.loc.line, call.loc.column,
+                            format!("Function '__cay_write_int' requires 2 arguments, but got {}", call.args.len())));
+                    }
+                    return Ok(Type::Void);
+                }
                 _ => {}
             }
 
@@ -346,6 +398,24 @@ impl SemanticAnalyzer {
                     return Ok(return_type);
                 }
             }
+
+            // 如果找不到任何合适的方法，尝试查找顶层函数
+            // 先收集顶层函数信息，避免借用冲突
+            let top_level_func_info = if let Some(program) = &self.program {
+                program.top_level_functions.iter()
+                    .find(|func| func.name == name.as_ref())
+                    .map(|func| (func.params.clone(), func.return_type.clone()))
+            } else {
+                None
+            };
+
+            if let Some((params, return_type)) = top_level_func_info {
+                // 找到顶层函数，检查参数类型兼容性
+                if let Err(msg) = self.check_arguments_compatible(&call.args, &params, call.loc.line, call.loc.column) {
+                    return Err(semantic_error(call.loc.line, call.loc.column, msg));
+                }
+                return Ok(return_type);
+            }
         }
 
         // 支持成员调用: obj.method(...) 或 ClassName.method()（静态方法）
@@ -419,8 +489,7 @@ impl SemanticAnalyzer {
             }
         }
 
-        // 如果找不到任何合适的方法，报错
-        // 尝试提供更详细的错误信息
+        // 如果找不到任何合适的方法，报告错误
         if let Expr::Identifier(name) = call.callee.as_ref() {
             if let Some(ref current_class) = self.current_class {
                 // 检查是否存在同名方法（参数不匹配）
@@ -838,9 +907,14 @@ impl SemanticAnalyzer {
 
     /// 推断数组创建表达式类型
     fn infer_array_creation_type(&mut self, arr: &ArrayCreationExpr) -> cayResult<Type> {
-        // 数组创建: new Type[size] 或 new Type[size1][size2]...
+        // 数组创建: new Type[size] 或 new Type[size1][size2]... 或 new Type[size][] (不规则数组)
         // 检查所有维度的大小
         for (i, size) in arr.sizes.iter().enumerate() {
+            // 跳过空维度（不规则数组，如 new int[5][]）
+            if matches!(size, Expr::Literal(LiteralValue::Null)) {
+                continue;
+            }
+            
             let size_type = self.infer_expr_type(size)?;
             if !size_type.is_integer() {
                 return Err(semantic_error(

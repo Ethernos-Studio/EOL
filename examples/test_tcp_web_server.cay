@@ -2,8 +2,6 @@
  * TCP Web服务器测试
  * 
  * 测试Web服务器类在10808端口的功能
- * 由于绑定端口可能受系统限制，此测试主要验证代码结构和编译正确性
- * 
  * 版本: 0.5.1.0
  */
 
@@ -32,24 +30,21 @@ public class WebServer {
         }
         println("网络初始化成功");
         
-        /* 绑定端口 - 使用局部变量避免类型推断问题 */
-        TcpServer srv = this.server;
-        bool bindResult = srv.bindTo(this.port);
+        /* 绑定端口 */
+        bool bindResult = this.server.bindTo(this.port);
         if (!bindResult) {
-            /* 绑定失败可能是端口被占用，记录但不视为测试失败 */
-            println("绑定端口 skipped: {}", this.port);
-            /* 继续测试其他功能 */
-        } else {
-            println("服务器绑定到端口: {}", this.port);
+            println("绑定端口失败: {}", this.port);
+            return false;
         }
+        println("服务器绑定到端口: {}", this.port);
         
         /* 开始监听 */
-        bool listenResult = srv.listen(5);
+        bool listenResult = this.server.listen(5);
         if (!listenResult) {
-            println("开始监听 skipped");
-        } else {
-            println("服务器开始监听...");
+            println("开始监听失败");
+            return false;
         }
+        println("服务器开始监听...");
         
         this.running = true;
         return true;
@@ -60,8 +55,7 @@ public class WebServer {
      */
     public void stop() {
         this.running = false;
-        TcpServer srv = this.server;
-        srv.close();
+        this.server.close();
         NetworkUtils.cleanup();
         println("服务器已停止");
     }

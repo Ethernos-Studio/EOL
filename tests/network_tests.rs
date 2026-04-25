@@ -82,10 +82,10 @@ fn test_udp_communication() {
     let output = common::compile_and_run_eol("examples/test_network_udp.cay")
         .expect("编译运行 test_network_udp.cay 失败");
     
-    assert!(output.contains("网络初始化成功"), "网络应该初始化成功");
+    assert!(output.contains("网络库初始化成功"), "网络应该初始化成功");
     assert!(output.contains("UDP Socket创建成功"), "UDP Socket应该创建成功");
-    assert!(output.contains("UDP Socket绑定到端口"), "UDP应该能绑定端口");
-    assert!(output.contains("发送成功"), "UDP数据应该能发送");
+    assert!(output.contains("成功绑定到端口"), "UDP应该能绑定端口");
+    assert!(output.contains("成功发送数据"), "UDP数据应该能发送");
     /* 注：receiveStringFrom 是阻塞调用，测试中跳过接收验证 */
     assert!(output.contains("测试完成"), "测试应该正常完成");
 }

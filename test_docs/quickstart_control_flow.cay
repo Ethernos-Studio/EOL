@@ -1,0 +1,49 @@
+public int main() {
+    // if-else
+    int score = 85;
+    if (score >= 90) {
+        println("A");
+    } else if (score >= 80) {
+        println("B");
+    } else {
+        println("C");
+    }
+
+    // for 循环
+    for (int i = 0; i < 5; i++) {
+        println("Iteration: " + i);
+    }
+
+    // while 循环
+    int count = 0;
+    while (count < 3) {
+        println("Count: " + count);
+        count++;
+    }
+
+    // do-while 循环
+    int num = 0;
+    do {
+        println("Number: " + num);
+        num++;
+    } while (num < 3);
+
+    // switch 语句
+    int day = 3;
+    switch (day) {
+        case 1:
+            println("Monday");
+            break;
+        case 2:
+            println("Tuesday");
+            break;
+        case 3:
+            println("Wednesday");
+            break;
+        default:
+            println("Other day");
+            break;
+    }
+
+    return 0;
+}

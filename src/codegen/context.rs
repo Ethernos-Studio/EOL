@@ -190,6 +190,7 @@ pub struct IRGenerator {
     pub extern_declarations: Vec<crate::ast::ExternDecl>,  // FFI extern 声明
     pub extern_function_map: HashMap<String, usize>,  // 函数名 -> extern_declarations索引
     pub emitted_externs: HashSet<String>,  // 已生成的extern声明（函数名 -> 签名）
+    pub top_level_functions: Vec<crate::ast::TopLevelFunction>,  // 顶层函数列表
 }
 
 impl IRGenerator {
@@ -227,6 +228,7 @@ impl IRGenerator {
             extern_declarations: Vec::new(),
             extern_function_map: HashMap::new(),
             emitted_externs: HashSet::new(),
+            top_level_functions: Vec::new(),
         }
     }
 
@@ -258,6 +260,11 @@ impl IRGenerator {
                 decl.functions.iter().find(|f| f.name == func_name)
             })
         })
+    }
+
+    /// 检查是否是顶层函数
+    pub fn is_top_level_function(&self, func_name: &str) -> bool {
+        self.top_level_functions.iter().any(|f| f.name == func_name)
     }
 
     /// 检查extern声明是否已生成（基于函数签名）

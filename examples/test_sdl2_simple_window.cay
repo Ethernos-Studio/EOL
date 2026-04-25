@@ -1,4 +1,4 @@
-// 简化的 SDL2 窗口示例 - 不带标题
+// SDL2 窗口示例 - 带标题
 // 运行: ./target/release/cay-run -lSDL2 examples/test_sdl2_simple_window.cay
 
 extern cdecl {
@@ -30,10 +30,11 @@ public class TestSDL2SimpleWindow {
 
         println("SDL2 initialized successfully!");
 
-        // 创建窗口
+        // 创建窗口 - 使用标题
         // SDL_WINDOW_SHOWN = 0x00000002
+        String title = "Cavvy SDL2 Window";
         c_void* window = SDL_CreateWindow(
-            null,  // title (null 表示无标题)
+            title.c_str(),  // title 使用 c_str() 获取C字符串指针
             100,   // x position
             100,   // y position
             800,   // width

@@ -89,17 +89,22 @@ public class Test041Features {
         int testValue = 42;
 
         // 测试 instanceof 运算符
-        // 由于当前版本不支持 new，我们测试 instanceof 语法本身
-        // 使用 null 检查来测试 instanceof 表达式
-
         println("Testing instanceof syntax:");
 
-        // 使用简单的 instanceof 测试
-        // 由于无法创建对象实例，我们测试 instanceof 表达式的解析和代码生成
-
-        // 测试：基本类型检查（编译期检查）
-        if (true) {
-            println("instanceof parsing: PASS");
+        // 使用实际的 instanceof 测试
+        Rectangle rect = new Rectangle();
+        Circle circle = new Circle();
+        
+        if (rect instanceof Rectangle) {
+            println("rect instanceof Rectangle: PASS");
+        } else {
+            println("rect instanceof Rectangle: FAIL");
+        }
+        
+        if (circle instanceof Circle) {
+            println("circle instanceof Circle: PASS");
+        } else {
+            println("circle instanceof Circle: FAIL");
         }
 
         // 测试方法调用

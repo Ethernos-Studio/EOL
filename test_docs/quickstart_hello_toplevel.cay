@@ -1,0 +1,4 @@
+public int main() {
+    println("Hello from top-level main!");
+    return 0;
+}

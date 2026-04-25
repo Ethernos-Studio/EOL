@@ -1,0 +1,34 @@
+/**
+ * 测试this关键字的方法调用
+ */
+public class TestThis {
+    private int value;
+
+    public TestThis() {
+        this.value = 0;
+    }
+
+    public void setValue(int v) {
+        this.value = v;
+    }
+
+    public int getValue() {
+        return this.value;
+    }
+
+    private void helper() {
+        println("helper called");
+    }
+
+    public void test() {
+        this.helper();
+    }
+}
+
+public class Main {
+    @main
+    public static void main() {
+        TestThis t = new TestThis();
+        t.test();
+    }
+}

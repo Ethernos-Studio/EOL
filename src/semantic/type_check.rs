@@ -140,6 +140,36 @@ impl SemanticAnalyzer {
             
             self.current_class = None;
         }
+
+        // 类型检查顶层函数
+        for func in &program.top_level_functions {
+            self.current_class = None;  // 顶层函数不属于任何类
+            self.current_method = Some(func.name.clone());
+            self.current_method_is_static = true;  // 顶层函数都是静态的
+            self.current_method_is_constructor = false;
+            self.symbol_table.enter_scope();
+
+            // 添加参数到符号表
+            for param in &func.params {
+                self.symbol_table.declare(
+                    param.name.clone(),
+                    SemanticSymbolInfo {
+                        name: param.name.clone(),
+                        symbol_type: param.param_type.clone(),
+                        is_final: false,
+                        is_initialized: true,
+                    }
+                );
+            }
+
+            // 类型检查函数体
+            self.type_check_statement(&Stmt::Block(func.body.clone()), Some(&func.return_type))?;
+
+            self.symbol_table.exit_scope();
+            self.current_method = None;
+            self.current_method_is_static = false;
+        }
+
         Ok(())
     }
 
@@ -230,11 +260,22 @@ impl SemanticAnalyzer {
                 }
             }
             Stmt::Block(block) => {
-                self.symbol_table.enter_scope();
-                for stmt in &block.statements {
-                    self.type_check_statement(stmt, expected_return)?;
+                // 检查是否是多变量声明生成的块（只包含 VarDecl）
+                let is_multi_var_decl = block.statements.iter().all(|s| matches!(s, Stmt::VarDecl(_)));
+                if is_multi_var_decl {
+                    // 多变量声明不创建新作用域，在当前作用域内声明所有变量
+                    for stmt in &block.statements {
+                        if let Stmt::VarDecl(var) = stmt {
+                            self.type_check_statement(&Stmt::VarDecl(var.clone()), expected_return)?;
+                        }
+                    }
+                } else {
+                    self.symbol_table.enter_scope();
+                    for stmt in &block.statements {
+                        self.type_check_statement(stmt, expected_return)?;
+                    }
+                    self.symbol_table.exit_scope();
                 }
-                self.symbol_table.exit_scope();
             }
             _ => {}
         }

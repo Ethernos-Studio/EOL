@@ -171,7 +171,11 @@ impl IRGenerator {
             }
         }
         
-        // 目前仅支持将成员访问视为对象指针的占位符
+        // 无法识别的成员访问，返回对象指针作为 fallback
+        // 注意：这可能是因为：
+        // 1. 访问了外部类型（如C结构体）的字段，这些字段在类型系统中未注册
+        // 2. 对象类型无法确定，但运行时可以通过指针偏移访问
+        // 3. 其他特殊情况（如 FFI 类型）
         // 生成对象表达式并返回其指针值
         let obj = self.generate_expression(&member.object)?;
         let (_, obj_val) = self.parse_typed_value(&obj);

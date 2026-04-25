@@ -58,13 +58,16 @@ impl Parser {
             {
                 classes.push(self.parse_class()?);
             } else if self.check(&crate::lexer::Token::Public) {
-                // 检查是否是顶层 main 函数: public int main() 或 public int main(String[] args)
-                if self.check_top_level_main() {
+                // 检查是否是顶层函数: public 返回类型 函数名()
+                if self.check_top_level_function() {
                     top_level_functions.push(self.parse_top_level_function()?);
                 } else {
                     // 否则可能是 public class
                     classes.push(self.parse_class()?);
                 }
+            } else if self.check_top_level_function_return_type() {
+                // 没有 public 修饰符的顶层函数
+                top_level_functions.push(self.parse_top_level_function_without_public()?);
             } else if self.check(&crate::lexer::Token::Extern) {
                 extern_declarations.push(self.parse_extern_declaration()?);
             } else {
@@ -342,9 +345,9 @@ impl Parser {
         utils::error(self, message)
     }
 
-    /// 检查是否是顶层 main 函数
-    fn check_top_level_main(&self) -> bool {
-        // 需要 lookahead: public (int|void) main
+    /// 检查是否是顶层函数（public 返回类型 函数名()）
+    fn check_top_level_function(&self) -> bool {
+        // 需要 lookahead: public 返回类型 函数名(
         let mut pos = self.pos;
         // 跳过 public
         if pos >= self.tokens.len() {
@@ -352,52 +355,98 @@ impl Parser {
         }
         pos += 1;
 
-        // 检查是否是 int 或 void
+        // 检查是否是返回类型
         if pos >= self.tokens.len() {
             return false;
         }
         match &self.tokens[pos].token {
-            crate::lexer::Token::Int | crate::lexer::Token::Void => {}
+            crate::lexer::Token::Int | crate::lexer::Token::Void |
+            crate::lexer::Token::Long | crate::lexer::Token::Float |
+            crate::lexer::Token::Double | crate::lexer::Token::Bool |
+            crate::lexer::Token::Char | crate::lexer::Token::String |
+            crate::lexer::Token::Identifier(_) => {}
             _ => return false,
         }
         pos += 1;
 
-        // 检查是否是 main
+        // 检查是否是函数名（标识符后跟左括号）
         if pos >= self.tokens.len() {
             return false;
         }
         match &self.tokens[pos].token {
-            crate::lexer::Token::Identifier(name) if name == "main" => true,
-            _ => false,
+            crate::lexer::Token::Identifier(_) => {}
+            _ => return false,
         }
+        pos += 1;
+
+        // 检查后面是否是左括号
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        matches!(&self.tokens[pos].token, crate::lexer::Token::LParen)
     }
 
-    /// 解析顶层函数
+    /// 检查当前位置是否是一个顶层函数的返回类型（用于没有 public 修饰符的情况）
+    fn check_top_level_function_return_type(&self) -> bool {
+        // 需要 lookahead: 返回类型 函数名(
+        let mut pos = self.pos;
+
+        // 检查是否是返回类型
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        match &self.tokens[pos].token {
+            crate::lexer::Token::Int | crate::lexer::Token::Void |
+            crate::lexer::Token::Long | crate::lexer::Token::Float |
+            crate::lexer::Token::Double | crate::lexer::Token::Bool |
+            crate::lexer::Token::Char | crate::lexer::Token::String => {}
+            _ => return false,
+        }
+        pos += 1;
+
+        // 检查是否是函数名（标识符后跟左括号）
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        match &self.tokens[pos].token {
+            crate::lexer::Token::Identifier(_) => {}
+            _ => return false,
+        }
+        pos += 1;
+
+        // 检查后面是否是左括号
+        if pos >= self.tokens.len() {
+            return false;
+        }
+        matches!(&self.tokens[pos].token, crate::lexer::Token::LParen)
+    }
+
+    /// 解析顶层函数（带 public 修饰符）
     fn parse_top_level_function(&mut self) -> cayResult<crate::ast::TopLevelFunction> {
         let loc = self.current_loc();
 
         // 必须是以 public 开始
         self.consume(&crate::lexer::Token::Public, "期望 'public'\n提示: 顶层函数应以 public 开头，例如: public int main() { ... }")?;
 
+        self.parse_top_level_function_body(loc, vec![crate::ast::Modifier::Public])
+    }
+
+    /// 解析顶层函数（不带 public 修饰符）
+    fn parse_top_level_function_without_public(&mut self) -> cayResult<crate::ast::TopLevelFunction> {
+        let loc = self.current_loc();
+        self.parse_top_level_function_body(loc, vec![])
+    }
+
+    /// 解析顶层函数的主体部分
+    fn parse_top_level_function_body(&mut self, loc: crate::error::SourceLocation, modifiers: Vec<crate::ast::Modifier>) -> cayResult<crate::ast::TopLevelFunction> {
         // 解析返回类型
-        let current_token = self.current_token().clone();
-        let return_type = match current_token {
-            crate::lexer::Token::Int => { self.advance(); crate::types::Type::Int32 }
-            crate::lexer::Token::Void => { self.advance(); crate::types::Type::Void }
-            _ => {
-                let token_desc = utils::get_token_name(&current_token);
-                return Err(self.error(&format!(
-                    "期望 'int' 或 'void'，但遇到了 {}\n提示: 顶层 main 函数必须返回 int 或 void，例如: public int main() {{ ... }}",
-                    token_desc
-                )));
-            }
-        };
+        let return_type = self.parse_type()?;
 
         // 解析函数名
-        let name = self.consume_identifier("期望函数名\n提示: 返回类型后应跟函数名，例如: public int main() { ... }")?;
+        let name = self.consume_identifier("期望函数名\n提示: 返回类型后应跟函数名，例如: int add(int a, int b) { ... }")?;
 
         // 解析参数列表
-        self.consume(&crate::lexer::Token::LParen, "期望 '('\n提示: 函数名后应跟 '(' 开始参数列表，例如: main() 或 main(String[] args)")?;
+        self.consume(&crate::lexer::Token::LParen, "期望 '('\n提示: 函数名后应跟 '(' 开始参数列表，例如: add(int a, int b)")?;
         let params = self.parse_parameters()?;
         self.consume(&crate::lexer::Token::RParen, "期望 ')'\n提示: 参数列表应以 ')' 结束")?;
 
@@ -406,7 +455,7 @@ impl Parser {
 
         Ok(crate::ast::TopLevelFunction {
             name,
-            modifiers: vec![crate::ast::Modifier::Public],
+            modifiers,
             return_type,
             params,
             body,

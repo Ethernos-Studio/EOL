@@ -1,0 +1,23 @@
+// ffi-guide.md 时间函数测试
+
+extern long time(long ptr);
+extern int clock();
+extern void sleep(int seconds);
+
+public int main() {
+    // time
+    long t = time(0);
+    println("Current time: " + t);
+    
+    // clock
+    int start = clock();
+    println("Clock start: " + start);
+    
+    // sleep
+    sleep(1);
+    
+    int end = clock();
+    println("Clock end: " + end);
+    
+    return 0;
+}

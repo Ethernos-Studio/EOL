@@ -23,6 +23,12 @@ impl IRGenerator {
                 "readDouble" => return self.generate_read_double_call(&call.args),
                 "readLine" => return self.generate_read_line_call(&call.args),
                 "readChar" => return self.generate_read_char_call(&call.args),
+                // 运行时辅助函数
+                "__cay_read_ptr" => return self.generate_read_ptr_call(&call.args),
+                "__cay_ptr_to_string" => return self.generate_ptr_to_string_call(&call.args),
+                "__cay_write_ptr" => return self.generate_write_ptr_call(&call.args),
+                "__cay_write_int" => return self.generate_write_int_call(&call.args),
+                "__cay_read_int" => return self.generate_cay_read_int_call(&call.args),
                 _ => {}
             }
         }
@@ -42,6 +48,20 @@ impl IRGenerator {
                         // 将 length() 转换为 length 属性访问
                         return self.generate_array_length_access(&member.object);
                     }
+                }
+            }
+
+            // 处理 String.valueOf() 静态方法
+            if let Expr::Identifier(class_name) = member.object.as_ref() {
+                if class_name == "String" && member.member == "valueOf" {
+                    return self.generate_string_valueof_call(&call.args);
+                }
+            }
+
+            // 处理 Integer.parseInt() 静态方法
+            if let Expr::Identifier(class_name) = member.object.as_ref() {
+                if class_name == "Integer" && member.member == "parseInt" {
+                    return self.generate_integer_parseint_call(&call.args);
                 }
             }
         }
@@ -64,7 +84,11 @@ impl IRGenerator {
                 if let Some(_extern_func) = self.get_extern_function(name_str) {
                     return self.generate_extern_function_call(name_str, &call.args);
                 }
-                if !self.current_class.is_empty() {
+                // 检查是否是顶层函数
+                if self.is_top_level_function(name_str) {
+                    // 顶层函数没有类名前缀
+                    (String::new(), name_str.to_string(), None)
+                } else if !self.current_class.is_empty() {
                     (self.current_class.clone(), name_str.to_string(), None)
                 } else {
                     (String::new(), name_str.to_string(), None)
@@ -316,7 +340,11 @@ impl IRGenerator {
         }
 
         // 回退到使用实际参数类型生成函数名
-        if arg_types.is_empty() {
+        // 顶层函数（class_name 为空）使用 __toplevel_ 前缀
+        if class_name.is_empty() {
+            // 顶层函数命名：__toplevel_func_name
+            format!("__toplevel_{}", method_name)
+        } else if arg_types.is_empty() {
             format!("{}.{}", class_name, method_name)
         } else {
             format!("{}.__{}_{}", class_name, method_name, arg_types.join("_"))
@@ -770,6 +798,15 @@ impl IRGenerator {
         if func_name == "__cay_buffer_to_string" {
             return self.generate_buffer_to_string_call(args);
         }
+        
+        // 特殊处理指针操作运行时函数
+        match func_name {
+            "__cay_read_ptr" => return self.generate_read_ptr_call(args),
+            "__cay_ptr_to_string" => return self.generate_ptr_to_string_call(args),
+            "__cay_write_ptr" => return self.generate_write_ptr_call(args),
+            "__cay_write_int" => return self.generate_write_int_call(args),
+            _ => {}
+        }
 
         // 获取 extern 函数信息（克隆以避免借用问题）
         let extern_func = {
@@ -845,5 +882,212 @@ impl IRGenerator {
             temp, llvm_arg1, llvm_arg2));
 
         Ok(format!("i8* {}", temp))
+    }
+    
+    /// 生成 __cay_read_ptr 运行时函数调用
+    /// 这个函数在运行时模块中已经定义，返回 i64
+    fn generate_read_ptr_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 1 {
+            return Err(codegen_error("__cay_read_ptr requires 1 argument".to_string()));
+        }
+
+        // 生成参数
+        let arg_result = self.generate_expression(&args[0])?;
+        let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+        
+        // 转换参数类型为 i64，并提取值部分
+        let llvm_arg_full = self.convert_arg_type(&arg_type, &arg_val, "i64");
+        let llvm_arg_val = llvm_arg_full.split_whitespace().last().unwrap_or(&arg_val);
+
+        // 调用运行时函数
+        let temp = self.new_temp();
+        self.emit_line(&format!("  {} = call i64 @__cay_read_ptr(i64 {})",
+            temp, llvm_arg_val));
+
+        Ok(format!("i64 {}", temp))
+    }
+    
+    /// 生成 __cay_ptr_to_string 运行时函数调用
+    /// 这个函数在运行时模块中已经定义，返回 i8* (String)
+    fn generate_ptr_to_string_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 1 {
+            return Err(codegen_error("__cay_ptr_to_string requires 1 argument".to_string()));
+        }
+
+        // 生成参数
+        let arg_result = self.generate_expression(&args[0])?;
+        let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+        
+        // 转换参数类型为 i64，并提取值部分
+        let llvm_arg_full = self.convert_arg_type(&arg_type, &arg_val, "i64");
+        let llvm_arg_val = llvm_arg_full.split_whitespace().last().unwrap_or(&arg_val);
+
+        // 调用运行时函数
+        let temp = self.new_temp();
+        self.emit_line(&format!("  {} = call i8* @__cay_ptr_to_string(i64 {})",
+            temp, llvm_arg_val));
+
+        Ok(format!("i8* {}", temp))
+    }
+    
+    /// 生成 __cay_write_ptr 运行时函数调用
+    /// 这个函数在运行时模块中已经定义，返回 void
+    fn generate_write_ptr_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 2 {
+            return Err(codegen_error("__cay_write_ptr requires 2 arguments".to_string()));
+        }
+
+        // 生成参数
+        let arg1_result = self.generate_expression(&args[0])?;
+        let arg2_result = self.generate_expression(&args[1])?;
+
+        let (arg1_type, arg1_val) = self.parse_typed_value(&arg1_result);
+        let (arg2_type, arg2_val) = self.parse_typed_value(&arg2_result);
+
+        // 转换参数类型，并提取值部分
+        let llvm_arg1_full = self.convert_arg_type(&arg1_type, &arg1_val, "i64");
+        let llvm_arg1_val = llvm_arg1_full.split_whitespace().last().unwrap_or(&arg1_val);
+        let llvm_arg2_full = self.convert_arg_type(&arg2_type, &arg2_val, "i64");
+        let llvm_arg2_val = llvm_arg2_full.split_whitespace().last().unwrap_or(&arg2_val);
+
+        // 调用运行时函数
+        self.emit_line(&format!("  call void @__cay_write_ptr(i64 {}, i64 {})",
+            llvm_arg1_val, llvm_arg2_val));
+
+        Ok("void %dummy".to_string())
+    }
+    
+    /// 生成 __cay_write_int 运行时函数调用
+    /// 这个函数在运行时模块中已经定义，返回 void
+    fn generate_write_int_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 2 {
+            return Err(codegen_error("__cay_write_int requires 2 arguments".to_string()));
+        }
+
+        // 生成参数
+        let arg1_result = self.generate_expression(&args[0])?;
+        let arg2_result = self.generate_expression(&args[1])?;
+
+        let (arg1_type, arg1_val) = self.parse_typed_value(&arg1_result);
+        let (arg2_type, arg2_val) = self.parse_typed_value(&arg2_result);
+
+        // 转换参数类型，并提取值部分
+        let llvm_arg1_full = self.convert_arg_type(&arg1_type, &arg1_val, "i64");
+        let llvm_arg1_val = llvm_arg1_full.split_whitespace().last().unwrap_or(&arg1_val);
+        let llvm_arg2_full = self.convert_arg_type(&arg2_type, &arg2_val, "i32");
+        let llvm_arg2_val = llvm_arg2_full.split_whitespace().last().unwrap_or(&arg2_val);
+
+        // 调用运行时函数
+        self.emit_line(&format!("  call void @__cay_write_int(i64 {}, i32 {})",
+            llvm_arg1_val, llvm_arg2_val));
+
+        Ok("void %dummy".to_string())
+    }
+
+    /// 生成 __cay_read_int 运行时函数调用
+    /// 这个函数在运行时模块中已经定义，返回 i32
+    fn generate_cay_read_int_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 1 {
+            return Err(codegen_error("__cay_read_int requires 1 argument".to_string()));
+        }
+
+        // 生成参数
+        let arg_result = self.generate_expression(&args[0])?;
+        let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+
+        // 转换参数类型为 i64
+        let llvm_arg_full = self.convert_arg_type(&arg_type, &arg_val, "i64");
+        let llvm_arg_val = llvm_arg_full.split_whitespace().last().unwrap_or(&arg_val);
+
+        // 生成临时变量存储结果
+        let temp = self.new_temp();
+
+        // 调用运行时函数
+        self.emit_line(&format!("  {} = call i32 @__cay_read_int(i64 {})",
+            temp, llvm_arg_val));
+
+        Ok(format!("i32 {}", temp))
+    }
+
+    /// 生成 String.valueOf() 静态方法调用
+    /// 支持多种类型：int, long, float, double, bool, char
+    fn generate_string_valueof_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 1 {
+            return Err(codegen_error("String.valueOf() takes exactly 1 argument".to_string()));
+        }
+
+        // 生成参数
+        let arg_result = self.generate_expression(&args[0])?;
+        let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+
+        let temp = self.new_temp();
+
+        // 根据参数类型选择对应的转换函数
+        match arg_type.as_str() {
+            "i32" => {
+                // int -> String
+                self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i32 {})",
+                    temp, arg_val));
+            }
+            "i64" => {
+                // long -> String
+                self.emit_line(&format!("  {} = call i8* @__cay_long_to_string(i64 {})",
+                    temp, arg_val));
+            }
+            "float" => {
+                // float -> String
+                self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(float {})",
+                    temp, arg_val));
+            }
+            "double" => {
+                // double -> String
+                self.emit_line(&format!("  {} = call i8* @__cay_double_to_string(double {})",
+                    temp, arg_val));
+            }
+            "i1" => {
+                // bool -> String
+                self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})",
+                    temp, arg_val));
+            }
+            "i8" => {
+                // char -> String
+                self.emit_line(&format!("  {} = call i8* @__cay_char_to_string(i8 {})",
+                    temp, arg_val));
+            }
+            "i8*" => {
+                // String -> String (直接返回)
+                return Ok(format!("i8* {}", arg_val));
+            }
+            _ => {
+                return Err(codegen_error(format!("String.valueOf() does not support type: {}", arg_type)));
+            }
+        }
+
+        Ok(format!("i8* {}", temp))
+    }
+
+    /// 生成 Integer.parseInt() 静态方法调用
+    /// 将 String 转换为 int
+    fn generate_integer_parseint_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 1 {
+            return Err(codegen_error("Integer.parseInt() takes exactly 1 argument".to_string()));
+        }
+
+        // 生成参数（String）
+        let arg_result = self.generate_expression(&args[0])?;
+        let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+
+        // 检查参数类型是否为 String (i8*)
+        if arg_type != "i8*" {
+            return Err(codegen_error(format!("Integer.parseInt() expects String, got {}", arg_type)));
+        }
+
+        let temp = self.new_temp();
+
+        // 调用 atoi 函数将字符串转换为整数
+        self.emit_line(&format!("  {} = call i32 @atoi(i8* {})",
+            temp, arg_val));
+
+        Ok(format!("i32 {}", temp))
     }
 }

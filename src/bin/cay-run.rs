@@ -21,6 +21,7 @@ struct RunOptions {
     link_libs: Vec<String>,    // -l: 链接的库
     lib_paths: Vec<String>,    // -L: 库搜索路径
     optimize: String,          // -O: 优化级别
+    features: Vec<String>,     // -F/--feature: 启用的语言特性
 }
 
 impl Default for RunOptions {
@@ -35,6 +36,7 @@ impl Default for RunOptions {
             link_libs: Vec::new(),
             lib_paths: Vec::new(),
             optimize: "-O2".to_string(),
+            features: Vec::new(),
         }
     }
 }
@@ -56,6 +58,7 @@ fn print_usage() {
     println!("  -l<lib>                链接指定库");
     println!("  -L<path>               添加库搜索路径");
     println!("  -O<level>              优化级别 (0, 1, 2, 3, s, z)");
+    println!("  -F<feature>            启用语言特性 (如: -F=top_level_function)");
     println!("  --keep-temp            保留临时文件");
     println!("  --verbose, -v          显示详细编译信息");
     println!("  --version, -V          显示版本号");
@@ -78,7 +81,7 @@ fn parse_args(args: &[String]) -> Result<(RunOptions, String), String> {
     while i < args.len() {
         let arg = &args[i];
 
-        if arg.starts_with("-l") && arg.len() > 2 {
+        if arg.starts_with("-l") && arg.len() > 2 && !arg.starts_with("-F") {
             // -lxxx 格式
             options.link_libs.push(arg[2..].to_string());
         } else if arg.starts_with("-L") && arg.len() > 2 {
@@ -87,6 +90,20 @@ fn parse_args(args: &[String]) -> Result<(RunOptions, String), String> {
         } else if arg.starts_with("-O") && arg.len() > 1 {
             // -Oxxx 格式
             options.optimize = format!("-O{}", &arg[2..]);
+        } else if arg.starts_with("-F") {
+            // -F<feature> 或 -F=<feature> 格式
+            let feature = if arg.starts_with("-F=") {
+                arg[3..].to_string()
+            } else if arg.len() > 2 {
+                arg[2..].to_string()
+            } else {
+                i += 1;
+                if i >= args.len() {
+                    return Err("-F 需要特性名称参数".to_string());
+                }
+                args[i].clone()
+            };
+            options.features.push(feature);
         } else {
             match arg.as_str() {
                 "--version" | "-V" => {
@@ -276,7 +293,7 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
     // 编译
     let compiler_options = cavvy::CompilerOptions {
         target_os: env::consts::OS.to_string(),
-        features: Vec::new(),
+        features: options.features.clone(),
         no_features: Vec::new(),
         defines: Vec::new(),
         undefines: Vec::new(),

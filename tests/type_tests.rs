@@ -74,8 +74,8 @@ fn test_type_casting() {
             "Should test float to double, got: {}", output);
     assert!(output.contains("Test 5: long to double"),
             "Should test long to double, got: {}", output);
-    assert!(output.contains("Test 6: Same type operations"),
-            "Should test same type operations, got: {}", output);
+    assert!(output.contains("Test 6: Mixed type operations"),
+            "Should test mixed type operations, got: {}", output);
     assert!(output.contains("Test 7: Array element assignment with type conversion"),
             "Should test array element type conversion, got: {}", output);
     assert!(output.contains("=== All type casting tests PASSED! ==="),

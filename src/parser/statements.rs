@@ -32,6 +32,16 @@ pub fn parse_block(parser: &mut Parser) -> cayResult<Block> {
 
     let mut statements = Vec::new();
     while !parser.check(&crate::lexer::Token::RBrace) && !parser.is_at_end() {
+        // 跳过换行符（支持一行内多个语句）
+        while parser.check(&crate::lexer::Token::Newline) {
+            parser.advance();
+        }
+        
+        // 再次检查是否到达代码块结束
+        if parser.check(&crate::lexer::Token::RBrace) || parser.is_at_end() {
+            break;
+        }
+        
         statements.push(parse_statement(parser)?);
     }
 
@@ -138,6 +148,7 @@ pub fn parse_statement(parser: &mut Parser) -> cayResult<Stmt> {
 /// 解析变量声明
 /// 支持以下语法：
 /// - 传统语法: int x = 10;
+/// - 多变量声明: int a = 10, b = 20, c;
 /// - final 修饰: final int x = 10;
 /// - var 后置类型: var x: int = 10;
 /// - let 后置类型: let x: int = 10;
@@ -199,6 +210,7 @@ pub fn parse_var_decl(parser: &mut Parser) -> cayResult<Stmt> {
         parse_type(parser)?
     };
 
+    // 解析第一个变量
     let name = parser.consume_identifier("期望变量名\n提示: 类型后应跟变量名，例如: int count;")?;
 
     let initializer = if parser.match_token(&crate::lexer::Token::Assign) {
@@ -207,18 +219,48 @@ pub fn parse_var_decl(parser: &mut Parser) -> cayResult<Stmt> {
         None
     };
 
+    // 检查是否有多变量声明 (逗号分隔)
+    let mut var_decls = vec![VarDecl {
+        name,
+        var_type: var_type.clone(),
+        initializer,
+        is_final,
+        loc: loc.clone(),
+    }];
+
+    while parser.match_token(&crate::lexer::Token::Comma) {
+        // 解析下一个变量名
+        let next_name = parser.consume_identifier("期望变量名\n提示: 逗号后应跟变量名，例如: int a = 10, b, c;")?;
+
+        // 检查是否有初始化表达式
+        let next_initializer = if parser.match_token(&crate::lexer::Token::Assign) {
+            Some(parse_expression(parser)?)
+        } else {
+            None
+        };
+
+        var_decls.push(VarDecl {
+            name: next_name,
+            var_type: var_type.clone(),
+            initializer: next_initializer,
+            is_final,
+            loc: parser.current_loc(),
+        });
+    }
+
     parser.consume(
         &crate::lexer::Token::Semicolon,
         "期望 ';'\n提示: 变量声明应以 ';' 结束，例如: int count = 0;",
     )?;
 
-    Ok(Stmt::VarDecl(VarDecl {
-        name,
-        var_type,
-        initializer,
-        is_final,
-        loc,
-    }))
+    // 如果只有一个变量，直接返回
+    if var_decls.len() == 1 {
+        return Ok(Stmt::VarDecl(var_decls.into_iter().next().unwrap()));
+    }
+
+    // 多个变量，返回一个 Block 包含所有声明
+    let statements: Vec<Stmt> = var_decls.into_iter().map(Stmt::VarDecl).collect();
+    Ok(Stmt::Block(Block { statements, loc }))
 }
 
 /// 解析 if 语句
