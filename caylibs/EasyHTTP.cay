@@ -1,0 +1,1633 @@
+/**
+ * EasyHTTP - 简洁易用的HTTP客户端标准库
+ *
+ * 提供高级HTTP客户端功能：
+ * - HttpRequest: HTTP请求构建器，支持链式调用
+ * - HttpResponse: HTTP响应封装，包含状态码、头部、正文
+ * - EasyHTTP: 静态工具类，提供便捷的GET/POST/PUT/DELETE等方法
+ * - HttpHeaders: HTTP头部管理
+ * - HttpParams: URL参数管理
+ *
+ * 特性：
+ * - 链式API设计，代码简洁优雅
+ * - 自动处理URL编码
+ * - 支持自定义请求头
+ * - 支持JSON和表单数据
+ * - 连接超时控制
+ * - 完整的错误处理
+ *
+ * 版本: 0.5.1.0
+ */
+
+#ifndef CAY_EASYHTTP_H
+#define CAY_EASYHTTP_H
+
+#include <Network.cay>
+#include <StringBuilder.cay>
+
+/* ============================================================================
+ * HTTP常量定义
+ * ============================================================================ */
+
+/* HTTP方法 */
+#define HTTP_GET     "GET"
+#define HTTP_POST    "POST"
+#define HTTP_PUT     "PUT"
+#define HTTP_DELETE  "DELETE"
+#define HTTP_HEAD    "HEAD"
+#define HTTP_OPTIONS "OPTIONS"
+#define HTTP_PATCH   "PATCH"
+
+/* 常用Content-Type */
+#define CONTENT_TYPE_JSON       "application/json"
+#define CONTENT_TYPE_FORM       "application/x-www-form-urlencoded"
+#define CONTENT_TYPE_TEXT       "text/plain"
+#define CONTENT_TYPE_HTML       "text/html"
+#define CONTENT_TYPE_XML        "application/xml"
+#define CONTENT_TYPE_MULTIPART  "multipart/form-data"
+
+/* 常用请求头 */
+#define HEADER_ACCEPT           "Accept"
+#define HEADER_CONTENT_TYPE     "Content-Type"
+#define HEADER_CONTENT_LENGTH   "Content-Length"
+#define HEADER_USER_AGENT       "User-Agent"
+#define HEADER_AUTHORIZATION    "Authorization"
+#define HEADER_HOST             "Host"
+#define HEADER_CONNECTION       "Connection"
+
+/* 默认超时设置（毫秒） */
+#define DEFAULT_CONNECT_TIMEOUT 5000
+#define DEFAULT_READ_TIMEOUT    10000
+
+/* 缓冲区大小 */
+#define HTTP_BUFFER_SIZE        8192
+#define MAX_REDIRECTS           5
+
+/* ============================================================================
+ * HTTP头部管理类
+ * ============================================================================ */
+
+/**
+ * HTTP头部管理类
+ * 用于存储和管理HTTP请求/响应头部
+ * 时间复杂度: O(n) for get/set, O(1) for add
+ * 空间复杂度: O(n) where n = number of headers
+ */
+public class HttpHeaders {
+    private String[] names;
+    private String[] values;
+    private int count;
+    private int capacity;
+
+    /**
+     * 默认构造函数
+     */
+    public HttpHeaders() {
+        this.capacity = 16;
+        this.names = new String[this.capacity]();
+        this.values = new String[this.capacity]();
+        this.count = 0;
+    }
+
+    /**
+     * 添加或更新头部
+     * @param name 头部名称
+     * @param value 头部值
+     * @return this，支持链式调用
+     * 时间复杂度: O(n) - 检查是否已存在同名头部
+     */
+    public HttpHeaders set(String name, String value) {
+        if (name == null || name.isEmpty()) {
+            return this;
+        }
+
+        /* 查找是否已存在同名头部 */
+        int i = 0;
+        while (i < this.count) {
+            if (this.names[i].equalsIgnoreCase(name)) {
+                this.values[i] = value;
+                return this;
+            }
+            i = i + 1;
+        }
+
+        /* 添加新头部 */
+        this.ensureCapacity();
+        this.names[this.count] = name;
+        this.values[this.count] = value;
+        this.count = this.count + 1;
+        return this;
+    }
+
+    /**
+     * 添加头部（允许重复）
+     * @param name 头部名称
+     * @param value 头部值
+     * @return this，支持链式调用
+     * 时间复杂度: O(1)
+     */
+    public HttpHeaders add(String name, String value) {
+        if (name == null || name.isEmpty()) {
+            return this;
+        }
+
+        this.ensureCapacity();
+        this.names[this.count] = name;
+        this.values[this.count] = value;
+        this.count = this.count + 1;
+        return this;
+    }
+
+    /**
+     * 获取头部值
+     * @param name 头部名称
+     * @return 头部值，不存在返回空字符串
+     * 时间复杂度: O(n)
+     */
+    public String get(String name) {
+        if (name == null || name.isEmpty()) {
+            return "";
+        }
+
+        int i = 0;
+        while (i < this.count) {
+            if (this.names[i].equalsIgnoreCase(name)) {
+                return this.values[i];
+            }
+            i = i + 1;
+        }
+        return "";
+    }
+
+    /**
+     * 获取所有同名头部的值
+     * @param name 头部名称
+     * @return 所有匹配的头部值数组
+     * 时间复杂度: O(n)
+     * 空间复杂度: O(k) where k = matching headers count
+     */
+    public String[] getAll(String name) {
+        if (name == null || name.isEmpty()) {
+            return new String[0]();
+        }
+
+        /* 先计数 */
+        int matchCount = 0;
+        int i = 0;
+        while (i < this.count) {
+            if (this.names[i].equalsIgnoreCase(name)) {
+                matchCount = matchCount + 1;
+            }
+            i = i + 1;
+        }
+
+        if (matchCount == 0) {
+            return new String[0]();
+        }
+
+        /* 收集结果 */
+        String[] result = new String[matchCount]();
+        int index = 0;
+        i = 0;
+        while (i < this.count) {
+            if (this.names[i].equalsIgnoreCase(name)) {
+                result[index] = this.values[i];
+                index = index + 1;
+            }
+            i = i + 1;
+        }
+        return result;
+    }
+
+    /**
+     * 移除头部
+     * @param name 头部名称
+     * @return this，支持链式调用
+     * 时间复杂度: O(n)
+     */
+    public HttpHeaders remove(String name) {
+        if (name == null || name.isEmpty()) {
+            return this;
+        }
+
+        int i = 0;
+        while (i < this.count) {
+            if (this.names[i].equalsIgnoreCase(name)) {
+                /* 移动后续元素 */
+                int j = i;
+                while (j < this.count - 1) {
+                    this.names[j] = this.names[j + 1];
+                    this.values[j] = this.values[j + 1];
+                    j = j + 1;
+                }
+                this.count = this.count - 1;
+                /* 继续检查当前位置（可能有多个同名头部） */
+            } else {
+                i = i + 1;
+            }
+        }
+        return this;
+    }
+
+    /**
+     * 检查是否包含指定头部
+     * @param name 头部名称
+     * @return true如果存在
+     * 时间复杂度: O(n)
+     */
+    public bool contains(String name) {
+        return !this.get(name).isEmpty();
+    }
+
+    /**
+     * 获取头部数量
+     * @return 头部数量
+     * 时间复杂度: O(1)
+     */
+    public int size() {
+        return this.count;
+    }
+
+    /**
+     * 清空所有头部
+     * @return this，支持链式调用
+     * 时间复杂度: O(1)
+     */
+    public HttpHeaders clear() {
+        this.count = 0;
+        return this;
+    }
+
+    /**
+     * 构建HTTP头部字符串
+     * @return 格式化的HTTP头部字符串
+     * 时间复杂度: O(n * m) where m = average header length
+     */
+    public String build() {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < this.count) {
+            sb.append(this.names[i]);
+            sb.append(": ");
+            sb.append(this.values[i]);
+            sb.append("\r\n");
+            i = i + 1;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 确保容量足够
+     * 时间复杂度: O(n) when resizing
+     * 空间复杂度: O(n)
+     */
+    private void ensureCapacity() {
+        if (this.count < this.capacity) {
+            return;
+        }
+
+        int newCapacity = this.capacity * 2;
+        String[] newNames = new String[newCapacity]();
+        String[] newValues = new String[newCapacity]();
+
+        int i = 0;
+        while (i < this.count) {
+            newNames[i] = this.names[i];
+            newValues[i] = this.values[i];
+            i = i + 1;
+        }
+
+        this.names = newNames;
+        this.values = newValues;
+        this.capacity = newCapacity;
+    }
+}
+
+/* ============================================================================
+ * URL参数管理类
+ * ============================================================================ */
+
+/**
+ * URL参数管理类
+ * 用于构建URL查询字符串
+ * 时间复杂度: O(n) for build
+ * 空间复杂度: O(n)
+ */
+public class HttpParams {
+    private String[] names;
+    private String[] values;
+    private int count;
+    private int capacity;
+
+    /**
+     * 默认构造函数
+     */
+    public HttpParams() {
+        this.capacity = 16;
+        this.names = new String[this.capacity]();
+        this.values = new String[this.capacity]();
+        this.count = 0;
+    }
+
+    /**
+     * 添加参数
+     * @param name 参数名
+     * @param value 参数值
+     * @return this，支持链式调用
+     * 时间复杂度: O(1) amortized
+     */
+    public HttpParams add(String name, String value) {
+        if (name == null || name.isEmpty()) {
+            return this;
+        }
+
+        this.ensureCapacity();
+        this.names[this.count] = name;
+        this.values[this.count] = value == null ? "" : value;
+        this.count = this.count + 1;
+        return this;
+    }
+
+    /**
+     * 添加整数参数
+     * @param name 参数名
+     * @param value 整数值
+     * @return this，支持链式调用
+     */
+    public HttpParams add(String name, int value) {
+        return this.add(name, this.intToString(value));
+    }
+
+    /**
+     * 添加长整数参数
+     * @param name 参数名
+     * @param value 长整数值
+     * @return this，支持链式调用
+     */
+    public HttpParams add(String name, long value) {
+        return this.add(name, this.longToString(value));
+    }
+
+    /**
+     * 将整数转换为字符串
+     * @param n 整数
+     * @return 字符串表示
+     */
+    private String intToString(int n) {
+        if (n == 0) {
+            return "0";
+        }
+
+        bool negative = false;
+        if (n < 0) {
+            negative = true;
+            n = -n;
+        }
+
+        String result = "";
+        while (n > 0) {
+            int digit = n % 10;
+            char c = (char)('0' + digit);
+            result = c + result;
+            n = n / 10;
+        }
+
+        if (negative) {
+            result = "-" + result;
+        }
+
+        return result;
+    }
+
+    /**
+     * 将长整数转换为字符串
+     * @param n 长整数
+     * @return 字符串表示
+     */
+    private String longToString(long n) {
+        if (n == 0) {
+            return "0";
+        }
+
+        bool negative = false;
+        if (n < 0) {
+            negative = true;
+            n = -n;
+        }
+
+        String result = "";
+        while (n > 0) {
+            long digit = n % 10;
+            char c = (char)('0' + digit);
+            result = c + result;
+            n = n / 10;
+        }
+
+        if (negative) {
+            result = "-" + result;
+        }
+
+        return result;
+    }
+
+    /**
+     * 添加布尔参数
+     * @param name 参数名
+     * @param value 布尔值
+     * @return this，支持链式调用
+     */
+    public HttpParams add(String name, bool value) {
+        return this.add(name, value ? "true" : "false");
+    }
+
+    /**
+     * 构建查询字符串
+     * @return 格式化的查询字符串（不含?前缀）
+     * 时间复杂度: O(n * m)
+     */
+    public String build() {
+        if (this.count == 0) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < this.count) {
+            if (i > 0) {
+                sb.append("&");
+            }
+            sb.append(this.urlEncode(this.names[i]));
+            sb.append("=");
+            sb.append(this.urlEncode(this.values[i]));
+            i = i + 1;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 检查是否为空
+     * @return true如果没有参数
+     */
+    public bool isEmpty() {
+        return this.count == 0;
+    }
+
+    /**
+     * 获取参数数量
+     * @return 参数数量
+     */
+    public int size() {
+        return this.count;
+    }
+
+    /**
+     * 清空所有参数
+     * @return this，支持链式调用
+     */
+    public HttpParams clear() {
+        this.count = 0;
+        return this;
+    }
+
+    /**
+     * 简单的URL编码
+     * 对特殊字符进行百分号编码
+     * @param str 要编码的字符串
+     * @return 编码后的字符串
+     * 时间复杂度: O(n)
+     */
+    private String urlEncode(String str) {
+        if (str == null || str.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int len = str.length();
+        int i = 0;
+        while (i < len) {
+            char c = str.charAt(i);
+            if ((c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') ||
+                c == '-' || c == '_' || c == '.' || c == '~') {
+                sb.append(c);
+            } else if (c == ' ') {
+                sb.append("+");
+            } else {
+                /* 百分号编码 */
+                sb.append("%");
+                sb.append(this.toHex((c >> 4) & 0xF));
+                sb.append(this.toHex(c & 0xF));
+            }
+            i = i + 1;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 将数字转换为十六进制字符
+     * @param n 0-15的数字
+     * @return 十六进制字符
+     */
+    private char toHex(int n) {
+        if (n < 10) {
+            return (char)('0' + n);
+        }
+        return (char)('A' + (n - 10));
+    }
+
+    /**
+     * 确保容量足够
+     */
+    private void ensureCapacity() {
+        if (this.count < this.capacity) {
+            return;
+        }
+
+        int newCapacity = this.capacity * 2;
+        String[] newNames = new String[newCapacity]();
+        String[] newValues = new String[newCapacity]();
+
+        int i = 0;
+        while (i < this.count) {
+            newNames[i] = this.names[i];
+            newValues[i] = this.values[i];
+            i = i + 1;
+        }
+
+        this.names = newNames;
+        this.values = newValues;
+        this.capacity = newCapacity;
+    }
+}
+
+/* ============================================================================
+ * HTTP响应类
+ * ============================================================================ */
+
+/**
+ * HTTP响应类
+ * 封装HTTP响应的所有信息
+ * 时间复杂度: O(1) for most operations
+ * 空间复杂度: O(n) where n = response body size
+ */
+public class HttpResponse {
+    private int statusCode;
+    private String statusText;
+    private HttpHeaders headers;
+    private String body;
+    private long responseTime;
+    private bool success;
+    private String errorMessage;
+
+    /**
+     * 默认构造函数
+     */
+    public HttpResponse() {
+        this.statusCode = 0;
+        this.statusText = "";
+        this.headers = new HttpHeaders();
+        this.body = "";
+        this.responseTime = 0;
+        this.success = false;
+        this.errorMessage = "";
+    }
+
+    /**
+     * 设置状态码
+     * @param code HTTP状态码
+     * @return this，支持链式调用
+     */
+    public HttpResponse setStatusCode(int code) {
+        this.statusCode = code;
+        this.success = (code >= 200 && code < 300);
+        return this;
+    }
+
+    /**
+     * 获取状态码
+     * @return HTTP状态码
+     */
+    public int getStatusCode() {
+        return this.statusCode;
+    }
+
+    /**
+     * 设置状态文本
+     * @param text 状态文本
+     * @return this，支持链式调用
+     */
+    public HttpResponse setStatusText(String text) {
+        this.statusText = text;
+        return this;
+    }
+
+    /**
+     * 获取状态文本
+     * @return 状态文本
+     */
+    public String getStatusText() {
+        return this.statusText;
+    }
+
+    /**
+     * 获取响应头部
+     * @return HttpHeaders对象
+     */
+    public HttpHeaders getHeaders() {
+        return this.headers;
+    }
+
+    /**
+     * 设置响应体
+     * @param body 响应体内容
+     * @return this，支持链式调用
+     */
+    public HttpResponse setBody(String body) {
+        this.body = body == null ? "" : body;
+        return this;
+    }
+
+    /**
+     * 获取响应体
+     * @return 响应体内容
+     */
+    public String getBody() {
+        return this.body;
+    }
+
+    /**
+     * 设置响应时间
+     * @param time 响应时间（毫秒）
+     * @return this，支持链式调用
+     */
+    public HttpResponse setResponseTime(long time) {
+        this.responseTime = time;
+        return this;
+    }
+
+    /**
+     * 获取响应时间
+     * @return 响应时间（毫秒）
+     */
+    public long getResponseTime() {
+        return this.responseTime;
+    }
+
+    /**
+     * 设置错误信息
+     * @param message 错误信息
+     * @return this，支持链式调用
+     */
+    public HttpResponse setError(String message) {
+        this.errorMessage = message;
+        this.success = false;
+        return this;
+    }
+
+    /**
+     * 获取错误信息
+     * @return 错误信息
+     */
+    public String getError() {
+        return this.errorMessage;
+    }
+
+    /**
+     * 检查请求是否成功
+     * @return true如果状态码在200-299范围内
+     */
+    public bool isSuccess() {
+        return this.success;
+    }
+
+    /**
+     * 检查是否为JSON响应
+     * @return true如果Content-Type包含application/json
+     */
+    public bool isJson() {
+        String contentType = this.headers.get(HEADER_CONTENT_TYPE);
+        return this.containsIgnoreCase(contentType, "application/json");
+    }
+
+    /**
+     * 不区分大小写检查字符串是否包含子串
+     * @param str 原字符串
+     * @param substr 子串
+     * @return true如果包含
+     */
+    private bool containsIgnoreCase(String str, String substr) {
+        if (str.isEmpty() || substr.isEmpty()) {
+            return false;
+        }
+
+        int strLen = str.length();
+        int subLen = substr.length();
+
+        if (subLen > strLen) {
+            return false;
+        }
+
+        int i = 0;
+        while (i <= strLen - subLen) {
+            if (this.regionMatchesIgnoreCase(str, i, substr, 0, subLen)) {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    /**
+     * 不区分大小写比较字符串区域
+     */
+    private bool regionMatchesIgnoreCase(String str1, int offset1, String str2, int offset2, int len) {
+        int i = 0;
+        while (i < len) {
+            char c1 = str1.charAt(offset1 + i);
+            char c2 = str2.charAt(offset2 + i);
+
+            /* 转换为小写比较 */
+            if (c1 >= 'A' && c1 <= 'Z') {
+                c1 = (char)(c1 + 32);
+            }
+            if (c2 >= 'A' && c2 <= 'Z') {
+                c2 = (char)(c2 + 32);
+            }
+
+            if (c1 != c2) {
+                return false;
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+
+    /**
+     * 获取字符串表示
+     * @return 格式化字符串
+     */
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("HTTP/1.1 ");
+        sb.append(this.statusCode);
+        sb.append(" ");
+        sb.append(this.statusText);
+        sb.append("\n");
+        sb.append("Response Time: ");
+        sb.append(this.responseTime);
+        sb.append("ms\n");
+        sb.append("Headers:\n");
+        sb.append(this.headers.build());
+        sb.append("\nBody:\n");
+        sb.append(this.body);
+        return sb.toString();
+    }
+}
+
+/* ============================================================================
+ * HTTP请求构建器类
+ * ============================================================================ */
+
+/**
+ * HTTP请求构建器类
+ * 用于构建和发送HTTP请求
+ * 支持链式调用，使用流畅API设计
+ * 时间复杂度: O(n) for build, O(m) for send where m = response size
+ * 空间复杂度: O(n + m)
+ */
+public class HttpRequest {
+    private String method;
+    private String url;
+    private HttpHeaders headers;
+    private HttpParams params;
+    private String body;
+    private int connectTimeout;
+    private int readTimeout;
+    private bool followRedirects;
+    private int maxRedirects;
+
+    /**
+     * 默认构造函数
+     */
+    public HttpRequest() {
+        this.method = HTTP_GET;
+        this.url = "";
+        this.headers = new HttpHeaders();
+        this.params = new HttpParams();
+        this.body = "";
+        this.connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+        this.readTimeout = DEFAULT_READ_TIMEOUT;
+        this.followRedirects = true;
+        this.maxRedirects = MAX_REDIRECTS;
+
+        /* 设置默认User-Agent */
+        this.headers.set(HEADER_USER_AGENT, "EasyHTTP/0.5.1 (Cavvy)");
+        this.headers.set(HEADER_ACCEPT, "*/*");
+    }
+
+    /**
+     * 设置请求方法
+     * @param method HTTP方法（GET/POST/PUT/DELETE等）
+     * @return this，支持链式调用
+     */
+    public HttpRequest setMethod(String method) {
+        if (method != null && !method.isEmpty()) {
+            this.method = method.toUpperCase();
+        }
+        return this;
+    }
+
+    /**
+     * 设置请求URL
+     * @param url 请求URL
+     * @return this，支持链式调用
+     */
+    public HttpRequest setUrl(String url) {
+        if (url != null) {
+            this.url = url;
+        }
+        return this;
+    }
+
+    /**
+     * 设置请求头部
+     * @param name 头部名称
+     * @param value 头部值
+     * @return this，支持链式调用
+     */
+    public HttpRequest setHeader(String name, String value) {
+        this.headers.set(name, value);
+        return this;
+    }
+
+    /**
+     * 添加请求头部（允许重复）
+     * @param name 头部名称
+     * @param value 头部值
+     * @return this，支持链式调用
+     */
+    public HttpRequest addHeader(String name, String value) {
+        this.headers.add(name, value);
+        return this;
+    }
+
+    /**
+     * 设置Content-Type
+     * @param contentType 内容类型
+     * @return this，支持链式调用
+     */
+    public HttpRequest setContentType(String contentType) {
+        this.headers.set(HEADER_CONTENT_TYPE, contentType);
+        return this;
+    }
+
+    /**
+     * 设置Accept头部
+     * @param accept 可接受的内容类型
+     * @return this，支持链式调用
+     */
+    public HttpRequest setAccept(String accept) {
+        this.headers.set(HEADER_ACCEPT, accept);
+        return this;
+    }
+
+    /**
+     * 设置Authorization头部
+     * @param auth 认证信息
+     * @return this，支持链式调用
+     */
+    public HttpRequest setAuthorization(String auth) {
+        this.headers.set(HEADER_AUTHORIZATION, auth);
+        return this;
+    }
+
+    /**
+     * 设置Bearer Token认证
+     * @param token Bearer Token
+     * @return this，支持链式调用
+     */
+    public HttpRequest setBearerToken(String token) {
+        this.headers.set(HEADER_AUTHORIZATION, "Bearer " + token);
+        return this;
+    }
+
+    /**
+     * 添加URL参数
+     * @param name 参数名
+     * @param value 参数值
+     * @return this，支持链式调用
+     */
+    public HttpRequest addParam(String name, String value) {
+        this.params.add(name, value);
+        return this;
+    }
+
+    /**
+     * 添加整数URL参数
+     * @param name 参数名
+     * @param value 整数值
+     * @return this，支持链式调用
+     */
+    public HttpRequest addParam(String name, int value) {
+        this.params.add(name, value);
+        return this;
+    }
+
+    /**
+     * 设置请求体
+     * @param body 请求体内容
+     * @return this，支持链式调用
+     */
+    public HttpRequest setBody(String body) {
+        this.body = body == null ? "" : body;
+        return this;
+    }
+
+    /**
+     * 设置JSON请求体
+     * @param json JSON字符串
+     * @return this，支持链式调用
+     */
+    public HttpRequest setJsonBody(String json) {
+        this.body = json;
+        this.headers.set(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
+        return this;
+    }
+
+    /**
+     * 设置表单数据请求体
+     * @param params 表单参数
+     * @return this，支持链式调用
+     */
+    public HttpRequest setFormBody(HttpParams params) {
+        this.body = params.build();
+        this.headers.set(HEADER_CONTENT_TYPE, CONTENT_TYPE_FORM);
+        return this;
+    }
+
+    /**
+     * 设置连接超时
+     * @param milliseconds 超时毫秒数
+     * @return this，支持链式调用
+     */
+    public HttpRequest setConnectTimeout(int milliseconds) {
+        if (milliseconds > 0) {
+            this.connectTimeout = milliseconds;
+        }
+        return this;
+    }
+
+    /**
+     * 设置读取超时
+     * @param milliseconds 超时毫秒数
+     * @return this，支持链式调用
+     */
+    public HttpRequest setReadTimeout(int milliseconds) {
+        if (milliseconds > 0) {
+            this.readTimeout = milliseconds;
+        }
+        return this;
+    }
+
+    /**
+     * 设置是否跟随重定向
+     * @param follow true表示跟随重定向
+     * @return this，支持链式调用
+     */
+    public HttpRequest setFollowRedirects(bool follow) {
+        this.followRedirects = follow;
+        return this;
+    }
+
+    /**
+     * 发送HTTP请求
+     * @return HttpResponse对象
+     * 时间复杂度: O(n) where n = response size
+     * 空间复杂度: O(n)
+     */
+    public HttpResponse send() {
+        HttpResponse response = new HttpResponse();
+
+        /* 验证URL */
+        if (this.url == null || this.url.isEmpty()) {
+            response.setError("URL is empty");
+            return response;
+        }
+
+        /* 初始化网络 */
+        if (!NetworkUtils.init()) {
+            response.setError("Network initialization failed");
+            return response;
+        }
+
+        /* 解析URL */
+        ParsedUrl parsed = this.parseUrl(this.url);
+        if (parsed.host.isEmpty()) {
+            response.setError("Invalid URL: " + this.url);
+            NetworkUtils.cleanup();
+            return response;
+        }
+
+        /* 构建完整URL（含查询参数） */
+        String fullUrl = this.buildFullUrl(parsed);
+
+        /* 创建Socket连接 */
+        TcpSocket socket = new TcpSocket();
+        if (!socket.isValid()) {
+            response.setError("Failed to create socket");
+            NetworkUtils.cleanup();
+            return response;
+        }
+
+        /* 设置超时 */
+        socket.setSendTimeout(this.connectTimeout);
+        socket.setRecvTimeout(this.readTimeout);
+
+        /* 连接到服务器 */
+        if (!socket.connectTo(parsed.host, parsed.port)) {
+            response.setError("Failed to connect to server");
+            socket.close();
+            NetworkUtils.cleanup();
+            return response;
+        }
+
+        /* 构建并发送HTTP请求 */
+        String request = this.buildRequest(parsed, fullUrl);
+        int sent = socket.send(request);
+        if (sent <= 0) {
+            response.setError("Failed to send request");
+            socket.close();
+            NetworkUtils.cleanup();
+            return response;
+        }
+
+        /* 接收响应 */
+        long startTime = this.currentTimeMillis();
+        String responseStr = this.receiveResponse(socket);
+        long endTime = this.currentTimeMillis();
+
+        response.setResponseTime(endTime - startTime);
+
+        /* 解析响应 */
+        this.parseResponse(responseStr, response);
+
+        /* 清理资源 */
+        socket.close();
+        NetworkUtils.cleanup();
+
+        return response;
+    }
+
+    /**
+     * 构建HTTP请求字符串
+     * @param parsed 解析后的URL
+     * @param fullUrl 完整URL
+     * @return HTTP请求字符串
+     * 时间复杂度: O(n)
+     */
+    private String buildRequest(ParsedUrl parsed, String fullUrl) {
+        StringBuilder sb = new StringBuilder();
+
+        /* 请求行 */
+        sb.append(this.method);
+        sb.append(" ");
+        sb.append(parsed.path);
+        if (!parsed.query.isEmpty()) {
+            sb.append("?");
+            sb.append(parsed.query);
+        }
+        /* 添加自定义参数 */
+        if (!this.params.isEmpty()) {
+            if (parsed.query.isEmpty()) {
+                sb.append("?");
+            } else {
+                sb.append("&");
+            }
+            sb.append(this.params.build());
+        }
+        sb.append(" HTTP/1.1\r\n");
+
+        /* Host头部 */
+        sb.append("Host: ");
+        sb.append(parsed.host);
+        if (parsed.port != 80 && parsed.port != 443) {
+            sb.append(":");
+            sb.append(parsed.port);
+        }
+        sb.append("\r\n");
+
+        /* Connection头部 */
+        sb.append("Connection: close\r\n");
+
+        /* 自定义头部 */
+        sb.append(this.headers.build());
+
+        /* Content-Length（如果有请求体） */
+        if (!this.body.isEmpty()) {
+            sb.append("Content-Length: ");
+            sb.append(this.body.length());
+            sb.append("\r\n");
+        }
+
+        /* 空行 */
+        sb.append("\r\n");
+
+        /* 请求体 */
+        if (!this.body.isEmpty()) {
+            sb.append(this.body);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * 接收HTTP响应
+     * @param socket TCP Socket
+     * @return 响应字符串
+     * 时间复杂度: O(n) where n = response size
+     * 空间复杂度: O(n)
+     */
+    private String receiveResponse(TcpSocket socket) {
+        StringBuilder sb = new StringBuilder();
+        String chunk = "";
+
+        /* 循环接收数据直到连接关闭或超时 */
+        while (true) {
+            chunk = socket.receiveString(HTTP_BUFFER_SIZE);
+            if (chunk == null || chunk.isEmpty()) {
+                break;
+            }
+            sb.append(chunk);
+
+            /* 安全检查：防止响应过大 */
+            if (sb.toString().length() > 1024 * 1024) { /* 1MB限制 */
+                break;
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * 解析HTTP响应
+     * @param responseStr 响应字符串
+     * @param response HttpResponse对象
+     */
+    private void parseResponse(String responseStr, HttpResponse response) {
+        if (responseStr == null || responseStr.isEmpty()) {
+            response.setError("Empty response");
+            return;
+        }
+
+        /* 分割头部和正文 */
+        int headerEnd = responseStr.indexOf("\r\n\r\n");
+        if (headerEnd < 0) {
+            headerEnd = responseStr.indexOf("\n\n");
+        }
+
+        String headers = "";
+        String body = "";
+
+        if (headerEnd >= 0) {
+            headers = responseStr.substring(0, headerEnd);
+            body = responseStr.substring(headerEnd + 4, responseStr.length());
+        } else {
+            headers = responseStr;
+        }
+
+        /* 解析状态行 */
+        this.parseStatusLine(headers, response);
+
+        /* 解析头部 */
+        this.parseHeaders(headers, response.getHeaders());
+
+        /* 设置正文 */
+        response.setBody(body);
+    }
+
+    /**
+     * 解析状态行
+     * @param headers 头部字符串
+     * @param response HttpResponse对象
+     */
+    private void parseStatusLine(String headers, HttpResponse response) {
+        /* 找到第一行 */
+        int firstLineEnd = headers.indexOf("\r\n");
+        if (firstLineEnd < 0) {
+            firstLineEnd = headers.indexOf("\n");
+        }
+
+        if (firstLineEnd < 0) {
+            response.setError("Invalid response format");
+            return;
+        }
+
+        String statusLine = headers.substring(0, firstLineEnd);
+
+        /* 解析状态码 */
+        int codeStart = statusLine.indexOf(" ");
+        if (codeStart < 0) {
+            response.setError("Invalid status line");
+            return;
+        }
+
+        int codeEnd = statusLine.indexOf(" ", codeStart + 1);
+        if (codeEnd < 0) {
+            codeEnd = statusLine.length();
+        }
+
+        String codeStr = statusLine.substring(codeStart + 1, codeEnd);
+        int statusCode = this.parseInt(codeStr);
+        response.setStatusCode(statusCode);
+
+        /* 解析状态文本 */
+        if (codeEnd < statusLine.length()) {
+            response.setStatusText(statusLine.substring(codeEnd + 1, statusLine.length()));
+        }
+    }
+
+    /**
+     * 解析HTTP头部
+     * @param headers 头部字符串
+     * @param headersObj HttpHeaders对象
+     */
+    private void parseHeaders(String headers, HttpHeaders headersObj) {
+        int pos = headers.indexOf("\r\n");
+        if (pos < 0) {
+            pos = headers.indexOf("\n");
+        }
+
+        /* 跳过状态行 */
+        if (pos >= 0) {
+            pos = pos + 2;
+        } else {
+            return;
+        }
+
+        while (pos < headers.length()) {
+            int lineEnd = headers.indexOf("\r\n", pos);
+            if (lineEnd < 0) {
+                lineEnd = headers.indexOf("\n", pos);
+            }
+            if (lineEnd < 0) {
+                lineEnd = headers.length();
+            }
+
+            String line = headers.substring(pos, lineEnd);
+            int colonPos = line.indexOf(":");
+            if (colonPos > 0) {
+                String name = line.substring(0, colonPos).trim();
+                String value = line.substring(colonPos + 1, line.length()).trim();
+                headersObj.add(name, value);
+            }
+
+            pos = lineEnd + 2;
+        }
+    }
+
+    /**
+     * 解析URL
+     * @param url URL字符串
+     * @return 解析后的URL结构
+     * 时间复杂度: O(n)
+     */
+    private ParsedUrl parseUrl(String url) {
+        ParsedUrl result = new ParsedUrl();
+
+        if (url == null || url.isEmpty()) {
+            return result;
+        }
+
+        String temp = url;
+
+        /* 解析协议 */
+        int protocolEnd = temp.indexOf("://");
+        if (protocolEnd > 0) {
+            result.protocol = this.toLowerCase(temp.substring(0, protocolEnd));
+            temp = temp.substring(protocolEnd + 3, temp.length());
+        }
+
+        /* 设置默认端口 */
+        if (result.protocol.equals("https")) {
+            result.port = 443;
+        } else {
+            result.port = 80;
+        }
+
+        /* 解析主机和端口 */
+        int pathStart = temp.indexOf("/");
+        String hostPart = temp;
+        if (pathStart >= 0) {
+            hostPart = temp.substring(0, pathStart);
+            result.path = temp.substring(pathStart, temp.length());
+        } else {
+            result.path = "/";
+        }
+
+        int portPos = hostPart.indexOf(":");
+        if (portPos > 0) {
+            result.host = hostPart.substring(0, portPos);
+            String portStr = hostPart.substring(portPos + 1, hostPart.length());
+            result.port = this.parseInt(portStr);
+        } else {
+            result.host = hostPart;
+        }
+
+        /* 解析查询字符串 */
+        int queryPos = result.path.indexOf("?");
+        if (queryPos >= 0) {
+            result.query = result.path.substring(queryPos + 1, result.path.length());
+            result.path = result.path.substring(0, queryPos);
+        }
+
+        return result;
+    }
+
+    /**
+     * 将字符串转换为小写
+     * @param str 输入字符串
+     * @return 小写字符串
+     */
+    private String toLowerCase(String str) {
+        if (str.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        int len = str.length();
+        int i = 0;
+        while (i < len) {
+            char c = str.charAt(i);
+            if (c >= 'A' && c <= 'Z') {
+                c = (char)(c + 32);
+            }
+            sb.append(c);
+            i = i + 1;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 构建完整URL
+     * @param parsed 解析后的URL
+     * @return 完整URL字符串
+     */
+    private String buildFullUrl(ParsedUrl parsed) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(parsed.protocol);
+        sb.append("://");
+        sb.append(parsed.host);
+        if ((parsed.port != 80 && parsed.port != 443) ||
+            (parsed.protocol.equals("https") && parsed.port != 443) ||
+            (parsed.protocol.equals("http") && parsed.port != 80)) {
+            sb.append(":");
+            sb.append(parsed.port);
+        }
+        sb.append(parsed.path);
+        return sb.toString();
+    }
+
+    /**
+     * 解析整数
+     * @param str 字符串
+     * @return 整数值，解析失败返回0
+     */
+    private int parseInt(String str) {
+        if (str == null || str.isEmpty()) {
+            return 0;
+        }
+
+        int result = 0;
+        int sign = 1;
+        int i = 0;
+
+        /* 处理符号 */
+        if (str.charAt(0) == '-') {
+            sign = -1;
+            i = 1;
+        } else if (str.charAt(0) == '+') {
+            i = 1;
+        }
+
+        while (i < str.length()) {
+            char c = str.charAt(i);
+            if (c >= '0' && c <= '9') {
+                result = result * 10 + (c - '0');
+            } else {
+                break;
+            }
+            i = i + 1;
+        }
+
+        return result * sign;
+    }
+
+    /**
+     * 获取当前时间毫秒数
+     * @return 当前时间毫秒数（自1970年1月1日以来的毫秒数）
+     */
+    private long currentTimeMillis() {
+        /* 使用C标准库time函数获取秒数，转换为毫秒 */
+        extern long time(long ptr);
+        return time(0) * 1000;
+    }
+}
+
+/**
+ * 解析后的URL结构
+ */
+private class ParsedUrl {
+    public String protocol;
+    public String host;
+    public int port;
+    public String path;
+    public String query;
+
+    public ParsedUrl() {
+        this.protocol = "http";
+        this.host = "";
+        this.port = 80;
+        this.path = "/";
+        this.query = "";
+    }
+}
+
+/* ============================================================================
+ * EasyHTTP静态工具类
+ * ============================================================================ */
+
+/**
+ * EasyHTTP静态工具类
+ * 提供便捷的HTTP请求方法
+ * 所有方法均为静态，无需实例化
+ */
+public class EasyHTTP {
+
+    /**
+     * 发送GET请求
+     * @param url 请求URL
+     * @return HttpResponse对象
+     * 时间复杂度: O(n) where n = response size
+     * 空间复杂度: O(n)
+     */
+    public static HttpResponse get(String url) {
+        return new HttpRequest()
+            .setMethod(HTTP_GET)
+            .setUrl(url)
+            .send();
+    }
+
+    /**
+     * 发送GET请求（带查询参数）
+     * @param url 请求URL
+     * @param params URL参数
+     * @return HttpResponse对象
+     */
+    public static HttpResponse get(String url, HttpParams params) {
+        HttpRequest request = new HttpRequest()
+            .setMethod(HTTP_GET)
+            .setUrl(url);
+
+        /* 复制参数 */
+        if (!params.isEmpty()) {
+            request.setUrl(url + "?" + params.build());
+        }
+
+        return request.send();
+    }
+
+    /**
+     * 发送POST请求
+     * @param url 请求URL
+     * @param body 请求体
+     * @return HttpResponse对象
+     */
+    public static HttpResponse post(String url, String body) {
+        return new HttpRequest()
+            .setMethod(HTTP_POST)
+            .setUrl(url)
+            .setBody(body)
+            .send();
+    }
+
+    /**
+     * 发送POST请求（JSON）
+     * @param url 请求URL
+     * @param json JSON字符串
+     * @return HttpResponse对象
+     */
+    public static HttpResponse postJson(String url, String json) {
+        return new HttpRequest()
+            .setMethod(HTTP_POST)
+            .setUrl(url)
+            .setJsonBody(json)
+            .send();
+    }
+
+    /**
+     * 发送POST请求（表单）
+     * @param url 请求URL
+     * @param params 表单参数
+     * @return HttpResponse对象
+     */
+    public static HttpResponse postForm(String url, HttpParams params) {
+        return new HttpRequest()
+            .setMethod(HTTP_POST)
+            .setUrl(url)
+            .setFormBody(params)
+            .send();
+    }
+
+    /**
+     * 发送PUT请求
+     * @param url 请求URL
+     * @param body 请求体
+     * @return HttpResponse对象
+     */
+    public static HttpResponse put(String url, String body) {
+        return new HttpRequest()
+            .setMethod(HTTP_PUT)
+            .setUrl(url)
+            .setBody(body)
+            .send();
+    }
+
+    /**
+     * 发送PUT请求（JSON）
+     * @param url 请求URL
+     * @param json JSON字符串
+     * @return HttpResponse对象
+     */
+    public static HttpResponse putJson(String url, String json) {
+        return new HttpRequest()
+            .setMethod(HTTP_PUT)
+            .setUrl(url)
+            .setJsonBody(json)
+            .send();
+    }
+
+    /**
+     * 发送DELETE请求
+     * @param url 请求URL
+     * @return HttpResponse对象
+     */
+    public static HttpResponse delete(String url) {
+        return new HttpRequest()
+            .setMethod(HTTP_DELETE)
+            .setUrl(url)
+            .send();
+    }
+
+    /**
+     * 发送DELETE请求（带请求体）
+     * @param url 请求URL
+     * @param body 请求体
+     * @return HttpResponse对象
+     */
+    public static HttpResponse delete(String url, String body) {
+        return new HttpRequest()
+            .setMethod(HTTP_DELETE)
+            .setUrl(url)
+            .setBody(body)
+            .send();
+    }
+
+    /**
+     * 发送HEAD请求
+     * @param url 请求URL
+     * @return HttpResponse对象
+     */
+    public static HttpResponse head(String url) {
+        return new HttpRequest()
+            .setMethod(HTTP_HEAD)
+            .setUrl(url)
+            .send();
+    }
+
+    /**
+     * 创建新的请求构建器
+     * @return HttpRequest对象
+     */
+    public static HttpRequest request() {
+        return new HttpRequest();
+    }
+
+    /**
+     * 创建新的URL参数构建器
+     * @return HttpParams对象
+     */
+    public static HttpParams params() {
+        return new HttpParams();
+    }
+
+    /**
+     * 创建新的请求头构建器
+     * @return HttpHeaders对象
+     */
+    public static HttpHeaders headers() {
+        return new HttpHeaders();
+    }
+}
+
+#endif /* CAY_EASYHTTP_H */

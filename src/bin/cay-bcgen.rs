@@ -290,13 +290,17 @@ fn generate_code_body(block: &cavvy::ast::Block, module: &mut BytecodeModule) ->
     use cavvy::bytecode::instructions::*;
 
     let mut instructions = Vec::new();
+    let mut ctx = StatementContext::new();
 
     for stmt in &block.statements {
-        generate_statement(stmt, &mut instructions, module)?;
+        generate_statement(stmt, &mut instructions, module, &mut ctx)?;
     }
 
     // 添加默认返回
     instructions.push(Instruction::new(Opcode::Return));
+
+    // 修复跳转偏移量
+    fix_jump_offsets(&mut instructions, &ctx)?;
 
     Ok(CodeBody {
         instructions,
@@ -305,11 +309,32 @@ fn generate_code_body(block: &cavvy::ast::Block, module: &mut BytecodeModule) ->
     })
 }
 
+/// 跳转占位符，用于两阶段编译
+#[derive(Debug, Clone)]
+enum JumpPlaceholder {
+    IfEq { condition_end: usize, else_start: Option<usize> },
+    Goto { from: usize },
+}
+
+/// 语句生成上下文
+struct StatementContext {
+    placeholders: Vec<(usize, JumpPlaceholder)>,
+}
+
+impl StatementContext {
+    fn new() -> Self {
+        Self {
+            placeholders: Vec::new(),
+        }
+    }
+}
+
 /// 生成语句
 fn generate_statement(
     stmt: &cavvy::ast::Stmt,
     instructions: &mut Vec<Instruction>,
-    module: &mut BytecodeModule
+    module: &mut BytecodeModule,
+    ctx: &mut StatementContext
 ) -> Result<(), String> {
     use cavvy::bytecode::instructions::*;
     use cavvy::ast::*;
@@ -336,25 +361,86 @@ fn generate_statement(
         }
         Stmt::If(if_stmt) => {
             generate_expression(&if_stmt.condition, instructions, module)?;
-            // 条件跳转 TODO: 动态计算跳转偏移量
-            let jump_offset = 0i16; // 实际需要计算
-            instructions.push(Instruction::ifeq(jump_offset));
 
-            generate_statement(&if_stmt.then_branch, instructions, module)?;
+            // 条件跳转 - 记录占位符位置
+            let ifeq_pos = instructions.len();
+            instructions.push(Instruction::ifeq(0)); // 占位符，稍后修复
+
+            // then 分支
+            generate_statement(&if_stmt.then_branch, instructions, module, ctx)?;
 
             if let Some(ref else_branch) = if_stmt.else_branch {
-                // else跳转
-                instructions.push(Instruction::goto(0));
-                generate_statement(else_branch, instructions, module)?;
+                // 需要跳过 else 分支的跳转
+                let goto_pos = instructions.len();
+                instructions.push(Instruction::goto(0)); // 占位符
+
+                // 记录 else 分支开始位置
+                let else_start = instructions.len();
+
+                // else 分支
+                generate_statement(else_branch, instructions, module, ctx)?;
+
+                // 记录占位符用于后续修复
+                ctx.placeholders.push((ifeq_pos, JumpPlaceholder::IfEq {
+                    condition_end: else_start as usize,
+                    else_start: Some(else_start as usize),
+                }));
+                ctx.placeholders.push((goto_pos, JumpPlaceholder::Goto {
+                    from: instructions.len(),
+                }));
+            } else {
+                // 没有 else 分支，条件不满足时跳转到 if 之后
+                let after_then = instructions.len();
+                ctx.placeholders.push((ifeq_pos, JumpPlaceholder::IfEq {
+                    condition_end: after_then,
+                    else_start: None,
+                }));
             }
         }
         Stmt::Block(block) => {
             for stmt in &block.statements {
-                generate_statement(stmt, instructions, module)?;
+                generate_statement(stmt, instructions, module, ctx)?;
             }
         }
         _ => {
             // 其他语句类型 TODO: 处理其他语句类型
+        }
+    }
+
+    Ok(())
+}
+
+/// 修复跳转偏移量
+fn fix_jump_offsets(instructions: &mut [Instruction], ctx: &StatementContext) -> Result<(), String> {
+    use cavvy::bytecode::instructions::*;
+
+    for (pos, placeholder) in &ctx.placeholders {
+        match placeholder {
+            JumpPlaceholder::IfEq { condition_end, else_start: _ } => {
+                // 计算从 ifeq 指令到目标位置的偏移量
+                // ifeq 指令本身占3字节（1字节opcode + 2字节offset）
+                let offset = (*condition_end as i16) - (*pos as i16) - 1;
+
+                // 确保偏移量在有效范围内
+                if offset < -32768 || offset > 32767 {
+                    return Err(format!("跳转偏移量超出范围: {}", offset));
+                }
+
+                // 修复 ifeq 指令的偏移量
+                instructions[*pos] = Instruction::ifeq(offset);
+            }
+            JumpPlaceholder::Goto { from } => {
+                // 计算从 goto 指令到目标位置的偏移量
+                let offset = (*from as i16) - (*pos as i16) - 1;
+
+                // 确保偏移量在有效范围内
+                if offset < -32768 || offset > 32767 {
+                    return Err(format!("跳转偏移量超出范围: {}", offset));
+                }
+
+                // 修复 goto 指令的偏移量
+                instructions[*pos] = Instruction::goto(offset);
+            }
         }
     }
 
