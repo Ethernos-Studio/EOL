@@ -124,7 +124,7 @@ function Main {
     }
 
     # 检查必要的可执行文件
-    $requiredBins = @("cayc.exe", "cay-ir.exe", "ir2exe.exe", "cay-run.exe", "cay-rcpl.exe", "cay-idle.exe", "cay-lsp.exe")
+    $requiredBins = @("cayc.exe", "cay-ir.exe", "ir2exe.exe", "cay-run.exe", "cay-rcpl.exe", "cay-idle.exe", "cay-lsp.exe", "cay-check.exe", "cay-bcgen.exe", "cay-pre.exe")
     $missingBins = @()
     foreach ($bin in $requiredBins) {
         $binPath = Join-Path $releaseDir $bin
@@ -148,15 +148,18 @@ function Main {
         New-Item -ItemType Directory -Force -Path $distDir | Out-Null
     }
 
-    # 基础目录和文件
-    $baseDirs = @("examples", "third-party", "caylibs")
-    $baseBins = @(
+    # 所有二进制文件列表（方便维护）
+    $allBins = @(
+        "$releaseDir\cayc.exe",
         "$releaseDir\cay-ir.exe",
         "$releaseDir\ir2exe.exe",
+        "$releaseDir\cay-check.exe",
+        "$releaseDir\cay-run.exe",
+        "$releaseDir\cay-rcpl.exe",
         "$releaseDir\cay-idle.exe",
         "$releaseDir\cay-lsp.exe",
-        "$releaseDir\cay-run.exe",
-        "$releaseDir\cay-rcpl.exe"
+        "$releaseDir\cay-bcgen.exe",
+        "$releaseDir\cay-pre.exe"
     )
 
     # ========== 压缩包1: cavvy-版本-win86-64-mingw64-llvm21.zip ==========
@@ -165,15 +168,7 @@ function Main {
 
     $tempDir1 = "..\temp_release_1"
     $includeDirs1 = @("examples", "third-party", "lib", "caylibs", "llvm-minimal", "mingw-minimal")
-    $includeFiles1 = @(
-        "$releaseDir\cayc.exe",
-        "$releaseDir\cay-ir.exe",
-        "$releaseDir\ir2exe.exe",
-        "$releaseDir\cay-idle.exe",
-        "$releaseDir\cay-lsp.exe",
-        "$releaseDir\cay-run.exe",
-        "$releaseDir\cay-rcpl.exe"
-    )
+    $includeFiles1 = $allBins
 
     New-ReleaseStructure -TempDir $tempDir1 -IncludeDirs $includeDirs1 -IncludeFiles $includeFiles1
     Remove-DebugFiles -Path $tempDir1
@@ -186,14 +181,7 @@ function Main {
 
     $tempDir2 = "..\temp_release_2"
     $includeDirs2 = @("examples", "third-party", "caylibs")
-    $includeFiles2 = @(
-        "$releaseDir\cay-ir.exe",
-        "$releaseDir\ir2exe.exe",
-        "$releaseDir\cay-idle.exe",
-        "$releaseDir\cay-lsp.exe",
-        "$releaseDir\cay-run.exe",
-        "$releaseDir\cay-rcpl.exe"
-    )
+    $includeFiles2 = $allBins
 
     New-ReleaseStructure -TempDir $tempDir2 -IncludeDirs $includeDirs2 -IncludeFiles $includeFiles2
     Remove-DebugFiles -Path $tempDir2
@@ -206,14 +194,7 @@ function Main {
 
     $tempDir3 = "..\temp_release_3"
     $includeDirs3 = @("examples", "third-party", "lib", "caylibs")
-    $includeFiles3 = @(
-        "$releaseDir\cay-ir.exe",
-        "$releaseDir\ir2exe.exe",
-        "$releaseDir\cay-idle.exe",
-        "$releaseDir\cay-lsp.exe",
-        "$releaseDir\cay-run.exe",
-        "$releaseDir\cay-rcpl.exe"
-    )
+    $includeFiles3 = $allBins
 
     New-ReleaseStructure -TempDir $tempDir3 -IncludeDirs $includeDirs3 -IncludeFiles $includeFiles3
     Remove-DebugFiles -Path $tempDir3
@@ -224,15 +205,22 @@ function Main {
     Write-Host ""
     Write-Host "📦 构建压缩包 4/4: cavvy-$version-win86-64-core-no-idle.zip" -ForegroundColor $ColorInfo
 
-    $tempDir4 = "..\temp_release_4"
-    $includeDirs4 = @("examples", "third-party", "caylibs")
-    $includeFiles4 = @(
+    # 不包含 cay-idle.exe 的列表
+    $coreBinsNoIdle = @(
+        "$releaseDir\cayc.exe",
         "$releaseDir\cay-ir.exe",
         "$releaseDir\ir2exe.exe",
-        "$releaseDir\cay-lsp.exe",
+        "$releaseDir\cay-check.exe",
         "$releaseDir\cay-run.exe",
-        "$releaseDir\cay-rcpl.exe"
+        "$releaseDir\cay-rcpl.exe",
+        "$releaseDir\cay-lsp.exe",
+        "$releaseDir\cay-bcgen.exe",
+        "$releaseDir\cay-pre.exe"
     )
+
+    $tempDir4 = "..\temp_release_4"
+    $includeDirs4 = @("examples", "third-party", "caylibs")
+    $includeFiles4 = $coreBinsNoIdle
 
     New-ReleaseStructure -TempDir $tempDir4 -IncludeDirs $includeDirs4 -IncludeFiles $includeFiles4
     Remove-DebugFiles -Path $tempDir4
