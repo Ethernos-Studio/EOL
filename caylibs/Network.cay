@@ -22,7 +22,7 @@ extern {
     int closesocket(long s);
     int bind(long s, long name, int namelen);
     int listen(long s, int backlog);
-    long accept(long s, long addr, long addrlen);
+    long accept(long s, long addr, int addrlen);
     int connect(long s, long name, int namelen);
     int send(long s, long buf, int len, int flags);
     int recv(long s, long buf, int len, int flags);
@@ -55,7 +55,7 @@ extern {
     int close(int fd);
     int bind(int sockfd, long addr, int addrlen);
     int listen(int sockfd, int backlog);
-    int accept(int sockfd, long addr, long addrlen);
+    int accept(int sockfd, long addr, int addrlen);
     int connect(int sockfd, long addr, int addrlen);
     long send(int sockfd, long buf, long len, int flags);
     long recv(int sockfd, long buf, long len, int flags);
@@ -123,6 +123,11 @@ extern {
 #else
 #define INVALID_SOCKET -1
 #endif
+
+/* shutdown 选项 */
+#define SD_RECEIVE 0
+#define SD_SEND 1
+#define SD_BOTH 2
 
 /* ============================================================================
  * SocketAddr类 - 表示网络地址
@@ -440,7 +445,7 @@ public class NetworkUtils {
  * ============================================================================ */
 
 public class TcpSocket {
-    long handle;
+    int handle;
     bool connected;
     
     public TcpSocket() {
@@ -575,6 +580,39 @@ public class TcpSocket {
     }
     
     /**
+     * 关闭写入端（shutdown write）
+     */
+    public bool shutdownWrite() {
+        if (this.handle == INVALID_SOCKET) {
+            return false;
+        }
+        int result = shutdown(this.handle, SD_SEND);
+        return result == 0;
+    }
+    
+    /**
+     * 关闭读取端（shutdown read）
+     */
+    public bool shutdownRead() {
+        if (this.handle == INVALID_SOCKET) {
+            return false;
+        }
+        int result = shutdown(this.handle, SD_RECEIVE);
+        return result == 0;
+    }
+    
+    /**
+     * 关闭所有（shutdown both）
+     */
+    public bool shutdown() {
+        if (this.handle == INVALID_SOCKET) {
+            return false;
+        }
+        int result = shutdown(this.handle, SD_BOTH);
+        return result == 0;
+    }
+    
+    /**
      * 检查是否已连接
      */
     public bool isConnected() {
@@ -632,7 +670,7 @@ public class TcpSocket {
  * ============================================================================ */
 
 public class TcpServer {
-    private long handle;
+    private int handle;
     private int port;
     private bool listening;
     
@@ -715,28 +753,17 @@ public class TcpServer {
             return null;
         }
         
-        /* 客户端地址 */
-        long clientAddr = malloc(16);
-        if (clientAddr == 0) {
+        int sock = this.handle;
+        long ca = 0;
+        int al = 16;
+        
+        long ch = accept(sock, ca, al);
+        
+        if (ch == INVALID_SOCKET) {
             return null;
         }
         
-        long addrlen = 16;
-        
-        #ifdef _WIN32
-        long clientHandle = accept(this.handle, clientAddr, (long)(&addrlen));
-        #else
-        long clientHandle = accept(this.handle, clientAddr, (long)(&addrlen));
-        #endif
-        
-        free(clientAddr);
-        
-        if (clientHandle == INVALID_SOCKET) {
-            return null;
-        }
-        
-        /* 创建TcpSocket包装，使用包级私有构造函数 */
-        return new TcpSocket(clientHandle, true);
+        return new TcpSocket(ch, true);
     }
     
     /**
@@ -774,7 +801,7 @@ public class TcpServer {
  * ============================================================================ */
 
 public class UdpSocket {
-    private long handle;
+    private int handle;
     private bool bound;
     
     public UdpSocket() {

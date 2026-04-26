@@ -702,14 +702,15 @@ fn main() {
         ir2exe_args.push(format!("-L{}", path));
     }
 
-    // 自动检测并添加网络库（Windows）
+    
+    #[cfg(target_os = "windows")]
     if let Ok(ir_content) = fs::read_to_string(&ir_file) {
         if ir_content.contains("WSAStartup") || ir_content.contains("socket(") || ir_content.contains("@socket(") {
             ir2exe_args.push("-lws2_32".to_string());
         }
     }
 
-    // 额外库
+    // extra libs
     for lib in &options.extra_libs {
         ir2exe_args.push(format!("-l{}", lib));
     }

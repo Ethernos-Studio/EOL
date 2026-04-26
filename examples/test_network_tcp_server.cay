@@ -20,7 +20,7 @@ public int main() {
     
     /* 创建TCP服务器 */
     TcpServer server = new TcpServer();
-    int port = 12345;
+    int port = 8888;
     
     /* 绑定到端口 */
     if (!server.bindTo(port)) {

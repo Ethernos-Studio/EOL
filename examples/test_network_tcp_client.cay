@@ -31,7 +31,7 @@ public int main() {
     
     /* 连接到服务器 (这里连接到本地回环地址的测试端口) */
     String serverIp = "127.0.0.1";
-    int serverPort = 12345;
+    int serverPort = 8888;
     
     println("正在连接到服务器: " + serverIp + ":" + serverPort);
     
@@ -70,7 +70,6 @@ public int main() {
     }
     
     /* 关闭连接 */
-    socket.shutdown(SD_BOTH);
     socket.close();
     
     println("连接已关闭");
