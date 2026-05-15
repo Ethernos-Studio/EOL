@@ -445,7 +445,7 @@ public class NetworkUtils {
  * ============================================================================ */
 
 public class TcpSocket {
-    int handle;
+    long handle;
     bool connected;
     
     public TcpSocket() {
@@ -488,7 +488,11 @@ public class TcpSocket {
         SocketAddr addr = new SocketAddr().fromString(ip, port);
         
         /* 连接 */
+        #ifdef _WIN32
         int result = connect(this.handle, (long)(&addr), 16);
+        #else
+        int result = connect((int)this.handle, (long)(&addr), 16);
+        #endif
         if (result != 0) {
             this.close();
             return false;
@@ -514,7 +518,7 @@ public class TcpSocket {
         #ifdef _WIN32
         int result = send(this.handle, buf, len, 0);
         #else
-        int result = (int)send(this.handle, buf, len, 0);
+        int result = (int)send((int)this.handle, buf, len, 0);
         #endif
         
         return result;
@@ -538,7 +542,7 @@ public class TcpSocket {
         #ifdef _WIN32
         int received = recv(this.handle, buf, maxLen, 0);
         #else
-        int received = (int)recv(this.handle, buf, maxLen, 0);
+        int received = (int)recv((int)this.handle, buf, maxLen, 0);
         #endif
         
         if (received <= 0) {
@@ -571,8 +575,8 @@ public class TcpSocket {
             shutdown(this.handle, 2);  /* SD_BOTH */
             closesocket(this.handle);
             #else
-            shutdown(this.handle, 2);  /* SHUT_RDWR */
-            close(this.handle);
+            shutdown((int)this.handle, 2);  /* SHUT_RDWR */
+            close((int)this.handle);
             #endif
             this.handle = INVALID_SOCKET;
         }
@@ -586,7 +590,11 @@ public class TcpSocket {
         if (this.handle == INVALID_SOCKET) {
             return false;
         }
+        #ifdef _WIN32
         int result = shutdown(this.handle, SD_SEND);
+        #else
+        int result = shutdown((int)this.handle, SD_SEND);
+        #endif
         return result == 0;
     }
     
@@ -597,7 +605,11 @@ public class TcpSocket {
         if (this.handle == INVALID_SOCKET) {
             return false;
         }
+        #ifdef _WIN32
         int result = shutdown(this.handle, SD_RECEIVE);
+        #else
+        int result = shutdown((int)this.handle, SD_RECEIVE);
+        #endif
         return result == 0;
     }
     
@@ -608,7 +620,11 @@ public class TcpSocket {
         if (this.handle == INVALID_SOCKET) {
             return false;
         }
+        #ifdef _WIN32
         int result = shutdown(this.handle, SD_BOTH);
+        #else
+        int result = shutdown((int)this.handle, SD_BOTH);
+        #endif
         return result == 0;
     }
     
@@ -632,35 +648,51 @@ public class TcpSocket {
     public void setReuseAddr(bool enable) {
         if (this.handle != INVALID_SOCKET) {
             int value = enable ? 1 : 0;
+            #ifdef _WIN32
+            setsockopt(this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&value), 4);
+            #else
             setsockopt((int)this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&value), 4);
+            #endif
         }
     }
-    
+
     /**
      * 设置TCP_NODELAY选项（禁用Nagle算法）
      */
     public void setTcpNoDelay(bool enable) {
         if (this.handle != INVALID_SOCKET) {
             int value = enable ? 1 : 0;
+            #ifdef _WIN32
+            setsockopt(this.handle, IPPROTO_TCP, TCP_NODELAY, (long)(&value), 4);
+            #else
             setsockopt((int)this.handle, IPPROTO_TCP, TCP_NODELAY, (long)(&value), 4);
+            #endif
         }
     }
-    
+
     /**
      * 设置发送缓冲区大小
      */
     public void setSendBufferSize(int size) {
         if (this.handle != INVALID_SOCKET) {
+            #ifdef _WIN32
+            setsockopt(this.handle, SOL_SOCKET, SO_SNDBUF, (long)(&size), 4);
+            #else
             setsockopt((int)this.handle, SOL_SOCKET, SO_SNDBUF, (long)(&size), 4);
+            #endif
         }
     }
-    
+
     /**
      * 设置接收缓冲区大小
      */
     public void setRecvBufferSize(int size) {
         if (this.handle != INVALID_SOCKET) {
+            #ifdef _WIN32
+            setsockopt(this.handle, SOL_SOCKET, SO_RCVBUF, (long)(&size), 4);
+            #else
             setsockopt((int)this.handle, SOL_SOCKET, SO_RCVBUF, (long)(&size), 4);
+            #endif
         }
     }
 }
@@ -670,7 +702,7 @@ public class TcpSocket {
  * ============================================================================ */
 
 public class TcpServer {
-    private int handle;
+    private long handle;
     private int port;
     private bool listening;
     
@@ -699,10 +731,18 @@ public class TcpServer {
         
         /* 设置地址重用 */
         int reuse = 1;
+        #ifdef _WIN32
+        setsockopt(this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
+        #else
         setsockopt((int)this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
-        
+        #endif
+
         /* 调用系统bind函数 */
+        #ifdef _WIN32
         int sysResult = bind(this.handle, (long)(&addr), 16);
+        #else
+        int sysResult = bind((int)this.handle, (long)(&addr), 16);
+        #endif
         if (sysResult == 0) {
             /* 从word0中提取端口号 (word0 = (port_network << 16) | family) */
             int portNetwork = (addr.word0 >> 16) & 0xFFFF;
@@ -734,13 +774,17 @@ public class TcpServer {
         if (this.handle == INVALID_SOCKET) {
             return false;
         }
-        
+
+        #ifdef _WIN32
         int result = listen(this.handle, backlog);
+        #else
+        int result = listen((int)this.handle, backlog);
+        #endif
         if (result == 0) {
             this.listening = true;
             return true;
         }
-        
+
         return false;
     }
     
@@ -752,17 +796,20 @@ public class TcpServer {
         if (!this.listening || this.handle == INVALID_SOCKET) {
             return null;
         }
-        
-        int sock = this.handle;
+
         long ca = 0;
         int al = 16;
-        
-        long ch = accept(sock, ca, al);
-        
+
+        #ifdef _WIN32
+        long ch = accept(this.handle, ca, al);
+        #else
+        long ch = accept((int)this.handle, ca, al);
+        #endif
+
         if (ch == INVALID_SOCKET) {
             return null;
         }
-        
+
         return new TcpSocket(ch, true);
     }
     
@@ -775,7 +822,7 @@ public class TcpServer {
             #ifdef _WIN32
             closesocket(this.handle);
             #else
-            close(this.handle);
+            close((int)this.handle);
             #endif
             this.handle = INVALID_SOCKET;
         }
@@ -801,7 +848,7 @@ public class TcpServer {
  * ============================================================================ */
 
 public class UdpSocket {
-    private int handle;
+    private long handle;
     private bool bound;
     
     public UdpSocket() {
@@ -826,11 +873,19 @@ public class UdpSocket {
         
         /* 设置地址重用 */
         int reuse = 1;
+        #ifdef _WIN32
+        setsockopt(this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
+        #else
         setsockopt((int)this.handle, SOL_SOCKET, SO_REUSEADDR, (long)(&reuse), 4);
-        
+        #endif
+
         /* 绑定地址 */
         SocketAddr addr = new SocketAddr().any(port);
+        #ifdef _WIN32
         int result = bind(this.handle, (long)(&addr), 16);
+        #else
+        int result = bind((int)this.handle, (long)(&addr), 16);
+        #endif
         
         if (result == 0) {
             this.bound = true;
@@ -860,7 +915,7 @@ public class UdpSocket {
         #ifdef _WIN32
         int result = sendto(this.handle, buf, len, 0, (long)(&addr), 16);
         #else
-        int result = (int)sendto(this.handle, buf, len, 0, (long)(&addr), 16);
+        int result = (int)sendto((int)this.handle, buf, len, 0, (long)(&addr), 16);
         #endif
         
         return result;
@@ -926,7 +981,7 @@ public class UdpSocket {
             #ifdef _WIN32
             closesocket(this.handle);
             #else
-            close(this.handle);
+            close((int)this.handle);
             #endif
             this.handle = INVALID_SOCKET;
         }
