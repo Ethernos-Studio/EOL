@@ -11,6 +11,7 @@ pub struct SemanticErrorInfo {
     pub line: usize,
     pub column: usize,
     pub message: String,
+    pub file: Option<String>, // 错误所在的文件路径
 }
 
 /// 语义分析器
@@ -95,8 +96,8 @@ impl SemanticAnalyzer {
                 message.push('\n');
                 message.push_str(&err.message);
             }
-            // 尝试从 source_map 查找正确的文件路径
-            let error_file = self.resolve_file_for_line(first.line);
+            // 使用第一个错误中存储的文件路径（现在每个错误都包含自己的文件路径）
+            let error_file = first.file.clone();
             return Err(semantic_error_with_file(
                 error_file,
                 first.line,
@@ -212,6 +213,17 @@ impl SemanticAnalyzer {
     pub fn report_error(&self, line: usize, column: usize, message: impl Into<String>) -> crate::error::cayError {
         let msg = message.into();
         semantic_error_with_file(self.current_file.clone(), line, column, msg)
+    }
+
+    /// 创建语义分析错误信息（自动解析文件路径）
+    pub fn create_error_info(&self, line: usize, column: usize, message: impl Into<String>) -> SemanticErrorInfo {
+        let file = self.resolve_file_for_line(line);
+        SemanticErrorInfo {
+            line,
+            column,
+            message: message.into(),
+            file,
+        }
     }
 
     /// 从表达式中提取源代码位置
