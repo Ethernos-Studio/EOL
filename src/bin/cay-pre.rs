@@ -154,7 +154,7 @@ fn main() {
     let mut preprocessor = if options.system_paths.is_empty() {
         Preprocessor::new(base_dir)
     } else {
-        Preprocessor::with_system_paths(base_dir, options.system_paths.clone())
+        Preprocessor::with_include_paths(base_dir, options.system_paths.clone())
     };
 
     // 执行预处理

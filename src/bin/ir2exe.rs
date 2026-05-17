@@ -215,7 +215,7 @@ fn remap_clang_error(error_msg: &str, source_map: &IRSourceMap, _ir_file_name: &
 /// 添加Clang错误映射的说明信息
 fn add_clang_error_notice(remapped_error: &str) -> String {
     format!(
-        "{}\n\n  注意：Clang执行失败时的映射代码输出不属于Cavvy报错系统的一部分也不是Cavvy错误，这只是方便排查问题的。\n  在任何时候遇到Clang执行失败的报错信息都应该立即提issue修复此问题。\n  issue地址：https://github.com/cavvy-lang/cavvy",
+        "{}\n\n  请注意，当 Clang 执行失败时，其映射代码输出并非 Cavvy 错误报告系统的组成部分，且不属于 Cavvy 错误。此项功能仅用于协助您排查相关问题。\n  如果您遇到 Clang 执行失败的报错信息，请立即通过提交 Issue 的方式告知我们，以便我们及时修复该问题。\n  Issue 提交地址：https://github.com/cavvy-lang/cavvy/issues",
         remapped_error
     )
 }

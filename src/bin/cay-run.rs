@@ -270,7 +270,7 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
         let mut pp = cavvy::preprocessor::Preprocessor::new(base_dir_str);
         pp.process_with_source_map(&source, source_path)
     } else {
-        let mut pp = cavvy::preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths);
+        let mut pp = cavvy::preprocessor::Preprocessor::with_include_paths(base_dir_str, system_paths);
         pp.process_with_source_map(&source, source_path)
     }
     .map_err(|e| cayError::Preprocessor {
@@ -298,6 +298,7 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
         defines: Vec::new(),
         undefines: Vec::new(),
         obfuscate: options.obfuscate,
+        include_paths: Vec::new(),
     };
 
     let compiler = Compiler::with_options(compiler_options);

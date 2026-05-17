@@ -22,6 +22,10 @@ build = 12
 version = "0.5.1.0-Alpha.1"
 build = 7
 
+[CAVLY]
+version = "0.5.1.0-Alpha.1"
+build = 1
+
 [LLVM-MINIMAL]
 version = "21.1.8"
 

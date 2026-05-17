@@ -15,6 +15,9 @@ pub mod bytecode;
 // GUI模块（cay-idle使用）
 pub mod idle;
 
+// Cavly 包管理器模块
+pub mod cavly;
+
 use std::path::{Path, PathBuf};
 use error::cayResult;
 
@@ -27,6 +30,8 @@ pub struct CompilerOptions {
     pub defines: Vec<String>,
     pub undefines: Vec<String>,
     pub obfuscate: bool,
+    /// 额外的包含路径（供 #include 搜索）
+    pub include_paths: Vec<String>,
 }
 
 impl Default for CompilerOptions {
@@ -38,6 +43,7 @@ impl Default for CompilerOptions {
             defines: Vec::new(),
             undefines: Vec::new(),
             obfuscate: false,
+            include_paths: Vec::new(),
         }
     }
 }
@@ -231,11 +237,20 @@ impl Compiler {
             system_paths.push(cwd_caylibs);
         }
 
+        // 添加 CompilerOptions 中指定的额外包含路径（-I 参数）
+        for path in &self.options.include_paths {
+            let path_buf = PathBuf::from(path);
+            if path_buf.exists() && !system_paths.contains(&path_buf) {
+                system_paths.push(path_buf);
+            }
+        }
+
         // 使用带系统路径的预处理器（带源映射）
+
         let mut pp = if system_paths.is_empty() {
             preprocessor::Preprocessor::new(base_dir)
         } else {
-            preprocessor::Preprocessor::with_system_paths(base_dir, system_paths)
+            preprocessor::Preprocessor::with_include_paths(base_dir, system_paths)
         };
         let result = pp.process_with_source_map(&source, input_path)?;
         let source_map = Self::convert_source_map(&result.source_map);

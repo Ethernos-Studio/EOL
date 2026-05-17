@@ -59,6 +59,7 @@ struct CompileOptions {
     extra_libs: Vec<String>,      // -l<lib>
     extra_ldflags: Vec<String>,   // --ldflags
     extra_cflags: Vec<String>,    // --cflags
+    include_paths: Vec<String>,   // -I<path>
     target: String,               // --target
     static_link: bool,            // --static
     position_independent: bool,   // -fPIC/-fPIE
@@ -121,6 +122,7 @@ impl Default for CompileOptions {
             extra_libs: Vec::new(),
             extra_ldflags: Vec::new(),
             extra_cflags: Vec::new(),
+            include_paths: Vec::new(),
             target: get_default_target(),
             static_link: false,
             position_independent: false,
@@ -174,6 +176,7 @@ fn print_usage() {
     println!("Code Generation:");
     println!("  -g                    生成调试信息");
     println!("  --keep-ir             保留中间 IR 文件 (.ll)");
+    println!("  -I<path>              添加包含搜索路径（供 #include 使用）");
     println!("  -L<path>              添加库搜索路径");
     println!("  -l<lib>               链接额外的库");
     println!("  --ldflags <flags>     传递额外的链接器标志");
@@ -321,6 +324,18 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
             }
             _ if arg.starts_with("-fprofile-use=") => {
                 options.pgo_use = Some(arg[14..].to_string());
+            }
+            _ if arg.starts_with("-I") => {
+                let path = if arg.len() > 2 {
+                    arg[2..].to_string()
+                } else {
+                    i += 1;
+                    if i >= args.len() {
+                        return Err("-I 需要路径参数".to_string());
+                    }
+                    args[i].clone()
+                };
+                options.include_paths.push(path);
             }
             _ if arg.starts_with("-L") => {
                 let path = if arg.len() > 2 {
@@ -535,6 +550,7 @@ fn main() {
         defines: Vec::new(),
         undefines: Vec::new(),
         obfuscate: false,
+        include_paths: options.include_paths.clone(),
     };
     let compiler = cavvy::Compiler::with_options(compiler_options);
     match compiler.compile_file(&source_path, &ir_file) {

@@ -43,11 +43,13 @@ struct CompileOptions {
     defines: Vec<String>,    // -D:XX 定义宏
     undefines: Vec<String>,  // -U:XX 取消定义宏
     obfuscate: bool,         // --obfuscate 混淆 IR 代码
+    include_paths: Vec<String>, // -I:XX 包含路径
 }
 
 impl Default for CompileOptions {
     fn default() -> Self {
         CompileOptions {
+            include_paths: Vec::new(),
             optimization: "-O2".to_string(),
             optimize_ir: false,
             emit_optimized: false,
@@ -76,6 +78,7 @@ fn print_usage() {
     println!("  -No:XX                禁用特定功能");
     println!("  -D:XX                 定义宏");
     println!("  -U:XX                 取消定义宏");
+    println!("  -I<<XX>>              添加包含搜索路径");
     println!("  --version, -v         显示版本号");
     println!("  --help, -h            显示帮助信息");
     println!("");
@@ -151,6 +154,10 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
             arg if arg.starts_with("-U:") => {
                 let undefine = &arg[3..];
                 options.undefines.push(undefine.to_string());
+            }
+            arg if arg.starts_with("-I:") => {
+                let include_path = &arg[3..];
+                options.include_paths.push(include_path.to_string());
             }
             _ => {
                 if arg.starts_with('-') {
@@ -255,6 +262,7 @@ fn main() {
         defines: options.defines,
         undefines: options.undefines,
         obfuscate: options.obfuscate,
+        include_paths: Vec::new(),
     };
 
     // 编译 Cavvy → IR

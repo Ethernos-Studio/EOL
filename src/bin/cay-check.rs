@@ -250,7 +250,7 @@ fn main() {
         let mut pp = if system_paths.is_empty() {
             preprocessor::Preprocessor::new(base_dir_str)
         } else {
-            preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths)
+            preprocessor::Preprocessor::with_include_paths(base_dir_str, system_paths)
         };
         
         match pp.process_with_source_map(&source, &source_path) {

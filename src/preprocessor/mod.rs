@@ -143,44 +143,20 @@ impl Preprocessor {
     /// # Returns
     /// 初始化后的预处理器
     pub fn new(base_dir: impl AsRef<Path>) -> Self {
-        let mut defines = HashMap::new();
-        
-        // 自动定义平台宏
-        #[cfg(target_os = "windows")]
-        {
-            defines.insert("_WIN32".to_string(), "".to_string());
-        }
-        #[cfg(target_os = "linux")]
-        {
-            defines.insert("__linux__".to_string(), "".to_string());
-        }
-        #[cfg(target_os = "macos")]
-        {
-            defines.insert("__APPLE__".to_string(), "".to_string());
-        }
-        
-        Self {
-            defines,
-            included_files: HashSet::new(),
-            base_dir: base_dir.as_ref().to_path_buf(),
-            conditional_stack: Vec::new(),
-            skipping: false,
-            include_stack: Vec::new(),
-            system_include_paths: Vec::new(),
-        }
+        Self::with_include_paths(base_dir, Vec::new())
     }
 
-    /// 创建带有系统包含路径的预处理器实例
+    /// 创建带有额外包含路径的预处理器实例
     /// 
     /// # Arguments
     /// * `base_dir` - 源代码基础目录
-    /// * `system_paths` - 系统包含路径列表
+    /// * `include_paths` - 额外的包含路径列表（供 #include 搜索）
     /// 
     /// # Returns
     /// 初始化后的预处理器
-    pub fn with_system_paths(base_dir: impl AsRef<Path>, system_paths: Vec<PathBuf>) -> Self {
+    pub fn with_include_paths(base_dir: impl AsRef<Path>, include_paths: Vec<PathBuf>) -> Self {
         let mut defines = HashMap::new();
-        
+
         // 自动定义平台宏
         #[cfg(target_os = "windows")]
         {
@@ -194,7 +170,7 @@ impl Preprocessor {
         {
             defines.insert("__APPLE__".to_string(), "".to_string());
         }
-        
+
         Self {
             defines,
             included_files: HashSet::new(),
@@ -202,11 +178,11 @@ impl Preprocessor {
             conditional_stack: Vec::new(),
             skipping: false,
             include_stack: Vec::new(),
-            system_include_paths: system_paths,
+            system_include_paths: include_paths,
         }
     }
 
-    /// 预处理源文件，返回处理后的源代码（带源映射）
+        /// 预处理源文件，返回处理后的源代码（带源映射）
     ///
     /// # Arguments
     /// * `source` - 原始源代码
@@ -597,9 +573,11 @@ impl Preprocessor {
     /// 解析包含文件的完整路径
     fn resolve_include_path(&self, path: &str, is_system: bool, current_file: &str) -> cayResult<String> {
         if is_system {
-            // 1. 系统包含路径（优先）
+            eprintln!("DEBUG: 搜索系统路径 <{}>", path);
+            eprintln!("DEBUG: system_include_paths = {:?}", self.system_include_paths);
             for sys_path in &self.system_include_paths {
                 let sys_include_path = sys_path.join(path);
+                eprintln!("DEBUG: 检查 {:?} -> exists={}", sys_include_path, sys_include_path.exists());
                 if sys_include_path.exists() {
                     return Ok(sys_include_path.to_string_lossy().to_string());
                 }
@@ -638,22 +616,22 @@ impl Preprocessor {
             if relative_path.exists() {
                 return Ok(relative_path.to_string_lossy().to_string());
             }
-            
+
             // 5. 基础目录
             let base_path = self.base_dir.join(path);
             if base_path.exists() {
                 return Ok(base_path.to_string_lossy().to_string());
             }
-            
-            // 6. 系统包含路径（最后尝试）
-            for sys_path in &self.system_include_paths {
-                let sys_include_path = sys_path.join(path);
-                if sys_include_path.exists() {
-                    return Ok(sys_include_path.to_string_lossy().to_string());
+
+            // 6. 额外的包含路径（-I 指定的路径，最后尝试）
+            for include_path in &self.system_include_paths {
+                let include_full_path = include_path.join(path);
+                if include_full_path.exists() {
+                    return Ok(include_full_path.to_string_lossy().to_string());
                 }
             }
-            
-            Err(cayError::Preprocessor {
+
+                        Err(cayError::Preprocessor {
                 file: Some(current_file.to_string()),
                 line: 1,
                 column: 1,

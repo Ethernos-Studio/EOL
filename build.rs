@@ -81,6 +81,13 @@ fn main() {
                 }
             }
             
+            // 设置 Cavly 版本
+            if let Some(cavly_section) = verinfo.get("CAVLY") {
+                if let Some(version) = cavly_section.get("version") {
+                    println!("cargo:rustc-env=CAVLY_VERSION={}", version);
+                }
+            }
+            
             // 设置通用版本（使用CAYC的版本）
             if let Some(cayc_section) = verinfo.get("CAYC") {
                 if let Some(version) = cayc_section.get("version") {
@@ -98,6 +105,7 @@ fn main() {
             println!("cargo:rustc-env=CAY_RUN_VERSION=0.4.8.3");
             println!("cargo:rustc-env=CAY_LSP_VERSION=0.4.8.3");
             println!("cargo:rustc-env=CAY_DLL_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=CAVLY_VERSION=0.1.0");
             println!("cargo:rustc-env=VERSION=0.4.8.3");
         }
     }
