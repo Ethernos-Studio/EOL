@@ -1119,6 +1119,65 @@ public class Main {
 // }
 ```
 
+### 类型别名
+
+Cavvy 支持使用 `alias` 关键字定义类型别名，简化复杂类型的使用：
+
+```cay
+// 基本类型别名
+alias MyInt = int;
+alias MyString = String;
+
+// C 类型别名
+alias CInt = c_int;
+alias CLong = c_long;
+alias VoidPtr = ptr;
+alias SizeT = size_t;
+
+// 使用类型别名
+MyInt count = 10;
+VoidPtr data = malloc(100);
+```
+
+### 函数指针
+
+Cavvy 支持函数指针类型定义，用于回调函数和动态函数调用：
+
+```cay
+// 定义函数指针类型
+alias CompareFn = fn(int, int) -> int;
+alias Callback = fn(ptr) -> void;
+alias Predicate = fn(int) -> bool;
+
+// 实现函数
+fn compare_asc(a: int, b: int) -> int {
+    return a - b;
+}
+
+// 使用函数指针
+CompareFn cmp = compare_asc;
+int result = cmp(5, 3);  // result = 2
+
+// 函数指针作为参数
+void sort(int[] arr, CompareFn comparator) {
+    // 使用 comparator 进行排序
+}
+
+// 函数指针作为返回值
+CompareFn getComparator(bool ascending) {
+    if (ascending) {
+        return compare_asc;
+    } else {
+        return compare_desc;
+    }
+}
+```
+
+函数指针类型语法：
+- `fn(参数类型列表) -> 返回类型`
+- 参数类型列表中的参数名是可选的
+- 返回类型可以是任何有效类型，包括 `void`
+
 ---
 
 ## 最佳实践

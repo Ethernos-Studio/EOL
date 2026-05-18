@@ -24,6 +24,8 @@ pub struct Parser {
     pub diagnostics: DiagnosticCollector,
     /// 源代码文本（用于内联IR等需要直接访问源码的场景）
     source: Option<String>,
+    /// 类型别名映射: 别名名称 -> 目标类型
+    type_aliases: std::collections::HashMap<String, crate::types::Type>,
 }
 
 impl Parser {
@@ -34,6 +36,7 @@ impl Parser {
             pos: 0,
             diagnostics: DiagnosticCollector::new(),
             source: None,
+            type_aliases: std::collections::HashMap::new(),
         }
     }
 
@@ -44,6 +47,7 @@ impl Parser {
             pos: 0,
             diagnostics: DiagnosticCollector::new(),
             source: Some(source),
+            type_aliases: std::collections::HashMap::new(),
         }
     }
 
@@ -63,6 +67,7 @@ impl Parser {
         let mut interfaces = Vec::new();
         let mut top_level_functions = Vec::new();
         let mut extern_declarations = Vec::new();
+        let mut type_aliases = Vec::new();
 
         while !self.is_at_end() {
             if self.check(&crate::lexer::Token::Interface)
@@ -88,6 +93,8 @@ impl Parser {
                 top_level_functions.push(self.parse_top_level_function_without_public()?);
             } else if self.check(&crate::lexer::Token::Extern) {
                 extern_declarations.push(self.parse_extern_declaration()?);
+            } else if self.check(&crate::lexer::Token::Alias) {
+                type_aliases.push(self.parse_type_alias()?);
             } else {
                 let current_token = utils::current_token(self);
                 let (token_desc, suggestion) = match current_token {
@@ -152,7 +159,7 @@ impl Parser {
                         let token_name = utils::get_token_name(current_token);
                         (
                             token_name.clone(),
-                            format!("{} 不能作为顶层声明。有效的顶层声明包括:\n    - 类: class MyClass {{ ... }}\n    - 接口: interface MyInterface {{ ... }}\n    - 外部函数: extern {{ ... }}\n    - 主函数: public int main() {{ ... }}", token_name)
+                            format!("{} 不能作为顶层声明。有效的顶层声明包括:\n    - 类: class MyClass {{ ... }}\n    - 接口: interface MyInterface {{ ... }}\n    - 外部函数: extern {{ ... }}\n    - 类型别名: type MyType = int;\n    - 主函数: public int main() {{ ... }}", token_name)
                         )
                     }
                 };
@@ -163,7 +170,7 @@ impl Parser {
             }
         }
 
-        Ok(Program { classes, interfaces, top_level_functions, extern_declarations })
+        Ok(Program { classes, interfaces, top_level_functions, extern_declarations, type_aliases })
     }
 
     // 类解析方法
@@ -569,7 +576,7 @@ impl Parser {
 
         // 解析参数列表
         self.consume(&crate::lexer::Token::LParen, "Expected '(' after extern function name")?;
-        let params = self.parse_parameters()?;
+        let params = self.parse_extern_parameters()?;
         self.consume(&crate::lexer::Token::RParen, "Expected ')' after extern function parameters")?;
 
         // 消费分号
@@ -581,6 +588,179 @@ impl Parser {
             params,
             loc,
         })
+    }
+
+    /// 解析extern函数参数列表（支持可选参数名，兼容C风格声明）
+    fn parse_extern_parameters(&mut self) -> cayResult<Vec<crate::types::ParameterInfo>> {
+        use crate::lexer::Token;
+        let mut params = Vec::new();
+        let mut param_index = 0;
+
+        if !self.check(&Token::RParen) {
+            loop {
+                // 检查是否是裸可变参数 ...
+                if self.check(&Token::DotDotDot) {
+                    self.advance(); // 消费 ...
+                    params.push(crate::types::ParameterInfo::new_varargs("...".to_string(), crate::types::Type::CVoid));
+                    if self.check(&Token::Comma) {
+                        return Err(self.error("可变参数必须是最后一个参数\n提示: 可变参数(...)必须放在参数列表的最后"));
+                    }
+                    break;
+                }
+
+                // 解析参数类型
+                let param_type = self.parse_type()?;
+
+                // 检查是否是可变参数类型（type...）
+                let is_varargs = self.check(&Token::DotDotDot);
+
+                if is_varargs {
+                    self.advance(); // 消费 ...
+                    // type... 形式的可变参数，需要一个名称
+                    let name = self.consume_identifier("期望参数名\n提示: 可变参数需要名称，例如: int... args")?;
+                    params.push(crate::types::ParameterInfo::new_varargs(name, param_type));
+                    if self.match_token(&Token::Comma) {
+                        return Err(self.error("可变参数必须是最后一个参数\n提示: 可变参数(...)必须放在参数列表的最后"));
+                    }
+                    break;
+                } else {
+                    // 检查后面是否是标识符或关键字（表示这是参数名）
+                    // 在extern声明中，参数名是可选的，且可以是关键字（如type, fn等）
+                    let param_name = if self.is_potential_param_name() {
+                        // 获取参数名（可能是标识符或关键字）
+                        let name = self.current_token_as_param_name();
+                        self.advance();
+                        name
+                    } else if self.check(&Token::Comma) || self.check(&Token::RParen) {
+                        // 没有参数名，生成一个默认名称
+                        param_index += 1;
+                        format!("arg{}", param_index)
+                    } else {
+                        // 其他情况也生成默认名称
+                        param_index += 1;
+                        format!("arg{}", param_index)
+                    };
+                    params.push(crate::types::ParameterInfo::new(param_name, param_type));
+                }
+
+                if !self.match_token(&Token::Comma) {
+                    break;
+                }
+            }
+        }
+
+        Ok(params)
+    }
+
+    /// 解析类型别名声明: alias Name = Type;
+    /// 支持函数指针类型: alias CompareFn = fn(i32, i32) -> i32;
+    fn parse_type_alias(&mut self) -> cayResult<crate::ast::TypeAliasDecl> {
+        let loc = self.current_loc();
+
+        // 消费 alias 关键字
+        self.consume(&crate::lexer::Token::Alias, "期望 'alias'\n提示: 类型别名声明应以 alias 开头，例如: alias MyInt = int;")?;
+
+        // 解析类型名称
+        let name = self.consume_identifier("期望类型别名名称\n提示: alias 后应跟类型名称，例如: alias MyInt = int;")?;
+
+        // 消费 =
+        self.consume(&crate::lexer::Token::Assign, "期望 '='\n提示: 类型别名格式为 alias Name = Type;")?;
+
+        // 解析目标类型（支持函数指针类型 fn(...) -> ReturnType）
+        let target_type = self.parse_type_or_fn_ptr()?;
+
+        // 消费分号
+        self.consume(&crate::lexer::Token::Semicolon, "期望 ';'\n提示: 类型别名声明应以 ';' 结束")?;
+
+        // 注册类型别名以便后续解析使用
+        self.register_type_alias(name.clone(), target_type.clone());
+
+        Ok(crate::ast::TypeAliasDecl {
+            name,
+            target_type,
+            loc,
+        })
+    }
+
+    /// 检查当前token是否可能是参数名（标识符或某些关键字）
+    fn is_potential_param_name(&self) -> bool {
+        use crate::lexer::Token;
+        match self.current_token() {
+            Token::Identifier(_) => true,
+            // 在extern声明中，某些关键字也可以作为参数名（如alias, fn等）
+            Token::Alias | Token::Fn => true,
+            _ => false,
+        }
+    }
+
+    /// 将当前token转换为参数名字符串
+    fn current_token_as_param_name(&self) -> String {
+        use crate::lexer::Token;
+        match self.current_token() {
+            Token::Identifier(name) => name.clone(),
+            Token::Alias => "alias".to_string(),
+            Token::Fn => "fn".to_string(),
+            _ => "arg".to_string(),
+        }
+    }
+
+    /// 注册类型别名
+    fn register_type_alias(&mut self, name: String, target_type: crate::types::Type) {
+        self.type_aliases.insert(name, target_type);
+    }
+
+    /// 获取类型别名
+    pub fn get_type_alias(&self, name: &str) -> Option<crate::types::Type> {
+        self.type_aliases.get(name).cloned()
+    }
+
+    /// 解析类型或函数指针类型
+    fn parse_type_or_fn_ptr(&mut self) -> cayResult<crate::types::Type> {
+        // 检查是否是函数指针类型: fn(...) -> ReturnType
+        if self.check(&crate::lexer::Token::Fn) {
+            self.parse_fn_ptr_type()
+        } else {
+            // 普通类型
+            self.parse_type()
+        }
+    }
+
+    /// 解析函数指针类型: fn(ParamType1, ParamType2, ...) -> ReturnType
+    fn parse_fn_ptr_type(&mut self) -> cayResult<crate::types::Type> {
+        // 消费 fn 关键字
+        self.consume(&crate::lexer::Token::Fn, "期望 'fn'")?;
+
+        // 消费 (
+        self.consume(&crate::lexer::Token::LParen, "期望 '('\n提示: 函数指针类型格式为 fn(ParamTypes...) -> ReturnType")?;
+
+        // 解析参数类型列表
+        let mut param_types = Vec::new();
+        if !self.check(&crate::lexer::Token::RParen) {
+            loop {
+                let param_type = self.parse_type()?;
+                param_types.push(param_type);
+
+                if !self.match_token(&crate::lexer::Token::Comma) {
+                    break;
+                }
+            }
+        }
+
+        // 消费 )
+        self.consume(&crate::lexer::Token::RParen, "期望 ')'\n提示: 函数指针参数列表应以 ')' 结束")?;
+
+        // 消费 ->
+        self.consume(&crate::lexer::Token::Arrow, "期望 '->'\n提示: 函数指针类型需要指定返回类型，格式为 fn(...) -> ReturnType")?;
+
+        // 解析返回类型
+        let return_type = self.parse_type()?;
+
+        // 创建函数类型
+        Ok(crate::types::Type::Function(Box::new(crate::types::FunctionType {
+            params: param_types,
+            return_type: Box::new(return_type),
+            is_static: true,
+        })))
     }
 }
 

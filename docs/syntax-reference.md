@@ -221,6 +221,53 @@ int[][][] c;       // 三维数组
 void method(int... args);
 ```
 
+### 类型别名
+
+Cavvy 支持使用 `alias` 关键字定义类型别名，简化复杂类型的使用：
+
+```cay
+// 基本类型别名
+alias MyInt = int;
+alias MyString = String;
+
+// C类型别名
+alias CInt = c_int;
+alias CLong = c_long;
+alias VoidPtr = ptr;
+
+// 使用类型别名
+MyInt count = 10;
+VoidPtr data = malloc(100);
+```
+
+### 函数指针类型
+
+Cavvy 支持函数指针类型定义，用于回调函数和动态函数调用：
+
+```cay
+// 定义函数指针类型
+alias CompareFn = fn(int, int) -> int;
+alias Callback = fn(ptr) -> void;
+alias Predicate = fn(int) -> bool;
+
+// 使用函数指针类型
+CompareFn cmp = compare_function;
+int result = cmp(5, 3);
+
+// 函数指针作为参数
+void sort(int[] arr, CompareFn comparator);
+
+// 函数指针作为返回值
+CompareFn getComparator(bool ascending);
+```
+
+函数指针类型语法：
+```ebnf
+function_pointer_type = "fn", "(", [ parameter_types ], ")", "->", return_type;
+type_alias = "alias", identifier, "=", type, ";";
+parameter_types       = type, { ",", type };
+```
+
 ---
 
 ## 声明与定义

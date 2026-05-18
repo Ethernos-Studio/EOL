@@ -96,6 +96,11 @@ impl IRGenerator {
         // 设置顶层函数列表
         self.top_level_functions = program.top_level_functions.clone();
 
+        // 设置类型别名
+        for type_alias in &program.type_aliases {
+            self.type_aliases.insert(type_alias.name.clone(), type_alias.target_type.clone());
+        }
+
         let mut main_class = None;
         let mut main_method = None;
         let mut fallback_main_class = None;

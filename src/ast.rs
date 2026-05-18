@@ -14,6 +14,15 @@ pub struct Program {
     pub interfaces: Vec<InterfaceDecl>,
     pub top_level_functions: Vec<TopLevelFunction>,
     pub extern_declarations: Vec<ExternDecl>,  // FFI extern 声明
+    pub type_aliases: Vec<TypeAliasDecl>,      // 类型别名声明 (type X = Y)
+}
+
+/// 类型别名声明 - type Name = Type;
+#[derive(Debug, Clone)]
+pub struct TypeAliasDecl {
+    pub name: String,
+    pub target_type: Type,
+    pub loc: SourceLocation,
 }
 
 /// 顶层函数声明（类外函数）
@@ -546,6 +555,7 @@ impl Default for Program {
             interfaces: Vec::new(),
             top_level_functions: Vec::new(),
             extern_declarations: Vec::new(),
+            type_aliases: Vec::new(),
         }
     }
 }

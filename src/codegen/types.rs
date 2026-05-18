@@ -3,9 +3,27 @@ use crate::codegen::context::IRGenerator;
 use crate::types::Type;
 
 impl IRGenerator {
+    /// 解析类型（包括类型别名）
+    pub fn resolve_type(&self, ty: &Type) -> Type {
+        match ty {
+            Type::Object(name) => {
+                // 检查是否是类型别名
+                if let Some(aliased_type) = self.type_aliases.get(name) {
+                    aliased_type.clone()
+                } else {
+                    ty.clone()
+                }
+            }
+            _ => ty.clone()
+        }
+    }
+
     /// 将 cay 类型转换为 LLVM IR 类型
     pub fn type_to_llvm(&self, ty: &Type) -> String {
-        match ty {
+        // 首先解析类型别名
+        let resolved_ty = self.resolve_type(ty);
+        
+        match &resolved_ty {
             Type::Void => "void".to_string(),
             Type::Int32 => "i32".to_string(),
             Type::Int64 => "i64".to_string(),

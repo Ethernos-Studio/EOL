@@ -892,6 +892,86 @@ public class CrossPlatformDir {
         #endif
     }
 }
+
+---
+
+## 函数指针与回调
+
+Cavvy 支持函数指针类型定义和回调函数，可用于实现 C 风格的回调机制。
+
+### 定义函数指针类型
+
+```cay
+// 定义比较函数指针类型
+alias CompareFn = fn(ptr a, ptr b) -> c_int;
+
+// 定义回调函数类型
+alias Callback = fn(int event, ptr data) -> void;
+
+// 定义谓词函数类型
+alias Predicate = fn(ptr item) -> bool;
+```
+
+### 使用函数指针
+
+```cay
+// 定义比较函数
+fn compare_ints(a: ptr, b: ptr) -> c_int {
+    // 实际使用时需要解引用指针
+    // 这里简化处理
+    return 0;
+}
+
+// 使用函数指针类型
+CompareFn cmp = compare_ints;
+c_int result = cmp(ptr1, ptr2);
+```
+
+### 回调函数示例
+
+```cay
+// 定义事件回调类型
+alias EventHandler = fn(int eventType, ptr eventData) -> void;
+
+// 事件处理器实现
+fn onMouseClick(eventType: int, data: ptr) -> void {
+    println("Mouse clicked!");
+}
+
+fn onKeyPress(eventType: int, data: ptr) -> void {
+    println("Key pressed!");
+}
+
+// 注册回调
+EventHandler handler = onMouseClick;
+handler(SDL_MOUSEBUTTONDOWN, null);
+
+handler = onKeyPress;
+handler(SDL_KEYDOWN, null);
+```
+
+### 类型别名与 FFI
+
+```cay
+// 定义C类型别名
+alias SizeT = size_t;
+alias VoidPtr = ptr;
+alias CInt = c_int;
+
+// 在 extern 声明中使用类型别名
+extern {
+    VoidPtr malloc(SizeT size);
+    void free(VoidPtr ptr);
+    CInt memcmp(VoidPtr s1, VoidPtr s2, SizeT n);
+}
+
+// 使用类型别名
+SizeT bufferSize = 1024;
+VoidPtr buffer = malloc(bufferSize);
+if (buffer != null) {
+    // 使用缓冲区...
+    free(buffer);
+}
 ```
 
 ---

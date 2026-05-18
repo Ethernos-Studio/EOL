@@ -4,7 +4,7 @@ use crate::types::Type;
 use crate::error::cayResult;
 use super::Parser;
 
-/// 解析类型（支持多维数组和指针）
+/// 解析类型（支持多维数组和指针，以及类型别名）
 pub fn parse_type(parser: &mut Parser) -> cayResult<Type> {
     let base_type = match parser.current_token() {
         crate::lexer::Token::Int => { parser.advance(); Type::Int32 }
@@ -34,7 +34,12 @@ pub fn parse_type(parser: &mut Parser) -> cayResult<Type> {
         crate::lexer::Token::Identifier(name) => {
             let name = name.clone();
             parser.advance();
-            Type::Object(name)
+            // 检查是否是已定义的类型别名
+            if let Some(aliased_type) = parser.get_type_alias(&name) {
+                aliased_type
+            } else {
+                Type::Object(name)
+            }
         }
         _ => {
             let current_token = parser.current_token();

@@ -210,6 +210,7 @@ pub struct IRGenerator {
     pub emitted_externs: HashSet<String>,  // 已生成的extern声明（函数名 -> 签名）
     pub top_level_functions: Vec<crate::ast::TopLevelFunction>,  // 顶层函数列表
     pub current_param_order: Vec<String>,  // 当前函数参数顺序（用于内联IR）
+    pub type_aliases: HashMap<String, crate::types::Type>,  // 类型别名映射
     // 源映射相关
     pub current_ir_line: usize,  // 当前IR行号
     pub source_file: String,     // 当前源文件
@@ -257,6 +258,7 @@ impl IRGenerator {
             emitted_externs: HashSet::new(),
             top_level_functions: Vec::new(),
             current_param_order: Vec::new(),
+            type_aliases: HashMap::new(),
             // 源映射初始化
             current_ir_line: 1,
             source_file: String::new(),

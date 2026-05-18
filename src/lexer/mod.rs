@@ -153,6 +153,12 @@ pub enum Token {
     #[token("win64")]
     Win64,
 
+    // 类型别名关键字
+    #[token("alias")]
+    Alias,
+    #[token("fn")]
+    Fn,
+
     // 标识符
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
@@ -912,6 +918,8 @@ pub fn token_name(token: &Token) -> &'static str {
         Token::Fastcall => "fastcall",
         Token::Sysv64 => "sysv64",
         Token::Win64 => "win64",
+        Token::Alias => "alias",
+        Token::Fn => "fn",
         Token::Identifier(_) => "identifier",
         Token::IntegerLiteral(_) => "integer literal",
         Token::FloatLiteral(_) => "float literal",
@@ -979,7 +987,7 @@ pub fn is_keyword(token: &Token) -> bool {
         Token::New | Token::This | Token::Super |
         Token::Extends | Token::Implements | Token::Interface | Token::InstanceOf |
         Token::Var | Token::Let | Token::Auto | Token::Extern | Token::Scope |
-        Token::InlineIr
+        Token::InlineIr | Token::Alias | Token::Fn
     )
 }
 
