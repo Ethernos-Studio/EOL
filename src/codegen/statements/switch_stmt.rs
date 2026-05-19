@@ -43,7 +43,7 @@ impl IRGenerator {
         }
         self.emit_line("  ]");
 
-        // 跟踪是否所有分支都终止（return/break）
+        // 跟踪是否所有分支都终止（return）- break 不算终止，因为它只是跳转到 switch.end
         let mut all_cases_terminate = true;
 
         // 生成 case 块
@@ -59,7 +59,7 @@ impl IRGenerator {
                 fallthrough = true;
                 all_cases_terminate = false;
             } else {
-                let mut has_terminator = false;
+                let mut has_return = false;
                 for (j, stmt) in case.body.iter().enumerate() {
                     match stmt {
                         Stmt::Break(label) => {
@@ -72,14 +72,15 @@ impl IRGenerator {
                                 self.emit_line(&format!("  br label %{}", end_label));
                             }
                             fallthrough = false;
-                            has_terminator = true;
+                            // break 不算函数终止，只是跳转到 switch.end
+                            all_cases_terminate = false;
                             break;
                         }
                         Stmt::Return(_) => {
                             // return 语句终止执行，不需要生成 br
                             self.generate_statement(stmt)?;
                             fallthrough = false;
-                            has_terminator = true;
+                            has_return = true;
                             break;
                         }
                         _ => {
@@ -92,15 +93,15 @@ impl IRGenerator {
                         }
                     }
                 }
-                // 如果 case 体有终止语句（return），跳过 br 生成
-                if has_terminator {
+                // 如果 case 体有 return，跳过 br 生成
+                if has_return {
                     fallthrough = false;
                 } else {
                     all_cases_terminate = false;
                 }
             }
 
-            // 如果不是 break/return，穿透到下一个 case
+            // 如果不是 return，穿透到下一个 case
             if fallthrough && i < case_labels.len() - 1 {
                 let (_, next_label, _) = &case_labels[i + 1];
                 self.emit_line(&format!("  br label %{}", next_label));
@@ -119,10 +120,9 @@ impl IRGenerator {
         }
 
         // 生成 default 块
-        let mut default_terminates = false;
         if let Some(default_body) = switch_stmt.default.as_ref() {
             self.emit_line(&format!("{}:", default_label));
-            let mut has_terminator = false;
+            let mut has_return = false;
             for stmt in default_body {
                 match stmt {
                     Stmt::Break(label) => {
@@ -132,13 +132,14 @@ impl IRGenerator {
                         } else {
                             self.emit_line(&format!("  br label %{}", end_label));
                         }
-                        has_terminator = true;
+                        // break 不算函数终止
+                        all_cases_terminate = false;
                         break;
                     }
                     Stmt::Return(_) => {
                         // return 语句终止执行，不需要生成 br
                         self.generate_statement(stmt)?;
-                        has_terminator = true;
+                        has_return = true;
                         break;
                     }
                     _ => {
@@ -146,19 +147,17 @@ impl IRGenerator {
                     }
                 }
             }
-            // 如果 default 体没有终止语句，跳转到结束
-            if !has_terminator {
+            // 如果 default 体没有 return，跳转到结束
+            if !has_return {
                 self.emit_line(&format!("  br label %{}", end_label));
                 all_cases_terminate = false;
-            } else {
-                default_terminates = true;
             }
         } else {
             // 没有 default，不是所有分支都终止
             all_cases_terminate = false;
         }
 
-        // 结束块 - 只有当并非所有分支都终止时才生成
+        // 结束块 - 只有当并非所有分支都 return 时才生成
         if !all_cases_terminate {
             self.emit_line(&format!("{}:", end_label));
         }
