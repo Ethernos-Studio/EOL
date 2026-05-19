@@ -2,9 +2,14 @@
 
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::{cayResult, semantic_error};
+use crate::error::{cayResult, semantic_error, semantic_error_with_file};
 use super::analyzer::SemanticAnalyzer;
 use super::symbol_table::SemanticSymbolInfo;
+
+/// 辅助函数：根据SourceLocation创建语义错误
+fn semantic_error_at_loc(loc: &crate::error::SourceLocation, message: impl Into<String>) -> crate::error::cayError {
+    semantic_error_with_file(loc.file.clone(), loc.line, loc.column, message)
+}
 
 impl SemanticAnalyzer {
     /// 推断表达式类型
@@ -885,9 +890,8 @@ impl SemanticAnalyzer {
         if self.is_valid_cast(&source_type, target_type) {
             Ok(target_type.clone())
         } else {
-            Err(semantic_error(
-                cast.loc.line,
-                cast.loc.column,
+            Err(semantic_error_at_loc(
+                &cast.loc,
                 format!("Invalid cast from {} to {}", source_type, target_type)
             ))
         }
@@ -925,8 +929,10 @@ impl SemanticAnalyzer {
             // char 与数值类型之间的转换
             (Type::Char, Type::Int32) |
             (Type::Char, Type::Int64) |
+            (Type::Char, Type::CInt) |
             (Type::Int32, Type::Char) |
-            (Type::Int64, Type::Char) => true,
+            (Type::Int64, Type::Char) |
+            (Type::CInt, Type::Char) => true,
 
             // 任何基本类型都可以转换为 string
             (Type::Int32, Type::String) |
@@ -1170,18 +1176,16 @@ impl SemanticAnalyzer {
         let index_type = self.infer_expr_type(&arr.index)?;
 
         if !index_type.is_integer() {
-            return Err(semantic_error(
-                arr.loc.line,
-                arr.loc.column,
+            return Err(semantic_error_at_loc(
+                &arr.loc,
                 format!("Array index must be integer, got {}", index_type)
             ));
         }
 
         match array_type {
             Type::Array(element_type) => Ok(*element_type),
-            _ => Err(semantic_error(
-                arr.loc.line,
-                arr.loc.column,
+            _ => Err(semantic_error_at_loc(
+                &arr.loc,
                 format!("Cannot index non-array type {}", array_type)
             )),
         }

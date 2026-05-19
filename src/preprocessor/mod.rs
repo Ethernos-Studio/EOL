@@ -214,12 +214,14 @@ impl Preprocessor {
                             }
                             DirectiveResult::Multi { code, source_map: included_source_map } => {
                                 // 包含文件返回多行，需要合并源映射
+                                // 记录当前输出行数，用于正确对齐包含文件的源映射
+                                let current_line_count = output_lines.len();
                                 for included_line in code.lines() {
                                     output_lines.push(included_line.to_string());
                                 }
-                                // 合并源映射
-                                for mapping in included_source_map.mappings {
-                                    source_map.add_mapping(mapping.file, mapping.line);
+                                // 合并源映射 - 保持正确的行号对应关系
+                                for (idx, mapping) in included_source_map.mappings.iter().enumerate() {
+                                    source_map.add_mapping(mapping.file.clone(), mapping.line);
                                 }
                             }
                         }

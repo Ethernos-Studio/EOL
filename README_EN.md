@@ -1,9 +1,6 @@
 <p align="center">
-  <img src="docs/README/images/LogoFontFixed.svg" alt="Cavvy Logo" width="300">
+  <img src="docs/README/images/Cavvy.png" alt="Cavvy Logo" width="100%">
 </p>
-
-<h1 align="center">Cavvy Programming Language</h1>
-
 <p align="center">
   English | <a href="README.md">简体中文</a>
 </p>

@@ -1,0 +1,44 @@
+/**
+ * File.cay 简单测试
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class SimpleTest {
+    
+    public static int main() {
+        println("=== File.cay 简单测试 ===\n");
+        
+        // 测试1: 文件存在性
+        println("测试1: 文件存在性");
+        bool exists = File.exists("examples/file_simple_test.cay");
+        println("当前文件存在: " + exists);
+        
+        // 测试2: 写入和读取
+        println("\n测试2: 写入和读取");
+        String testPath = "test_simple.txt";
+        String content = "Hello, Cavvy!";
+        
+        bool written = File.writeAllText(testPath, content);
+        println("写入成功: " + written);
+        
+        String read = File.readAllText(testPath);
+        println("读取内容: " + read);
+        println("内容匹配: " + read.equals(content));
+        
+        // 测试3: 文件大小
+        println("\n测试3: 文件大小");
+        long size = File.getSize(testPath);
+        println("文件大小: " + size);
+        
+        // 测试4: 删除
+        println("\n测试4: 删除文件");
+        bool deleted = File.delete(testPath);
+        println("删除成功: " + deleted);
+        println("文件仍存在: " + File.exists(testPath));
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

@@ -169,6 +169,10 @@ impl IRGenerator {
                 if let Some(var_type) = self.var_cay_types.get(&ident.name) {
                     return Some(var_type.clone());
                 }
+                // 特殊处理 "this"
+                if ident.name == "this" {
+                    return Some(Type::Object(self.current_class.clone()));
+                }
                 // 检查是否是类名（静态方法调用如 MathUtils.multiply）
                 if let Some(ref registry) = self.type_registry {
                     if registry.class_exists(&ident.name) {

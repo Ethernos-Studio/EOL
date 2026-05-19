@@ -1,0 +1,15 @@
+// 行号测试文件
+// 第3行
+// 第4行
+public class LineNumberTest {
+    // 第6行
+    public static int main() {
+        // 第8行 - 下面这一行应该报错：类型不匹配
+        int x = "hello";  // 第9行:19 - 错误应该指向这里
+
+        // 第11行
+        return 0;  // 第12行
+    }
+    // 第14行
+}
+// 第16行

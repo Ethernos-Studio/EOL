@@ -601,17 +601,17 @@ impl<'a> Lexer<'a> {
                         self.column += span.end - span.start;
                     }
 
-                    // 检查源映射
+                    // 检查源映射 - 使用原始源位置
                     let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
                         (Some(file.clone()), Some(*line))
                     } else {
                         (self.current_source_file.clone(), Some(self.line))
                     };
 
-                    // 更新loc中的file字段
+                    // 更新loc中的file和line字段 - 使用原始源位置
                     let loc = SourceLocation {
                         file: source_file.clone(),
-                        line: loc.line,
+                        line: source_line.unwrap_or(loc.line),
                         column: loc.column,
                     };
 

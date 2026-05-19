@@ -555,18 +555,37 @@ impl IRGenerator {
                     obj_val
                 };
 
+                // 检查是否是数组类型
+                let is_array = matches!(field_info.field_type, crate::types::Type::Array(_));
+                
                 // 计算字段地址
                 let field_ptr_i8 = self.new_temp();
                 self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}",
                     field_ptr_i8, obj_ptr, field_info.offset));
 
-                // 将字段指针转换为数组指针类型
-                let field_ptr = self.new_temp();
-                self.emit_line(&format!("  {} = bitcast i8* {} to {}*",
-                    field_ptr, field_ptr_i8, field_info.llvm_type));
-
-                // 返回数组指针类型和值
-                return Ok((format!("{}*", field_info.llvm_type), field_ptr));
+                if is_array {
+                    // 对于数组字段，llvm_type 已经是元素指针类型（如 i8*）
+                    // 字段存储的是数组指针，我们需要加载它
+                    let field_ptr = self.new_temp();
+                    self.emit_line(&format!("  {} = bitcast i8* {} to {}*",
+                        field_ptr, field_ptr_i8, field_info.llvm_type));
+                    
+                    // 加载数组指针值
+                    let arr_ptr = self.new_temp();
+                    self.emit_line(&format!("  {} = load {}, {}* {}, align {}",
+                        arr_ptr, field_info.llvm_type, field_info.llvm_type, field_ptr,
+                        self.get_type_align(&field_info.llvm_type)));
+                    
+                    // 返回元素类型指针和加载的数组指针
+                    let elem_type = field_info.llvm_type.trim_end_matches('*').to_string();
+                    return Ok((elem_type, arr_ptr));
+                } else {
+                    // 非数组字段，直接返回字段指针
+                    let field_ptr = self.new_temp();
+                    self.emit_line(&format!("  {} = bitcast i8* {} to {}*",
+                        field_ptr, field_ptr_i8, field_info.llvm_type));
+                    return Ok((format!("{}*", field_info.llvm_type), field_ptr));
+                }
             }
         }
 

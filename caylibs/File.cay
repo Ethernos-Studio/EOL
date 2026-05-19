@@ -273,16 +273,16 @@ public class SeekOrigin {
  * 通过stat系统调用获取，避免打开文件
  */
 public class FileInfo {
-    private String path;
-    private long size;
-    private bool exists;
+    private String filePath;
+    private long fileSize;
+    private bool fileExists;
     private bool isReadable;
     private bool isWritable;
     
     private FileInfo(String path, long size, bool exists) {
-        this.path = path;
-        this.size = size;
-        this.exists = exists;
+        this.filePath = path;
+        this.fileSize = size;
+        this.fileExists = exists;
         this.isReadable = false;
         this.isWritable = false;
     }
@@ -294,30 +294,30 @@ public class FileInfo {
         // F_OK = 0, 检查文件是否存在
         bool exists = access(cPath, 0) == 0;
         
-        long fileSize = -1;
+        long size = -1;
         if (exists) {
             // 如果能打开读取，获取大小
             c_void* fp = fopen(cPath, FILE_MODE_READ);
             if (fp != null) {
                 fseek(fp, 0, SEEK_ORIGIN_END);
-                fileSize = (long)ftell(fp);
+                size = (long)ftell(fp);
                 fclose(fp);
             }
         }
         
-        return new FileInfo(path, fileSize, exists);
+        return new FileInfo(path, size, exists);
     }
     
     public bool exists() {
-        return this.exists;
+        return this.fileExists;
     }
     
     public long getSize() {
-        return this.size;
+        return this.fileSize;
     }
     
     public String getPath() {
-        return this.path;
+        return this.filePath;
     }
 }
 
@@ -327,14 +327,14 @@ public class FileInfo {
 
 public class File {
     private c_void* handle;
-    private String path;
+    private String filePath;
     private FileMode mode;
     private bool isOpen;
     private int lastError;
 
     public File() {
         this.handle = null;
-        this.path = "";
+        this.filePath = "";
         this.mode = FileMode.read();
         this.isOpen = false;
         this.lastError = FILE_ERROR_NONE;
@@ -369,7 +369,7 @@ public class File {
             this.close();
         }
 
-        this.path = path;
+        this.filePath = path;
         this.mode = mode;
 
         c_string cPath = path.c_str();
@@ -506,7 +506,7 @@ public class File {
         }
         
         // 使用FileInfo获取大小，避免seek-tell-seek的TOCTOU问题
-        FileInfo info = FileInfo.fromPath(this.path);
+        FileInfo info = FileInfo.fromPath(this.filePath);
         if (info.exists()) {
             return info.getSize();
         }
@@ -518,14 +518,15 @@ public class File {
         if (!this.isOpen || this.handle == null) {
             return -1;
         }
-        return (int)fgetc(this.handle);
+        // fgetc返回c_int，直接作为int返回
+        return fgetc(this.handle);
     }
 
-    public bool writeChar(char c) {
+    public bool writeChar(int charCode) {
         if (!this.isOpen || this.handle == null) {
             return false;
         }
-        c_int result = fputc((c_int)c, this.handle);
+        c_int result = fputc(charCode, this.handle);
         return result != -1;
     }
 
@@ -548,23 +549,21 @@ public class File {
             return null;
         }
 
-        c_void* buffer = malloc((size_t)maxLength);
-        if (buffer == null) {
-            return null;
-        }
+        // 使用char数组而不是c_char*指针，以支持数组索引
+        char[] buffer = new char[maxLength]();
 
         int i = 0;
         while (i < maxLength - 1) {
             int c = this.readChar();
             if (c == -1) {
                 if (i == 0) {
-                    free(buffer);
                     return null;
                 }
                 break;
             }
 
-            ((c_char*)buffer)[i] = (char)c;
+            // 直接设置字符
+            buffer[i] = (char)c;
             i = i + 1;
 
             if (c == '\n') {
@@ -572,10 +571,16 @@ public class File {
             }
         }
 
-        ((c_char*)buffer)[i] = '\0';
+        // 设置字符串结束符
+        buffer[i] = '\0';
 
-        String result = __cay_ptr_to_string((long)buffer);
-        free(buffer);
+        // 构建字符串
+        String result = "";
+        int j = 0;
+        while (j < i) {
+            result = result + buffer[j];
+            j = j + 1;
+        }
 
         return result;
     }
@@ -591,7 +596,8 @@ public class File {
         if (!this.writeString(str)) {
             return false;
         }
-        return this.writeChar('\n');
+        // 使用int类型的换行符ASCII码(10)而不是char字面量
+        return this.writeChar(10);
     }
 
     /**
@@ -667,23 +673,28 @@ public class File {
             fileSize = 104857600;
         }
 
-        c_void* buffer = malloc((size_t)(fileSize + 1));
-        if (buffer == null) {
-            return null;
-        }
+        // 使用char数组而不是c_void*指针
+        char[] buffer = new char[(int)(fileSize + 1)]();
 
         this.rewind();
-        long bytesRead = this.readBytes(buffer, fileSize);
-
-        if (bytesRead < 0) {
-            free(buffer);
-            return null;
+        // 逐字符读取
+        int i = 0;
+        int c;
+        while (i < fileSize && (c = this.readChar()) != -1) {
+            buffer[i] = (char)c;
+            i = i + 1;
         }
 
-        ((c_char*)buffer)[bytesRead] = '\0';
+        // 设置字符串结束符
+        buffer[i] = '\0';
 
-        String content = __cay_ptr_to_string((long)buffer);
-        free(buffer);
+        // 构建字符串
+        String content = "";
+        int j = 0;
+        while (j < i) {
+            content = content + buffer[j];
+            j = j + 1;
+        }
 
         return content;
     }
@@ -698,7 +709,7 @@ public class File {
     }
 
     public String getPath() {
-        return this.path;
+        return this.filePath;
     }
 
     public FileMode getMode() {
@@ -1023,16 +1034,17 @@ public class FileWriter {
 
 /**
  * 简单的字符串构建器，用于优化writeInterpolated性能
+ * 使用char数组而不是c_char*指针，以支持数组索引
  */
 private class StringBuilder {
-    private c_char* buffer;
+    private char[] buffer;
     private int capacity;
     private int length;
     
     public StringBuilder() {
         this.capacity = 256;
         this.length = 0;
-        this.buffer = (c_char*)malloc((size_t)this.capacity);
+        this.buffer = new char[this.capacity]();
     }
     
     public void append(String s) {
@@ -1061,28 +1073,29 @@ private class StringBuilder {
             if (newCapacity < minCapacity) {
                 newCapacity = minCapacity;
             }
-            c_char* newBuffer = (c_char*)realloc(this.buffer, (size_t)newCapacity);
-            if (newBuffer != null) {
-                this.buffer = newBuffer;
-                this.capacity = newCapacity;
+            char[] newBuffer = new char[newCapacity]();
+            int i = 0;
+            while (i < this.length) {
+                newBuffer[i] = this.buffer[i];
+                i = i + 1;
             }
+            this.buffer = newBuffer;
+            this.capacity = newCapacity;
         }
     }
     
     public String toString() {
-        if (this.buffer == null || this.length == 0) {
+        if (this.length == 0) {
             return "";
         }
-        // 添加null终止符
-        this.buffer[this.length] = '\0';
-        return __cay_ptr_to_string((long)this.buffer);
-    }
-    
-    public void finalize() {
-        if (this.buffer != null) {
-            free(this.buffer);
-            this.buffer = null;
+        // 构建字符串
+        String result = "";
+        int i = 0;
+        while (i < this.length) {
+            result = result + this.buffer[i];
+            i = i + 1;
         }
+        return result;
     }
 }
 
