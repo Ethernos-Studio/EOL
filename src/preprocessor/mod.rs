@@ -655,8 +655,11 @@ impl Preprocessor {
             });
         }
         
+        // 移除行尾注释 (// 和 /* */ 风格)
+        let without_comments = Self::remove_line_comments(trimmed);
+        
         // 分割名称和值
-        let mut parts = trimmed.splitn(2, |c: char| c.is_whitespace());
+        let mut parts = without_comments.splitn(2, |c: char| c.is_whitespace());
         let name = parts.next().unwrap_or("").to_string();
         let value = parts.next().unwrap_or("").trim().to_string();
         
@@ -671,6 +674,25 @@ impl Preprocessor {
         }
         
         Ok((name, value))
+    }
+    
+    /// 移除行内注释（// 和 /* */ 风格）
+    fn remove_line_comments(line: &str) -> String {
+        // 处理 // 风格注释
+        if let Some(pos) = line.find("//") {
+            return line[..pos].trim_end().to_string();
+        }
+        
+        // 处理 /* */ 风格注释（单行情况）
+        if let Some(start) = line.find("/*") {
+            if let Some(end) = line[start..].find("*/") {
+                let before = &line[..start];
+                let after = &line[start + end + 2..];
+                return Self::remove_line_comments(&(before.to_string() + after));
+            }
+        }
+        
+        line.to_string()
     }
 
     /// 解析标识符

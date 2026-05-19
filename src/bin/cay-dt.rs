@@ -3,9 +3,11 @@
 
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::process;
 use cavvy::lexer::{lex_with_diagnostics, TokenWithLocation};
 use cavvy::diagnostic::DiagnosticCollector;
+use cavvy::preprocessor::preprocess;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -17,6 +19,7 @@ fn print_usage(program: &str) {
     eprintln!("  --json          以 JSON 格式输出 tokens");
     eprintln!("  --no-color      禁用彩色输出");
     eprintln!("  --show-location 显示详细位置信息");
+    eprintln!("  --no-preprocess 禁用预处理器");
     eprintln!("  -h, --help      显示帮助信息");
     eprintln!("  -v, --version   显示版本信息");
 }
@@ -26,6 +29,7 @@ struct Options {
     json_output: bool,
     no_color: bool,
     show_location: bool,
+    no_preprocess: bool,
 }
 
 impl Default for Options {
@@ -34,6 +38,7 @@ impl Default for Options {
             json_output: false,
             no_color: false,
             show_location: false,
+            no_preprocess: false,
         }
     }
 }
@@ -63,6 +68,7 @@ fn main() {
             "--json" => options.json_output = true,
             "--no-color" => options.no_color = true,
             "--show-location" => options.show_location = true,
+            "--no-preprocess" => options.no_preprocess = true,
             _ if arg.starts_with('-') => {
                 eprintln!("错误: 未知选项 {}", arg);
                 print_usage(&program);
@@ -96,7 +102,25 @@ fn main() {
         }
     };
 
-    let (tokens, diagnostics) = lex_with_diagnostics(&source);
+    // 预处理阶段
+    let source_to_lex = if options.no_preprocess {
+        source
+    } else {
+        let base_dir = Path::new(&file_path)
+            .parent()
+            .map(|p| p.to_str().unwrap_or("."))
+            .unwrap_or(".");
+        
+        match preprocess(&source, &file_path, base_dir) {
+            Ok(processed) => processed,
+            Err(e) => {
+                eprintln!("预处理错误: {}", e);
+                process::exit(1);
+            }
+        }
+    };
+
+    let (tokens, diagnostics) = lex_with_diagnostics(&source_to_lex);
 
     if options.json_output {
         print_tokens_json(&tokens, &diagnostics);
