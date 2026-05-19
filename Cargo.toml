@@ -68,3 +68,11 @@ path = "src/bin/cay-lsp.rs"
 [[bin]]
 name = "cavly"
 path = "src/bin/cavly.rs"
+
+[[bin]]
+name = "cay-dt"
+path = "src/bin/cay-dt.rs"
+
+[[bin]]
+name = "cay-dp"
+path = "src/bin/cay-dp.rs"
