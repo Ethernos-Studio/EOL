@@ -1,0 +1,72 @@
+/**
+ * File 标准库行操作测试
+ * 测试读写行的功能
+ */
+
+#include <File.cay>
+
+public class TestFileLines {
+    public static void main() {
+        println("=== File 行操作测试 ===");
+
+        String testFile = "test_file_lines.txt";
+
+        // 测试1: 写入多行
+        println("\n[测试1] 写入多行");
+        String[] lines = new String[5]();
+        lines[0] = "第一行";
+        lines[1] = "第二行";
+        lines[2] = "第三行";
+        lines[3] = "第四行";
+        lines[4] = "第五行";
+
+        bool writeResult = File.writeAllLines(testFile, lines);
+        println("写入结果: " + (writeResult ? "成功" : "失败"));
+
+        // 测试2: 读取所有行
+        println("\n[测试2] 读取所有行");
+        String[] readLines = File.readAllLines(testFile);
+        if (readLines != null) {
+            println("读取到 " + readLines.length + " 行:");
+            int i = 0;
+            while (i < readLines.length) {
+                println("  行 " + i + ": " + readLines[i]);
+                i = i + 1;
+            }
+        } else {
+            println("读取失败");
+        }
+
+        // 测试3: 使用 FileReader 逐行读取
+        println("\n[测试3] 使用 FileReader 逐行读取");
+        FileReader reader = new FileReader(testFile);
+        int lineNum = 0;
+        while (!reader.isEof()) {
+            String line = reader.readLine();
+            if (line != null) {
+                println("  读取行 " + lineNum + ": " + line);
+                lineNum = lineNum + 1;
+            }
+        }
+        reader.close();
+
+        // 测试4: 使用 FileWriter 追加行
+        println("\n[测试4] 使用 FileWriter 追加行");
+        FileWriter writer = new FileWriter(testFile, true);
+        writer.writeLine("追加的第一行");
+        writer.writeLine("追加的第二行");
+        writer.flush();
+        writer.close();
+        println("追加完成");
+
+        // 验证追加结果
+        println("\n追加后的内容:");
+        String content = File.readAllText(testFile);
+        println(content);
+
+        // 清理
+        File.delete(testFile);
+
+        println("\n=== 行操作测试完成 ===");
+    }
+}

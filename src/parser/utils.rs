@@ -313,6 +313,8 @@ pub fn get_token_name(token: &Token) -> String {
         Token::CVoid => "c_void".to_string(),
         Token::CBool => "c_bool".to_string(),
         Token::CString => "c_string".to_string(),
+        Token::CInt64 => "c_int64_t".to_string(),
+        Token::CUInt64 => "c_uint64_t".to_string(),
         Token::Cdecl => "cdecl".to_string(),
         Token::Stdcall => "stdcall".to_string(),
         Token::Fastcall => "fastcall".to_string(),
@@ -334,7 +336,7 @@ pub fn is_type_token(parser: &Parser) -> bool {
         Token::CInt | Token::CLong | Token::CShort | Token::CChar |
         Token::CFloat | Token::CDouble | Token::SizeT | Token::SSizeT |
         Token::UIntPtr | Token::IntPtr | Token::CVoid | Token::CBool |
-        Token::Identifier(_)
+        Token::CInt64 | Token::CUInt64 | Token::Identifier(_)
     )
 }
 

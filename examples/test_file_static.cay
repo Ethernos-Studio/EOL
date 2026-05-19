@@ -1,0 +1,14 @@
+// 只测试 File 静态方法
+#include <File.cay>
+
+public class TestFileStatic {
+    public static void main(String[] args) {
+        println("测试 File 静态方法");
+        
+        // 测试文件存在性检查
+        bool exists = File.exists("test.txt");
+        println("文件存在: " + exists);
+        
+        println("测试完成!");
+    }
+}

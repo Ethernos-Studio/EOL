@@ -1,0 +1,28 @@
+// 简化版文件测试
+#include <File.cay>
+
+public class TestSimpleFile {
+    public static void main(String[] args) {
+        println("测试 File 类");
+        
+        // 测试文件存在性检查
+        bool exists = File.exists("test.txt");
+        println("文件存在: " + exists);
+        
+        // 测试写入文件
+        bool written = File.writeAllText("test.txt", "Hello, World!");
+        println("写入成功: " + written);
+        
+        // 测试读取文件
+        String content = File.readAllText("test.txt");
+        if (content != null) {
+            println("文件内容: " + content);
+        }
+        
+        // 测试删除文件
+        bool deleted = File.delete("test.txt");
+        println("删除成功: " + deleted);
+        
+        println("测试完成!");
+    }
+}

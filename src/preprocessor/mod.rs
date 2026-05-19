@@ -722,16 +722,55 @@ impl Preprocessor {
     }
 
     /// 宏替换
+    /// 时间复杂度: O(n * m) 其中 n 是行长度，m 是宏定义数量
+    /// 空间复杂度: O(n) 用于存储结果字符串
     fn expand_macros(&self, line: &str) -> String {
-        let mut result = line.to_string();
+        let mut result = String::with_capacity(line.len());
+        let mut i = 0;
+        let chars: Vec<char> = line.chars().collect();
         
-        // 简单的宏替换：按定义顺序替换
-        for (name, value) in &self.defines {
-            // 简单的字符串替换
-            result = result.replace(name, value);
+        while i < chars.len() {
+            // 尝试匹配最长的宏名称
+            let mut matched = false;
+            
+            // 按长度降序排序宏定义，确保优先匹配更长的名称
+            // 例如 FILE_MODE_READPLUS 应该在 FILE_MODE_READ 之前被检查
+            let mut defines_sorted: Vec<_> = self.defines.iter().collect();
+            defines_sorted.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
+            
+            for (name, value) in &defines_sorted {
+                let name_len = name.len();
+                if i + name_len <= chars.len() {
+                    let candidate: String = chars[i..i + name_len].iter().collect();
+                    if candidate == **name {
+                        // 检查前后是否是标识符边界
+                        let before_is_boundary = i == 0 || !self.is_identifier_char(chars[i - 1]);
+                        let after_pos = i + name_len;
+                        let after_is_boundary = after_pos >= chars.len() || !self.is_identifier_char(chars[after_pos]);
+                        
+                        if before_is_boundary && after_is_boundary {
+                            result.push_str(value);
+                            i += name_len;
+                            matched = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if !matched {
+                result.push(chars[i]);
+                i += 1;
+            }
         }
         
         result
+    }
+    
+    /// 检查字符是否是标识符字符（字母、数字、下划线）
+    /// 时间复杂度: O(1)
+    fn is_identifier_char(&self, c: char) -> bool {
+        c.is_alphanumeric() || c == '_'
     }
 
     /// 压入条件编译状态

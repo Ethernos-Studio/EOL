@@ -1,0 +1,1180 @@
+/**
+ * File - 文件操作标准库
+ *
+ * 提供高级文件操作功能：
+ * - File: 文件类，封装文件操作
+ * - FileReader: 文件读取器
+ * - FileWriter: 文件写入器
+ * - FileMode: 文件打开模式枚举
+ * - SeekOrigin: 文件定位原点枚举
+ * - FileUtils: 文件工具类
+ *
+ * 特性：
+ * - 面向对象API设计
+ * - 自动资源管理
+ * - 完整的错误处理
+ * - 支持文本和二进制操作
+ * - 流式读写支持
+ *
+ * 版本: 0.5.1.0
+ * 时间复杂度: 标注于各方法
+ * 磁盘I/O: 所有读写操作涉及磁盘I/O
+ */
+
+#ifndef CAY_FILE_H
+#define CAY_FILE_H
+
+#include <std/ffi.cay>
+
+/* ============================================================================
+ * 常量定义
+ * ============================================================================ */
+
+/* 文件打开模式 */
+#define FILE_MODE_READ      "r"     // 只读
+#define FILE_MODE_WRITE     "w"     // 只写（创建或截断）
+#define FILE_MODE_APPEND    "a"     // 追加
+#define FILE_MODE_READPLUS  "r+"    // 读写
+#define FILE_MODE_WRITEPLUS "w+"    // 读写（创建或截断）
+#define FILE_MODE_APPENDPLUS "a+"   // 读写追加
+
+/* 定位原点 */
+#define SEEK_ORIGIN_SET     0       // 文件开头
+#define SEEK_ORIGIN_CUR     1       // 当前位置
+#define SEEK_ORIGIN_END     2       // 文件末尾
+
+/* 缓冲区大小 */
+#define FILE_DEFAULT_BUFFER_SIZE 8192
+#define FILE_MAX_PATH_LENGTH     260
+
+/* 错误码 */
+#define FILE_ERROR_NONE          0
+#define FILE_ERROR_NOT_FOUND     1
+#define FILE_ERROR_ACCESS_DENIED 2
+#define FILE_ERROR_IO            3
+#define FILE_ERROR_INVALID_MODE  4
+#define FILE_ERROR_SEEK          5
+
+/* ============================================================================
+ * 底层C函数声明
+ * ============================================================================ */
+
+extern {
+    // 文件操作
+    c_void* fopen(c_string filename, c_string mode);
+    c_int fclose(c_void* stream);
+    c_void* freopen(c_string filename, c_string mode, c_void* stream);
+
+    // 文件读写
+    size_t fread(c_void* ptr, size_t size, size_t nmemb, c_void* stream);
+    size_t fwrite(c_void* ptr, size_t size, size_t nmemb, c_void* stream);
+    c_int fgetc(c_void* stream);
+    c_int fputc(c_int c, c_void* stream);
+    c_int fputs(c_string s, c_void* stream);
+    c_int fprintf(c_void* stream, c_string fmt, ...);
+
+    // 文件定位
+    c_int fseek(c_void* stream, c_long offset, c_int whence);
+    c_long ftell(c_void* stream);
+    c_void rewind(c_void* stream);
+
+    // 错误处理
+    c_int feof(c_void* stream);
+    c_int ferror(c_void* stream);
+    c_void clearerr(c_void* stream);
+    c_void perror(c_string s);
+
+    // 刷新缓冲区
+    c_int fflush(c_void* stream);
+
+    // 内存分配
+    c_void* malloc(size_t size);
+    c_void* realloc(c_void* ptr, size_t size);
+    void free(c_void* ptr);
+
+    // 文件系统操作
+    c_int remove(c_string filename);
+    c_int rename(c_string oldname, c_string newname);
+    c_int64_t time(c_int64_t* timer);
+}
+
+/* ============================================================================
+ * FileMode 类 - 文件打开模式
+ * ============================================================================ */
+
+/**
+ * 文件打开模式封装类
+ * 提供类型安全的文件模式设置
+ */
+public class FileMode {
+    private String mode;
+
+    /**
+     * 私有构造函数
+     * @param mode 模式字符串
+     */
+    private FileMode(String mode) {
+        this.mode = mode;
+    }
+
+    /**
+     * 获取模式字符串
+     * @return C风格模式字符串
+     */
+    public String getMode() {
+        return this.mode;
+    }
+
+    /**
+     * 只读模式
+     * @return FileMode实例
+     */
+    public static FileMode read() {
+        return new FileMode(FILE_MODE_READ);
+    }
+
+    /**
+     * 只写模式（创建或截断）
+     * @return FileMode实例
+     */
+    public static FileMode write() {
+        return new FileMode(FILE_MODE_WRITE);
+    }
+
+    /**
+     * 追加模式
+     * @return FileMode实例
+     */
+    public static FileMode append() {
+        return new FileMode(FILE_MODE_APPEND);
+    }
+
+    /**
+     * 读写模式
+     * @return FileMode实例
+     */
+    public static FileMode readWrite() {
+        return new FileMode(FILE_MODE_READPLUS);
+    }
+
+    /**
+     * 读写模式（创建或截断）
+     * @return FileMode实例
+     */
+    public static FileMode writeRead() {
+        return new FileMode(FILE_MODE_WRITEPLUS);
+    }
+
+    /**
+     * 读写追加模式
+     * @return FileMode实例
+     */
+    public static FileMode appendRead() {
+        return new FileMode(FILE_MODE_APPENDPLUS);
+    }
+
+    /**
+     * 创建自定义模式
+     * @param mode 模式字符串
+     * @return FileMode实例
+     */
+    public static FileMode custom(String mode) {
+        return new FileMode(mode);
+    }
+}
+
+/* ============================================================================
+ * SeekOrigin 类 - 定位原点
+ * ============================================================================ */
+
+/**
+ * 文件定位原点枚举类
+ */
+public class SeekOrigin {
+    private int value;
+
+    /**
+     * 私有构造函数
+     * @param value 原点值
+     */
+    private SeekOrigin(int value) {
+        this.value = value;
+    }
+
+    /**
+     * 获取原点值
+     * @return 原点整数值
+     */
+    public int getValue() {
+        return this.value;
+    }
+
+    /**
+     * 文件开头
+     * @return SeekOrigin实例
+     */
+    public static SeekOrigin begin() {
+        return new SeekOrigin(SEEK_ORIGIN_SET);
+    }
+
+    /**
+     * 当前位置
+     * @return SeekOrigin实例
+     */
+    public static SeekOrigin current() {
+        return new SeekOrigin(SEEK_ORIGIN_CUR);
+    }
+
+    /**
+     * 文件末尾
+     * @return SeekOrigin实例
+     */
+    public static SeekOrigin end() {
+        return new SeekOrigin(SEEK_ORIGIN_END);
+    }
+}
+
+/* ============================================================================
+ * File 类 - 文件操作主类
+ * ============================================================================ */
+
+/**
+ * 文件操作类
+ * 封装C标准库文件操作，提供面向对象接口
+ * 时间复杂度: 各方法标注
+ * 磁盘I/O: 读写操作涉及磁盘I/O
+ */
+public class File {
+    private c_void* handle;
+    private String path;
+    private FileMode mode;
+    private bool isOpen;
+    private int lastError;
+
+    /**
+     * 默认构造函数
+     */
+    public File() {
+        this.handle = null;
+        this.path = "";
+        this.mode = FileMode.read();
+        this.isOpen = false;
+        this.lastError = FILE_ERROR_NONE;
+    }
+
+    /**
+     * 带路径和模式的构造函数
+     * @param path 文件路径
+     * @param mode 打开模式
+     */
+    public File(String path, FileMode mode) {
+        this();
+        this.open(path, mode);
+    }
+
+    /**
+     * 析构函数，自动关闭文件
+     */
+    public void finalize() {
+        this.close();
+    }
+
+    /**
+     * 打开文件
+     * @param path 文件路径
+     * @param mode 打开模式
+     * @return true如果成功
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 打开文件
+     */
+    public bool open(String path, FileMode mode) {
+        if (this.isOpen) {
+            this.close();
+        }
+
+        this.path = path;
+        this.mode = mode;
+
+        c_string cPath = path.c_str();
+        c_string cMode = mode.getMode().c_str();
+
+        this.handle = fopen(cPath, cMode);
+
+        if (this.handle == null) {
+            this.isOpen = false;
+            this.lastError = FILE_ERROR_NOT_FOUND;
+            return false;
+        }
+
+        this.isOpen = true;
+        this.lastError = FILE_ERROR_NONE;
+        return true;
+    }
+
+    /**
+     * 关闭文件
+     * @return true如果成功
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 刷新缓冲区到磁盘
+     */
+    public bool close() {
+        if (!this.isOpen || this.handle == null) {
+            return true;
+        }
+
+        c_int result = fclose(this.handle);
+
+        this.handle = null;
+        this.isOpen = false;
+
+        if (result != 0) {
+            this.lastError = FILE_ERROR_IO;
+            return false;
+        }
+
+        this.lastError = FILE_ERROR_NONE;
+        return true;
+    }
+
+    /**
+     * 检查文件是否打开
+     * @return true如果文件已打开
+     * 时间复杂度: O(1)
+     */
+    public bool isOpened() {
+        return this.isOpen;
+    }
+
+    /**
+     * 检查是否到达文件末尾
+     * @return true如果到达EOF
+     * 时间复杂度: O(1)
+     */
+    public bool isEof() {
+        if (!this.isOpen || this.handle == null) {
+            return true;
+        }
+        return feof(this.handle) != 0;
+    }
+
+    /**
+     * 检查是否有错误
+     * @return true如果有错误
+     * 时间复杂度: O(1)
+     */
+    public bool hasError() {
+        if (!this.isOpen || this.handle == null) {
+            return true;
+        }
+        return ferror(this.handle) != 0;
+    }
+
+    /**
+     * 清除错误标志
+     * 时间复杂度: O(1)
+     */
+    public void clearError() {
+        if (this.handle != null) {
+            clearerr(this.handle);
+        }
+        this.lastError = FILE_ERROR_NONE;
+    }
+
+    /**
+     * 获取最后错误码
+     * @return 错误码
+     * 时间复杂度: O(1)
+     */
+    public int getLastError() {
+        return this.lastError;
+    }
+
+    /**
+     * 刷新缓冲区到磁盘
+     * @return true如果成功
+     * 时间复杂度: O(n) n=缓冲区大小
+     * 磁盘I/O: 写入磁盘
+     */
+    public bool flush() {
+        if (!this.isOpen || this.handle == null) {
+            return false;
+        }
+        return fflush(this.handle) == 0;
+    }
+
+    /**
+     * 获取文件位置
+     * @return 当前位置，-1表示错误
+     * 时间复杂度: O(1)
+     */
+    public long position() {
+        if (!this.isOpen || this.handle == null) {
+            return -1;
+        }
+        return (long)ftell(this.handle);
+    }
+
+    /**
+     * 设置文件位置
+     * @param offset 偏移量
+     * @param origin 定位原点
+     * @return true如果成功
+     * 时间复杂度: O(1)
+     */
+    public bool seek(long offset, SeekOrigin origin) {
+        if (!this.isOpen || this.handle == null) {
+            return false;
+        }
+        c_int result = fseek(this.handle, (c_long)offset, origin.getValue());
+        return result == 0;
+    }
+
+    /**
+     * 定位到文件开头
+     * 时间复杂度: O(1)
+     */
+    public void rewind() {
+        if (this.handle != null) {
+            rewind(this.handle);
+        }
+    }
+
+    /**
+     * 获取文件大小
+     * @return 文件大小（字节），-1表示错误
+     * 时间复杂度: O(1)
+     */
+    public long size() {
+        if (!this.isOpen || this.handle == null) {
+            return -1;
+        }
+
+        long currentPos = this.position();
+        if (currentPos < 0) {
+            return -1;
+        }
+
+        if (!this.seek(0, SeekOrigin.end())) {
+            return -1;
+        }
+
+        long fileSize = this.position();
+        this.seek(currentPos, SeekOrigin.begin());
+
+        return fileSize;
+    }
+
+    /**
+     * 读取单个字符
+     * @return 字符的ASCII码，-1表示EOF或错误
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 可能涉及磁盘读取
+     */
+    public int readChar() {
+        if (!this.isOpen || this.handle == null) {
+            return -1;
+        }
+        return (int)fgetc(this.handle);
+    }
+
+    /**
+     * 写入单个字符
+     * @param c 要写入的字符
+     * @return true如果成功
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 可能涉及磁盘写入
+     */
+    public bool writeChar(char c) {
+        if (!this.isOpen || this.handle == null) {
+            return false;
+        }
+        c_int result = fputc((c_int)c, this.handle);
+        return result != -1;
+    }
+
+    /**
+     * 读取指定字节数到缓冲区
+     * @param buffer 缓冲区指针
+     * @param size 要读取的字节数
+     * @return 实际读取的字节数
+     * 时间复杂度: O(n) n=size
+     * 磁盘I/O: 读取磁盘
+     */
+    public long readBytes(c_void* buffer, long size) {
+        if (!this.isOpen || this.handle == null || buffer == null) {
+            return 0;
+        }
+        return (long)fread(buffer, 1, (size_t)size, this.handle);
+    }
+
+    /**
+     * 从缓冲区写入指定字节数
+     * @param buffer 缓冲区指针
+     * @param size 要写入的字节数
+     * @return 实际写入的字节数
+     * 时间复杂度: O(n) n=size
+     * 磁盘I/O: 写入磁盘
+     */
+    public long writeBytes(c_void* buffer, long size) {
+        if (!this.isOpen || this.handle == null || buffer == null) {
+            return 0;
+        }
+        return (long)fwrite(buffer, 1, (size_t)size, this.handle);
+    }
+
+    /**
+     * 读取一行文本
+     * @param maxLength 最大读取长度
+     * @return 读取的字符串，null表示EOF或错误
+     * 时间复杂度: O(n) n=行长度
+     * 磁盘I/O: 读取磁盘
+     */
+    public String readLine(int maxLength) {
+        if (!this.isOpen || this.handle == null) {
+            return null;
+        }
+
+        c_void* buffer = malloc((size_t)(maxLength + 1));
+        if (buffer == null) {
+            return null;
+        }
+
+        c_string result = fgets((c_char*)buffer, (c_int)maxLength, this.handle);
+
+        if (result == null) {
+            free(buffer);
+            return null;
+        }
+
+        String line = __cay_ptr_to_string((long)buffer);
+        free(buffer);
+
+        // 移除末尾的换行符
+        if (line.endsWith("\n")) {
+            line = line.substring(0, line.length() - 1);
+        }
+        if (line.endsWith("\r")) {
+            line = line.substring(0, line.length() - 1);
+        }
+
+        return line;
+    }
+
+    /**
+     * 写入字符串（不带换行）
+     * @param str 要写入的字符串
+     * @return true如果成功
+     * 时间复杂度: O(n) n=字符串长度
+     * 磁盘I/O: 写入磁盘
+     */
+    public bool writeString(String str) {
+        if (!this.isOpen || this.handle == null || str == null) {
+            return false;
+        }
+        c_int result = fputs(str.c_str(), this.handle);
+        return result >= 0;
+    }
+
+    /**
+     * 写入字符串（带换行）
+     * @param str 要写入的字符串
+     * @return true如果成功
+     * 时间复杂度: O(n) n=字符串长度
+     * 磁盘I/O: 写入磁盘
+     */
+    public bool writeLine(String str) {
+        if (!this.writeString(str)) {
+            return false;
+        }
+        return this.writeChar('\n');
+    }
+
+    /**
+     * 格式化写入
+     * @param format 格式字符串
+     * @param ... 可变参数
+     * @return 写入的字符数
+     * 时间复杂度: O(n) n=输出长度
+     * 磁盘I/O: 写入磁盘
+     */
+    public int writeFormat(String format, String... args) {
+        if (!this.isOpen || this.handle == null) {
+            return -1;
+        }
+
+        // 简单实现：构建字符串后写入
+        String result = format;
+        int i = 0;
+        while (i < args.length) {
+            result = result.replaceFirst("{}", args[i]);
+            i = i + 1;
+        }
+
+        if (this.writeString(result)) {
+            return result.length();
+        }
+        return -1;
+    }
+
+    /**
+     * 读取整个文件内容
+     * @return 文件内容字符串，null表示错误
+     * 时间复杂度: O(n) n=文件大小
+     * 磁盘I/O: 读取整个文件
+     */
+    public String readAllText() {
+        if (!this.isOpen || this.handle == null) {
+            return null;
+        }
+
+        long fileSize = this.size();
+        if (fileSize < 0) {
+            return null;
+        }
+
+        // 限制最大读取大小
+        if (fileSize > 104857600) { // 100MB
+            fileSize = 104857600;
+        }
+
+        c_void* buffer = malloc((size_t)(fileSize + 1));
+        if (buffer == null) {
+            return null;
+        }
+
+        this.rewind();
+        long bytesRead = this.readBytes(buffer, fileSize);
+
+        if (bytesRead < 0) {
+            free(buffer);
+            return null;
+        }
+
+        // 添加null终止符
+        ((c_char*)buffer)[bytesRead] = '\0';
+
+        String content = __cay_ptr_to_string((long)buffer);
+        free(buffer);
+
+        return content;
+    }
+
+    /**
+     * 写入整个文件内容
+     * @param content 要写入的内容
+     * @return true如果成功
+     * 时间复杂度: O(n) n=内容长度
+     * 磁盘I/O: 写入磁盘
+     */
+    public bool writeAllText(String content) {
+        if (!this.isOpen || this.handle == null || content == null) {
+            return false;
+        }
+
+        this.rewind();
+        return this.writeString(content);
+    }
+
+    /**
+     * 获取文件路径
+     * @return 文件路径
+     * 时间复杂度: O(1)
+     */
+    public String getPath() {
+        return this.path;
+    }
+
+    /**
+     * 获取打开模式
+     * @return 文件模式
+     * 时间复杂度: O(1)
+     */
+    public FileMode getMode() {
+        return this.mode;
+    }
+
+    /* ==================== 静态工具方法 ==================== */
+
+    /**
+     * 检查文件是否存在
+     * @param path 文件路径
+     * @return true如果存在
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 检查文件系统
+     */
+    public static bool exists(String path) {
+        File file = new File();
+        bool result = file.open(path, FileMode.read());
+        file.close();
+        return result;
+    }
+
+    /**
+     * 删除文件
+     * @param path 文件路径
+     * @return true如果成功
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 删除文件
+     */
+    public static bool delete(String path) {
+        c_int result = remove(path.c_str());
+        return result == 0;
+    }
+
+    /**
+     * 重命名文件
+     * @param oldPath 原路径
+     * @param newPath 新路径
+     * @return true如果成功
+     * 时间复杂度: O(1)
+     * 磁盘I/O: 重命名文件
+     */
+    public static bool move(String oldPath, String newPath) {
+        c_int result = rename(oldPath.c_str(), newPath.c_str());
+        return result == 0;
+    }
+
+    /**
+     * 复制文件
+     * @param sourcePath 源路径
+     * @param destPath 目标路径
+     * @return true如果成功
+     * 时间复杂度: O(n) n=文件大小
+     * 磁盘I/O: 读取源文件并写入目标文件
+     */
+    public static bool copy(String sourcePath, String destPath) {
+        File source = new File();
+        if (!source.open(sourcePath, FileMode.read())) {
+            return false;
+        }
+
+        File dest = new File();
+        if (!dest.open(destPath, FileMode.write())) {
+            source.close();
+            return false;
+        }
+
+        c_void* buffer = malloc((size_t)FILE_DEFAULT_BUFFER_SIZE);
+        if (buffer == null) {
+            source.close();
+            dest.close();
+            return false;
+        }
+
+        bool success = true;
+        while (!source.isEof()) {
+            long bytesRead = source.readBytes(buffer, FILE_DEFAULT_BUFFER_SIZE);
+            if (bytesRead > 0) {
+                long bytesWritten = dest.writeBytes(buffer, bytesRead);
+                if (bytesWritten != bytesRead) {
+                    success = false;
+                    break;
+                }
+            }
+        }
+
+        free(buffer);
+        source.close();
+        dest.close();
+
+        return success;
+    }
+
+    /**
+     * 读取文件所有文本
+     * @param path 文件路径
+     * @return 文件内容，null表示错误
+     * 时间复杂度: O(n) n=文件大小
+     * 磁盘I/O: 读取整个文件
+     */
+    public static String readAllText(String path) {
+        File file = new File();
+        if (!file.open(path, FileMode.read())) {
+            return null;
+        }
+        String content = file.readAllText();
+        file.close();
+        return content;
+    }
+
+    /**
+     * 写入文本到文件
+     * @param path 文件路径
+     * @param content 文件内容
+     * @return true如果成功
+     * 时间复杂度: O(n) n=内容长度
+     * 磁盘I/O: 写入文件
+     */
+    public static bool writeAllText(String path, String content) {
+        File file = new File();
+        if (!file.open(path, FileMode.write())) {
+            return false;
+        }
+        bool result = file.writeAllText(content);
+        file.close();
+        return result;
+    }
+
+    /**
+     * 追加文本到文件
+     * @param path 文件路径
+     * @param content 要追加的内容
+     * @return true如果成功
+     * 时间复杂度: O(n) n=内容长度
+     * 磁盘I/O: 写入文件
+     */
+    public static bool appendAllText(String path, String content) {
+        File file = new File();
+        if (!file.open(path, FileMode.append())) {
+            return false;
+        }
+        bool result = file.writeString(content);
+        file.close();
+        return result;
+    }
+
+    /**
+     * 读取文件所有行
+     * @param path 文件路径
+     * @return 行数组，null表示错误
+     * 时间复杂度: O(n) n=文件大小
+     * 磁盘I/O: 读取整个文件
+     */
+    public static String[] readAllLines(String path) {
+        String content = readAllText(path);
+        if (content == null) {
+            return null;
+        }
+
+        // 计算行数
+        int lineCount = 1;
+        int i = 0;
+        while (i < content.length()) {
+            if (content.charAt(i) == '\n') {
+                lineCount = lineCount + 1;
+            }
+            i = i + 1;
+        }
+
+        String[] lines = new String[lineCount]();
+        int lineIndex = 0;
+        int start = 0;
+        i = 0;
+
+        while (i < content.length()) {
+            if (content.charAt(i) == '\n') {
+                lines[lineIndex] = content.substring(start, i);
+                lineIndex = lineIndex + 1;
+                start = i + 1;
+            }
+            i = i + 1;
+        }
+
+        // 最后一行
+        if (start < content.length() || (content.length() > 0 && content.charAt(content.length() - 1) == '\n')) {
+            if (start < content.length()) {
+                lines[lineIndex] = content.substring(start, content.length());
+            } else {
+                lines[lineIndex] = "";
+            }
+        }
+
+        return lines;
+    }
+
+    /**
+     * 写入所有行到文件
+     * @param path 文件路径
+     * @param lines 行数组
+     * @return true如果成功
+     * 时间复杂度: O(n) n=总行长度
+     * 磁盘I/O: 写入文件
+     */
+    public static bool writeAllLines(String path, String[] lines) {
+        File file = new File();
+        if (!file.open(path, FileMode.write())) {
+            return false;
+        }
+
+        bool success = true;
+        int i = 0;
+        while (i < lines.length) {
+            if (!file.writeLine(lines[i])) {
+                success = false;
+                break;
+            }
+            i = i + 1;
+        }
+
+        file.close();
+        return success;
+    }
+}
+
+/* ============================================================================
+ * FileReader 类 - 文件读取器
+ * ============================================================================ */
+
+/**
+ * 文件读取器类
+ * 专门用于从文件读取数据
+ */
+public class FileReader {
+    private File file;
+
+    /**
+     * 构造函数
+     * @param path 文件路径
+     */
+    public FileReader(String path) {
+        this.file = new File();
+        this.file.open(path, FileMode.read());
+    }
+
+    /**
+     * 关闭读取器
+     */
+    public void close() {
+        this.file.close();
+    }
+
+    /**
+     * 读取所有文本
+     * @return 文件内容
+     */
+    public String readToEnd() {
+        return this.file.readAllText();
+    }
+
+    /**
+     * 读取一行
+     * @return 一行文本
+     */
+    public String readLine() {
+        return this.file.readLine(1024);
+    }
+
+    /**
+     * 检查是否到达文件末尾
+     * @return true如果到达EOF
+     */
+    public bool isEof() {
+        return this.file.isEof();
+    }
+}
+
+/* ============================================================================
+ * FileWriter 类 - 文件写入器
+ * ============================================================================ */
+
+/**
+ * 文件写入器类
+ * 专门用于向文件写入数据
+ */
+public class FileWriter {
+    private File file;
+
+    /**
+     * 构造函数
+     * @param path 文件路径
+     * @param append 是否追加模式
+     */
+    public FileWriter(String path, bool append) {
+        this.file = new File();
+        if (append) {
+            this.file.open(path, FileMode.append());
+        } else {
+            this.file.open(path, FileMode.write());
+        }
+    }
+
+    /**
+     * 关闭写入器
+     */
+    public void close() {
+        this.file.close();
+    }
+
+    /**
+     * 写入字符串
+     * @param str 要写入的字符串
+     * @return true如果成功
+     */
+    public bool write(String str) {
+        return this.file.writeString(str);
+    }
+
+    /**
+     * 写入一行
+     * @param str 要写入的字符串
+     * @return true如果成功
+     */
+    public bool writeLine(String str) {
+        return this.file.writeLine(str);
+    }
+
+    /**
+     * 刷新缓冲区
+     * @return true如果成功
+     */
+    public bool flush() {
+        return this.file.flush();
+    }
+}
+
+/* ============================================================================
+ * FileUtils 类 - 文件工具类
+ * ============================================================================ */
+
+/**
+ * 文件工具类
+ * 提供各种文件操作辅助方法
+ */
+public class FileUtils {
+
+    /**
+     * 获取文件名（不含路径）
+     * @param path 完整路径
+     * @return 文件名
+     * 时间复杂度: O(n) n=路径长度
+     */
+    public static String getFileName(String path) {
+        if (path == null || path.isEmpty()) {
+            return "";
+        }
+
+        int lastSlash = path.lastIndexOf("/");
+        int lastBackslash = path.lastIndexOf("\\");
+        int lastSeparator = lastSlash > lastBackslash ? lastSlash : lastBackslash;
+
+        if (lastSeparator < 0) {
+            return path;
+        }
+
+        return path.substring(lastSeparator + 1);
+    }
+
+    /**
+     * 获取文件扩展名
+     * @param path 文件路径
+     * @return 扩展名（包含点）
+     * 时间复杂度: O(n) n=路径长度
+     */
+    public static String getExtension(String path) {
+        if (path == null || path.isEmpty()) {
+            return "";
+        }
+
+        String fileName = getFileName(path);
+        int lastDot = fileName.lastIndexOf(".");
+
+        if (lastDot < 0 || lastDot == fileName.length() - 1) {
+            return "";
+        }
+
+        return fileName.substring(lastDot);
+    }
+
+    /**
+     * 获取目录路径
+     * @param path 文件路径
+     * @return 目录路径
+     * 时间复杂度: O(n) n=路径长度
+     */
+    public static String getDirectoryName(String path) {
+        if (path == null || path.isEmpty()) {
+            return "";
+        }
+
+        int lastSlash = path.lastIndexOf("/");
+        int lastBackslash = path.lastIndexOf("\\");
+        int lastSeparator = lastSlash > lastBackslash ? lastSlash : lastBackslash;
+
+        if (lastSeparator < 0) {
+            return "";
+        }
+
+        return path.substring(0, lastSeparator);
+    }
+
+    /**
+     * 获取文件名（不含扩展名）
+     * @param path 文件路径
+     * @return 文件名（不含扩展名）
+     * 时间复杂度: O(n) n=路径长度
+     */
+    public static String getFileNameWithoutExtension(String path) {
+        String fileName = getFileName(path);
+        int lastDot = fileName.lastIndexOf(".");
+
+        if (lastDot < 0) {
+            return fileName;
+        }
+
+        return fileName.substring(0, lastDot);
+    }
+
+    /**
+     * 合并路径
+     * @param path1 第一部分路径
+     * @param path2 第二部分路径
+     * @return 合并后的路径
+     * 时间复杂度: O(n) n=总路径长度
+     */
+    public static String combine(String path1, String path2) {
+        if (path1 == null || path1.isEmpty()) {
+            return path2 == null ? "" : path2;
+        }
+        if (path2 == null || path2.isEmpty()) {
+            return path1;
+        }
+
+        // 检查path1是否以分隔符结尾
+        bool endsWithSeparator = path1.endsWith("/") || path1.endsWith("\\");
+        // 检查path2是否以分隔符开头
+        bool startsWithSeparator = path2.startsWith("/") || path2.startsWith("\\");
+
+        if (endsWithSeparator && startsWithSeparator) {
+            return path1 + path2.substring(1);
+        } else if (!endsWithSeparator && !startsWithSeparator) {
+            return path1 + "/" + path2;
+        } else {
+            return path1 + path2;
+        }
+    }
+
+    /**
+     * 更改文件扩展名
+     * @param path 文件路径
+     * @param extension 新扩展名
+     * @return 新路径
+     * 时间复杂度: O(n) n=路径长度
+     */
+    public static String changeExtension(String path, String extension) {
+        if (path == null || path.isEmpty()) {
+            return "";
+        }
+
+        int lastDot = path.lastIndexOf(".");
+        if (lastDot < 0) {
+            if (extension == null || extension.isEmpty()) {
+                return path;
+            }
+            if (extension.startsWith(".")) {
+                return path + extension;
+            }
+            return path + "." + extension;
+        }
+
+        if (extension == null || extension.isEmpty()) {
+            return path.substring(0, lastDot);
+        }
+
+        if (extension.startsWith(".")) {
+            return path.substring(0, lastDot) + extension;
+        }
+        return path.substring(0, lastDot) + "." + extension;
+    }
+}
+
+#endif /* CAY_FILE_H */

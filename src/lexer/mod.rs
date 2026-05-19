@@ -142,6 +142,10 @@ pub enum Token {
     CBool,
     #[token("c_string")]
     CString,
+    #[token("c_int64_t")]
+    CInt64,
+    #[token("c_uint64_t")]
+    CUInt64,
 
     // 调用约定关键字
     #[token("cdecl")]
@@ -916,6 +920,8 @@ pub fn token_name(token: &Token) -> &'static str {
         Token::CVoid => "c_void",
         Token::CBool => "c_bool",
         Token::CString => "c_string",
+        Token::CInt64 => "c_int64_t",
+        Token::CUInt64 => "c_uint64_t",
         Token::Cdecl => "cdecl",
         Token::Stdcall => "stdcall",
         Token::Fastcall => "fastcall",

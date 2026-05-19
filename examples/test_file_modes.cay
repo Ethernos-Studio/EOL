@@ -1,0 +1,116 @@
+/**
+ * File 打开模式测试
+ * 测试各种文件打开模式
+ */
+
+#include <File.cay>
+
+public class TestFileModes {
+    public static void main() {
+        println("=== File 打开模式测试 ===");
+
+        String testFile = "test_modes.txt";
+
+        // 测试1: 只写模式（创建新文件）
+        println("\n[测试1] 只写模式 (write)");
+        File file1 = new File();
+        if (file1.open(testFile, FileMode.write())) {
+            println("文件以只写模式打开成功");
+            file1.writeString("Write mode content");
+            file1.close();
+            println("写入并关闭成功");
+        } else {
+            println("文件打开失败");
+        }
+
+        // 测试2: 只读模式
+        println("\n[测试2] 只读模式 (read)");
+        File file2 = new File();
+        if (file2.open(testFile, FileMode.read())) {
+            println("文件以只读模式打开成功");
+            String content = file2.readAllText();
+            println("读取内容: " + content);
+            file2.close();
+        } else {
+            println("文件打开失败");
+        }
+
+        // 测试3: 追加模式
+        println("\n[测试3] 追加模式 (append)");
+        File file3 = new File();
+        if (file3.open(testFile, FileMode.append())) {
+            println("文件以追加模式打开成功");
+            file3.writeString("\nAppended content");
+            file3.close();
+
+            // 读取验证
+            String content = File.readAllText(testFile);
+            println("追加后的内容:");
+            println(content);
+        } else {
+            println("文件打开失败");
+        }
+
+        // 测试4: 读写模式
+        println("\n[测试4] 读写模式 (readWrite)");
+        File file4 = new File();
+        if (file4.open(testFile, FileMode.readWrite())) {
+            println("文件以读写模式打开成功");
+
+            // 先读取
+            String content = file4.readAllText();
+            println("当前内容: " + content);
+
+            // 回到开头
+            file4.rewind();
+
+            // 写入新内容（会覆盖）
+            file4.writeString("Overwritten content");
+            file4.close();
+
+            // 验证
+            String newContent = File.readAllText(testFile);
+            println("覆盖后的内容: " + newContent);
+        } else {
+            println("文件打开失败");
+        }
+
+        // 测试5: 写入并读取模式（截断）
+        println("\n[测试5] 写入并读取模式 (writeRead)");
+        File file5 = new File();
+        if (file5.open(testFile, FileMode.writeRead())) {
+            println("文件以写读模式打开成功");
+            file5.writeString("New content for writeRead test");
+            file5.flush();
+
+            // 回到开头读取
+            file5.seek(0, SeekOrigin.begin());
+            String content = file5.readAllText();
+            println("读取内容: " + content);
+            file5.close();
+        } else {
+            println("文件打开失败");
+        }
+
+        // 测试6: 读写追加模式
+        println("\n[测试6] 读写追加模式 (appendRead)");
+        File file6 = new File();
+        if (file6.open(testFile, FileMode.appendRead())) {
+            println("文件以追加读模式打开成功");
+            file6.writeString("\nMore appended content");
+            file6.close();
+
+            // 验证
+            String content = File.readAllText(testFile);
+            println("最终内容:");
+            println(content);
+        } else {
+            println("文件打开失败");
+        }
+
+        // 清理
+        File.delete(testFile);
+
+        println("\n=== 文件模式测试完成 ===");
+    }
+}

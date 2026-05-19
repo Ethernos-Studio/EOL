@@ -1,0 +1,96 @@
+/**
+ * FileUtils 工具类测试
+ * 测试文件路径操作功能
+ */
+
+#include <File.cay>
+
+public class TestFileUtils {
+    public static void main() {
+        println("=== FileUtils 工具类测试 ===");
+
+        // 测试1: 获取文件名
+        println("\n[测试1] 获取文件名");
+        String path1 = "/home/user/document.txt";
+        String path2 = "C:\\Users\\Admin\\file.cay";
+        String path3 = "simple.txt";
+
+        println("路径: " + path1);
+        println("文件名: " + FileUtils.getFileName(path1));
+
+        println("路径: " + path2);
+        println("文件名: " + FileUtils.getFileName(path2));
+
+        println("路径: " + path3);
+        println("文件名: " + FileUtils.getFileName(path3));
+
+        // 测试2: 获取扩展名
+        println("\n[测试2] 获取扩展名");
+        println("路径: " + path1);
+        println("扩展名: " + FileUtils.getExtension(path1));
+
+        println("路径: " + path3);
+        println("扩展名: " + FileUtils.getExtension(path3));
+
+        // 测试3: 获取目录名
+        println("\n[测试3] 获取目录名");
+        println("路径: " + path1);
+        println("目录: " + FileUtils.getDirectoryName(path1));
+
+        println("路径: " + path2);
+        println("目录: " + FileUtils.getDirectoryName(path2));
+
+        // 测试4: 获取无扩展名文件名
+        println("\n[测试4] 获取无扩展名文件名");
+        println("路径: " + path1);
+        println("无扩展名: " + FileUtils.getFileNameWithoutExtension(path1));
+
+        // 测试5: 合并路径
+        println("\n[测试5] 合并路径");
+        String dir = "/home/user";
+        String file = "document.txt";
+        String combined = FileUtils.combine(dir, file);
+        println("目录: " + dir);
+        println("文件: " + file);
+        println("合并: " + combined);
+
+        // 测试6: 更改扩展名
+        println("\n[测试6] 更改扩展名");
+        println("原路径: " + path1);
+        println("改为 .cay: " + FileUtils.changeExtension(path1, ".cay"));
+        println("改为 bak: " + FileUtils.changeExtension(path1, "bak"));
+
+        // 测试7: 复制文件
+        println("\n[测试7] 复制文件");
+        String sourceFile = "test_copy_source.txt";
+        String destFile = "test_copy_dest.txt";
+
+        // 创建源文件
+        File.writeAllText(sourceFile, "This is the content to be copied.");
+        println("源文件创建成功");
+
+        // 复制文件
+        bool copyResult = File.copy(sourceFile, destFile);
+        println("复制结果: " + (copyResult ? "成功" : "失败"));
+
+        // 验证复制
+        if (File.exists(destFile)) {
+            String copiedContent = File.readAllText(destFile);
+            println("复制后的内容: " + copiedContent);
+        }
+
+        // 测试8: 移动/重命名文件
+        println("\n[测试8] 移动/重命名文件");
+        String renamedFile = "test_renamed.txt";
+        bool moveResult = File.move(destFile, renamedFile);
+        println("移动结果: " + (moveResult ? "成功" : "失败"));
+        println("原文件存在: " + (File.exists(destFile) ? "是" : "否"));
+        println("新文件存在: " + (File.exists(renamedFile) ? "是" : "否"));
+
+        // 清理测试文件
+        File.delete(sourceFile);
+        File.delete(renamedFile);
+
+        println("\n=== FileUtils 测试完成 ===");
+    }
+}

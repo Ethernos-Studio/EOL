@@ -1,0 +1,83 @@
+/**
+ * File 定位操作测试
+ * 测试文件定位功能
+ */
+
+#include <File.cay>
+
+public class TestFileSeek {
+    public static void main() {
+        println("=== File 定位操作测试 ===");
+
+        String testFile = "test_seek.txt";
+        String content = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        // 创建测试文件
+        File.writeAllText(testFile, content);
+        println("创建测试文件，内容: " + content);
+
+        File file = new File();
+        if (!file.open(testFile, FileMode.readWrite())) {
+            println("文件打开失败");
+            return;
+        }
+
+        // 测试1: 获取文件大小
+        println("\n[测试1] 获取文件大小");
+        long size = file.size();
+        println("文件大小: " + size + " 字节");
+
+        // 测试2: 定位到开头
+        println("\n[测试2] 定位到开头");
+        file.seek(0, SeekOrigin.begin());
+        println("当前位置: " + file.position());
+        int ch = file.readChar();
+        println("读取字符: " + (char)ch);
+
+        // 测试3: 定位到指定位置
+        println("\n[测试3] 定位到位置 10");
+        file.seek(10, SeekOrigin.begin());
+        println("当前位置: " + file.position());
+        ch = file.readChar();
+        println("读取字符: " + (char)ch + " (应该是 K)");
+
+        // 测试4: 从当前位置偏移
+        println("\n[测试4] 从当前位置向前 3 个字符");
+        file.seek(-3, SeekOrigin.current());
+        println("当前位置: " + file.position());
+        ch = file.readChar();
+        println("读取字符: " + (char)ch + " (应该是 I)");
+
+        // 测试5: 从末尾定位
+        println("\n[测试5] 从末尾向前 5 个字符");
+        file.seek(-5, SeekOrigin.end());
+        println("当前位置: " + file.position());
+        ch = file.readChar();
+        println("读取字符: " + (char)ch + " (应该是 V)");
+
+        // 测试6: rewind
+        println("\n[测试6] rewind 重置到开头");
+        file.rewind();
+        println("当前位置: " + file.position());
+        ch = file.readChar();
+        println("读取字符: " + (char)ch + " (应该是 A)");
+
+        // 测试7: 写入并定位
+        println("\n[测试7] 在位置 5 写入字符");
+        file.seek(5, SeekOrigin.begin());
+        file.writeChar('X');
+        file.flush();
+
+        // 读取验证
+        file.rewind();
+        String newContent = file.readAllText();
+        println("修改后的内容: " + newContent);
+
+        file.close();
+
+        // 清理
+        File.delete(testFile);
+
+        println("\n=== 定位操作测试完成 ===");
+    }
+}

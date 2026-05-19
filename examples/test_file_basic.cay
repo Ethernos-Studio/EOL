@@ -1,0 +1,75 @@
+/**
+ * File 标准库基础测试
+ * 测试 File 类的基本功能
+ */
+
+#include <File.cay>
+
+public class TestFileBasic {
+    public static void main() {
+        println("=== File 标准库基础测试 ===");
+
+        String testFile = "test_file_basic.txt";
+        String testContent = "Hello, Cavvy File Library!\nThis is a test file.\nLine 3";
+
+        // 测试1: 写入文件
+        println("\n[测试1] 写入文件");
+        bool writeResult = File.writeAllText(testFile, testContent);
+        if (writeResult) {
+            println("写入成功");
+        } else {
+            println("写入失败");
+            return;
+        }
+
+        // 测试2: 检查文件存在
+        println("\n[测试2] 检查文件存在");
+        bool exists = File.exists(testFile);
+        println("文件存在: " + (exists ? "true" : "false"));
+
+        // 测试3: 读取文件
+        println("\n[测试3] 读取文件");
+        String content = File.readAllText(testFile);
+        if (content != null) {
+            println("文件内容:");
+            println(content);
+        } else {
+            println("读取失败");
+        }
+
+        // 测试4: 使用 File 类操作
+        println("\n[测试4] 使用 File 类操作");
+        File file = new File();
+        if (file.open(testFile, FileMode.read())) {
+            println("文件打开成功");
+            println("文件大小: " + file.size() + " 字节");
+            println("是否打开: " + (file.isOpened() ? "true" : "false"));
+            file.close();
+            println("文件关闭成功");
+        } else {
+            println("文件打开失败");
+        }
+
+        // 测试5: 追加内容
+        println("\n[测试5] 追加内容");
+        String appendContent = "\nAppended line.";
+        bool appendResult = File.appendAllText(testFile, appendContent);
+        println("追加结果: " + (appendResult ? "成功" : "失败"));
+
+        // 读取追加后的内容
+        String updatedContent = File.readAllText(testFile);
+        println("更新后的内容:");
+        println(updatedContent);
+
+        // 测试6: 删除文件
+        println("\n[测试6] 删除文件");
+        bool deleteResult = File.delete(testFile);
+        println("删除结果: " + (deleteResult ? "成功" : "失败"));
+
+        // 检查文件是否还存在
+        exists = File.exists(testFile);
+        println("文件仍存在: " + (exists ? "true" : "false"));
+
+        println("\n=== 所有测试完成 ===");
+    }
+}

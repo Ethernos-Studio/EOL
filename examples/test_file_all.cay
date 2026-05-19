@@ -1,0 +1,301 @@
+/**
+ * File 标准库完整测试
+ * 综合测试所有功能
+ */
+
+#include <File.cay>
+
+public class TestFileAll {
+    public static void main() {
+        println("========================================");
+        println("    File 标准库完整测试");
+        println("========================================");
+
+        int passed = 0;
+        int total = 0;
+
+        // 测试1: 文件写入和读取
+        total = total + 1;
+        println("\n[测试 " + total + "] 文件写入和读取");
+        if (testWriteRead()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试2: 文件追加
+        total = total + 1;
+        println("\n[测试 " + total + "] 文件追加");
+        if (testAppend()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试3: 文件复制
+        total = total + 1;
+        println("\n[测试 " + total + "] 文件复制");
+        if (testCopy()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试4: 文件移动/重命名
+        total = total + 1;
+        println("\n[测试 " + total + "] 文件移动/重命名");
+        if (testMove()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试5: 行操作
+        total = total + 1;
+        println("\n[测试 " + total + "] 行操作");
+        if (testLines()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试6: 文件定位
+        total = total + 1;
+        println("\n[测试 " + total + "] 文件定位");
+        if (testSeek()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试7: 文件工具函数
+        total = total + 1;
+        println("\n[测试 " + total + "] 文件工具函数");
+        if (testUtils()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试8: FileReader 和 FileWriter
+        total = total + 1;
+        println("\n[测试 " + total + "] FileReader 和 FileWriter");
+        if (testReaderWriter()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试9: 错误处理
+        total = total + 1;
+        println("\n[测试 " + total + "] 错误处理");
+        if (testErrorHandling()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 测试10: 各种打开模式
+        total = total + 1;
+        println("\n[测试 " + total + "] 各种打开模式");
+        if (testModes()) {
+            passed = passed + 1;
+            println("  ✓ 通过");
+        } else {
+            println("  ✗ 失败");
+        }
+
+        // 总结
+        println("\n========================================");
+        println("    测试结果: " + passed + "/" + total + " 通过");
+        println("========================================");
+    }
+
+    private static bool testWriteRead() {
+        String file = "test_all_write.txt";
+        String content = "Test content for write/read";
+
+        bool writeOk = File.writeAllText(file, content);
+        if (!writeOk) {
+            return false;
+        }
+
+        String readContent = File.readAllText(file);
+        File.delete(file);
+
+        return readContent != null && readContent.equals(content);
+    }
+
+    private static bool testAppend() {
+        String file = "test_all_append.txt";
+        String content1 = "First line";
+        String content2 = "Second line";
+
+        File.writeAllText(file, content1);
+        File.appendAllText(file, "\n" + content2);
+
+        String readContent = File.readAllText(file);
+        File.delete(file);
+
+        return readContent != null && readContent.contains(content1) && readContent.contains(content2);
+    }
+
+    private static bool testCopy() {
+        String source = "test_all_copy_source.txt";
+        String dest = "test_all_copy_dest.txt";
+        String content = "Content to copy";
+
+        File.writeAllText(source, content);
+        bool copyOk = File.copy(source, dest);
+
+        bool result = false;
+        if (copyOk && File.exists(dest)) {
+            String destContent = File.readAllText(dest);
+            result = destContent != null && destContent.equals(content);
+        }
+
+        File.delete(source);
+        File.delete(dest);
+        return result;
+    }
+
+    private static bool testMove() {
+        String oldFile = "test_all_move_old.txt";
+        String newFile = "test_all_move_new.txt";
+        String content = "Content to move";
+
+        File.writeAllText(oldFile, content);
+        bool moveOk = File.move(oldFile, newFile);
+
+        bool result = moveOk && !File.exists(oldFile) && File.exists(newFile);
+
+        File.delete(newFile);
+        return result;
+    }
+
+    private static bool testLines() {
+        String file = "test_all_lines.txt";
+        String[] lines = new String[3]();
+        lines[0] = "Line 1";
+        lines[1] = "Line 2";
+        lines[2] = "Line 3";
+
+        bool writeOk = File.writeAllLines(file, lines);
+        if (!writeOk) {
+            return false;
+        }
+
+        String[] readLines = File.readAllLines(file);
+        File.delete(file);
+
+        if (readLines == null || readLines.length != 3) {
+            return false;
+        }
+
+        return readLines[0].equals("Line 1") && readLines[1].equals("Line 2") && readLines[2].equals("Line 3");
+    }
+
+    private static bool testSeek() {
+        String file = "test_all_seek.txt";
+        String content = "ABCDEFGHIJ";
+
+        File.writeAllText(file, content);
+
+        File f = new File();
+        bool openOk = f.open(file, FileMode.read());
+        if (!openOk) {
+            return false;
+        }
+
+        f.seek(5, SeekOrigin.begin());
+        int ch = f.readChar();
+        f.close();
+        File.delete(file);
+
+        return ch == 'F';
+    }
+
+    private static bool testUtils() {
+        String path = "/home/user/file.txt";
+
+        String fileName = FileUtils.getFileName(path);
+        String ext = FileUtils.getExtension(path);
+        String dir = FileUtils.getDirectoryName(path);
+        String noExt = FileUtils.getFileNameWithoutExtension(path);
+
+        return fileName.equals("file.txt") &&
+               ext.equals(".txt") &&
+               dir.equals("/home/user") &&
+               noExt.equals("file");
+    }
+
+    private static bool testReaderWriter() {
+        String file = "test_all_rw.txt";
+        String content = "ReaderWriter test content";
+
+        FileWriter writer = new FileWriter(file, false);
+        writer.write(content);
+        writer.close();
+
+        FileReader reader = new FileReader(file);
+        String readContent = reader.readToEnd();
+        reader.close();
+
+        File.delete(file);
+
+        return readContent != null && readContent.equals(content);
+    }
+
+    private static bool testErrorHandling() {
+        // 尝试打开不存在的文件
+        File f = new File();
+        bool openResult = f.open("nonexistent_file_xyz.txt", FileMode.read());
+
+        // 应该失败
+        if (openResult) {
+            f.close();
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool testModes() {
+        String file = "test_all_modes.txt";
+
+        // 测试写模式
+        File f1 = new File();
+        bool writeOk = f1.open(file, FileMode.write());
+        if (writeOk) {
+            f1.writeString("test");
+            f1.close();
+        }
+
+        // 测试读模式
+        File f2 = new File();
+        bool readOk = f2.open(file, FileMode.read());
+        if (readOk) {
+            f2.close();
+        }
+
+        // 测试追加模式
+        File f3 = new File();
+        bool appendOk = f3.open(file, FileMode.append());
+        if (appendOk) {
+            f3.close();
+        }
+
+        File.delete(file);
+
+        return writeOk && readOk && appendOk;
+    }
+}

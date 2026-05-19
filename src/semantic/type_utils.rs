@@ -327,6 +327,16 @@ impl SemanticAnalyzer {
                 }
                 Ok(Type::Int32)
             }
+            "lastIndexOf" => {
+                if args.len() != 1 {
+                    return Err(self.report_error(line, column, "String.lastIndexOf() takes 1 argument".to_string()));
+                }
+                let arg_type = self.infer_expr_type(&args[0])?;
+                if arg_type != Type::String {
+                    return Err(self.report_error(line, column, format!("Argument of lastIndexOf() must be string, got {}", arg_type)));
+                }
+                Ok(Type::Int32)
+            }
             "charAt" => {
                 if args.len() != 1 {
                     return Err(self.report_error(line, column, "String.charAt() takes 1 argument".to_string()));
@@ -370,6 +380,26 @@ impl SemanticAnalyzer {
                     return Err(self.report_error(line, column, "String.c_str() takes no arguments".to_string()));
                 }
                 Ok(Type::Int64)  // 返回 long 类型，与 StringBuilder.cay 中的使用一致
+            }
+            "startsWith" => {
+                if args.len() != 1 {
+                    return Err(self.report_error(line, column, "String.startsWith() takes 1 argument".to_string()));
+                }
+                let arg_type = self.infer_expr_type(&args[0])?;
+                if arg_type != Type::String {
+                    return Err(self.report_error(line, column, format!("Argument of startsWith() must be string, got {}", arg_type)));
+                }
+                Ok(Type::Bool)
+            }
+            "endsWith" => {
+                if args.len() != 1 {
+                    return Err(self.report_error(line, column, "String.endsWith() takes 1 argument".to_string()));
+                }
+                let arg_type = self.infer_expr_type(&args[0])?;
+                if arg_type != Type::String {
+                    return Err(self.report_error(line, column, format!("Argument of endsWith() must be string, got {}", arg_type)));
+                }
+                Ok(Type::Bool)
             }
             _ => Err(self.report_error(line, column, format!("Unknown String method '{}'", method_name))),
         }

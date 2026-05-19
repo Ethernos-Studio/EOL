@@ -209,11 +209,18 @@ impl IRGenerator {
                         self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
                         temp
                     }
+                    // 整数到指针转换（用于字符串等引用类型）
+                    else if value_type.starts_with("i") && !value_type.ends_with("*") &&
+                            field_info.llvm_type.ends_with("*") {
+                        self.emit_line(&format!("  {} = inttoptr {} {} to {}",
+                            temp, value_type, val, field_info.llvm_type));
+                        temp
+                    }
                     else {
                         // 其他不支持的类型转换，报错
                         return Err(codegen_error(format!(
-                            "Cannot convert {} to {} for field assignment",
-                            value_type, field_info.llvm_type
+                            "Cannot convert {} to {} for field assignment (field: {}, class: {})",
+                            value_type, field_info.llvm_type, field_info.name, class_name
                         )));
                     }
                 } else {

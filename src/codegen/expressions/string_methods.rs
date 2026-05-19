@@ -93,6 +93,23 @@ impl IRGenerator {
                     temp, obj_val, substr_val));
                 Ok(Some(format!("i32 {}", temp)))
             }
+            "lastIndexOf" => {
+                // lastIndexOf(substr) - 返回子串最后一次出现的位置
+                if args.len() != 1 {
+                    return Err(codegen_error("String.lastIndexOf() takes 1 argument".to_string()));
+                }
+
+                let substr_result = self.generate_expression(&args[0])?;
+                let (substr_type, substr_val) = self.parse_typed_value(&substr_result);
+
+                if substr_type != "i8*" {
+                    return Err(codegen_error("String.lastIndexOf() argument must be a string".to_string()));
+                }
+
+                self.emit_line(&format!("  {} = call i32 @__cay_string_lastindexof(i8* {}, i8* {})",
+                    temp, obj_val, substr_val));
+                Ok(Some(format!("i32 {}", temp)))
+            }
             "charAt" => {
                 // charAt(index) - 返回指定位置的字符
                 if args.len() != 1 {
@@ -166,6 +183,40 @@ impl IRGenerator {
                 }
                 // String在Cavvy内部就是i8*，直接返回对象值
                 Ok(Some(format!("i8* {}", obj_val)))
+            }
+            "startsWith" => {
+                // startsWith(prefix) - 检查字符串是否以指定前缀开头
+                if args.len() != 1 {
+                    return Err(codegen_error("String.startsWith() takes 1 argument".to_string()));
+                }
+
+                let prefix_result = self.generate_expression(&args[0])?;
+                let (prefix_type, prefix_val) = self.parse_typed_value(&prefix_result);
+
+                if prefix_type != "i8*" {
+                    return Err(codegen_error("String.startsWith() argument must be a string".to_string()));
+                }
+
+                self.emit_line(&format!("  {} = call i1 @__cay_string_startswith(i8* {}, i8* {})",
+                    temp, obj_val, prefix_val));
+                Ok(Some(format!("i1 {}", temp)))
+            }
+            "endsWith" => {
+                // endsWith(suffix) - 检查字符串是否以指定后缀结尾
+                if args.len() != 1 {
+                    return Err(codegen_error("String.endsWith() takes 1 argument".to_string()));
+                }
+
+                let suffix_result = self.generate_expression(&args[0])?;
+                let (suffix_type, suffix_val) = self.parse_typed_value(&suffix_result);
+
+                if suffix_type != "i8*" {
+                    return Err(codegen_error("String.endsWith() argument must be a string".to_string()));
+                }
+
+                self.emit_line(&format!("  {} = call i1 @__cay_string_endswith(i8* {}, i8* {})",
+                    temp, obj_val, suffix_val));
+                Ok(Some(format!("i1 {}", temp)))
             }
             _ => Ok(None), // 不是已知的 String 方法
         }
